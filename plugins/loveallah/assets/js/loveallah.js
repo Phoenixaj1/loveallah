@@ -1,0 +1,620 @@
+/* =========================================================
+   Love Allah — TikTok-style feed interactions
+   Snap scroll · in-feed dhikr completion · autoplay-on-scroll
+   · scholar-affinity signals
+   ========================================================= */
+(function() {
+	'use strict';
+
+	if ( typeof LA === 'undefined' ) return;
+
+	const $  = (s, el) => (el || document).querySelector(s);
+	const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+
+	// ============================================================
+	// AUDIO (Web Audio synthesis)
+	// ============================================================
+	let _audioCtx = null;
+	function getAudio() {
+		try {
+			if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+			if (_audioCtx.state === 'suspended') _audioCtx.resume();
+			return _audioCtx;
+		} catch (e) { return null; }
+	}
+	function tasbeehClick() {
+		const ctx = getAudio(); if (!ctx) return;
+		const osc = ctx.createOscillator();
+		const gain = ctx.createGain();
+		osc.type = 'sine';
+		osc.frequency.setValueAtTime(720, ctx.currentTime);
+		osc.frequency.exponentialRampToValueAtTime(420, ctx.currentTime + 0.08);
+		gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+		gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.005);
+		gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+		osc.connect(gain).connect(ctx.destination);
+		osc.start();
+		osc.stop(ctx.currentTime + 0.14);
+	}
+	function unlockChime() {
+		const ctx = getAudio(); if (!ctx) return;
+		[528, 792, 1056].forEach((f, i) => {
+			const osc = ctx.createOscillator();
+			const gain = ctx.createGain();
+			osc.type = 'sine'; osc.frequency.value = f;
+			const peak = 0.16 - i * 0.05;
+			gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.02);
+			gain.gain.linearRampToValueAtTime(peak, ctx.currentTime + i * 0.02 + 0.03);
+			gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.02 + 1.4);
+			osc.connect(gain).connect(ctx.destination);
+			osc.start(ctx.currentTime + i * 0.02);
+			osc.stop(ctx.currentTime + i * 0.02 + 1.5);
+		});
+	}
+	function haptic(p) { try { navigator.vibrate && navigator.vibrate(p); } catch(e) {} }
+
+	// ============================================================
+	// PRAYER COUNTDOWN
+	// ============================================================
+	(function prayerCountdown() {
+		const host = document.querySelector('.la-header[data-next-time]');
+		if (!host) return;
+		const nextTime = host.dataset.nextTime;
+		const out = $('[data-countdown]', host);
+		if (!nextTime || !out) return;
+		const tick = () => {
+			const [h, m] = nextTime.split(':').map(Number);
+			const now = new Date();
+			const target = new Date();
+			target.setHours(h, m, 0, 0);
+			if (target < now) target.setDate(target.getDate() + 1);
+			let diff = Math.max(0, target - now);
+			const hrs = Math.floor(diff / 3600000);
+			const mins = Math.floor((diff % 3600000) / 60000);
+			const secs = Math.floor((diff % 60000) / 1000);
+			let txt;
+			if (hrs > 0) txt = `${hrs}h ${mins}m`;
+			else if (mins > 0) txt = `${mins}m ${String(secs).padStart(2,'0')}s`;
+			else txt = `${secs}s`;
+			out.textContent = `in ${txt}`;
+		};
+		tick();
+		setInterval(tick, 1000);
+	})();
+
+	// ============================================================
+	// HEADER ACTIONS — GPS / Search / Bell
+	// ============================================================
+	(function headerActions() {
+		const locateBtn = document.querySelector('[data-action="locate"]');
+		const searchBtn = document.querySelector('[data-action="search"]');
+		const bellBtn   = document.querySelector('[data-action="notifications"]');
+		const eventsBtn = document.querySelector('[data-action="events"]');
+
+		if (locateBtn) {
+			locateBtn.addEventListener('click', () => {
+				if (!navigator.geolocation) return alert('Location not supported.');
+				locateBtn.classList.add('is-busy');
+				navigator.geolocation.getCurrentPosition(async pos => {
+					try {
+						const res = await fetch(`${LA.apiRoot}mosques/nearest?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
+						const data = await res.json();
+						if (!data.mosques || !data.mosques.length) { alert('No masjid nearby yet.'); return; }
+						const m = data.mosques[0];
+						if (confirm(`Closest: ${m.name} (${m.distance_km}km). Set as your masjid?`)) {
+							await fetch(`${LA.apiRoot}choose-mosque`, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': LA.nonce },
+								body: JSON.stringify({ slug: m.slug }),
+							});
+							location.reload();
+						}
+					} catch (e) { console.error(e); }
+					finally { locateBtn.classList.remove('is-busy'); }
+				}, () => { locateBtn.classList.remove('is-busy'); alert('Could not get your location.'); });
+			});
+		}
+		if (searchBtn) searchBtn.addEventListener('click', () => alert('Search is coming soon.'));
+		if (bellBtn) bellBtn.addEventListener('click', () => {
+			const dot = bellBtn.querySelector('.la-icon-btn-dot');
+			if (dot) dot.classList.remove('is-on');
+			alert('Notifications coming soon — both from your masjid and from Love Allah.');
+		});
+		if (eventsBtn) eventsBtn.addEventListener('click', () => openEventsSheet());
+	})();
+
+	// ============================================================
+	// EVENTS BOTTOM SHEET
+	// ============================================================
+	const sheetBackdrop = document.querySelector('[data-sheet-backdrop]');
+	const eventsSheet   = document.querySelector('[data-sheet="events"]');
+
+	function openSheet(el) {
+		if (!el || !sheetBackdrop) return;
+		el.hidden = false;
+		sheetBackdrop.hidden = false;
+		requestAnimationFrame(() => {
+			el.classList.add('is-open');
+			sheetBackdrop.classList.add('is-open');
+		});
+	}
+	function closeSheet(el) {
+		if (!el || !sheetBackdrop) return;
+		el.classList.remove('is-open');
+		sheetBackdrop.classList.remove('is-open');
+		setTimeout(() => {
+			el.hidden = true;
+			sheetBackdrop.hidden = true;
+		}, 320);
+	}
+
+	sheetBackdrop?.addEventListener('click', () => {
+		document.querySelectorAll('.la-sheet.is-open').forEach(closeSheet);
+	});
+	document.addEventListener('click', (e) => {
+		const closer = e.target.closest('[data-sheet-close]');
+		if (closer) {
+			const sheet = closer.closest('.la-sheet');
+			if (sheet) closeSheet(sheet);
+		}
+	});
+
+	async function openEventsSheet() {
+		if (!eventsSheet) return;
+		openSheet(eventsSheet);
+		const body = eventsSheet.querySelector('[data-events-body]');
+		const mosqueEl = eventsSheet.querySelector('[data-events-mosque]');
+		if (body) body.innerHTML = '<p class="la-sheet-loading">Loading events…</p>';
+
+		try {
+			const res = await fetch(LA.apiRoot + 'events/upcoming', {
+				headers: { 'X-LA-Session': LA.sessionId },
+			});
+			const data = await res.json();
+			if (mosqueEl) mosqueEl.textContent = data.mosque?.name || 'Your masjid';
+
+			if (!data.events || !data.events.length) {
+				body.innerHTML = '<p class="la-sheet-empty">No events scheduled yet. Check back soon.</p>';
+				return;
+			}
+			body.innerHTML = data.events.map(renderEvent).join('');
+		} catch (err) {
+			body.innerHTML = '<p class="la-sheet-empty">Couldn\'t load events. Try again later.</p>';
+			console.error('[loveallah] events fetch failed', err);
+		}
+	}
+
+	function renderEvent(e) {
+		const d = new Date(e.starts_at.replace(' ', 'T') + 'Z');
+		const day = d.getUTCDate();
+		const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+		const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+		const weekday = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()];
+
+		const tagHtml = e.tag ? `<span class="la-event-tag">${escapeHtml(e.tag)}</span>` : '';
+		const locHtml = e.location ? `<span>📍 ${escapeHtml(e.location)}</span>` : '';
+
+		return `
+		<article class="la-event">
+			<div class="la-event-date">
+				<div class="la-event-day">${day}</div>
+				<div class="la-event-month">${month}</div>
+			</div>
+			<div class="la-event-body">
+				${tagHtml}
+				<h3 class="la-event-title">${escapeHtml(e.title)}</h3>
+				<div class="la-event-meta">
+					<span>🕒 ${weekday} · ${escapeHtml(time)}</span>
+					${locHtml}
+				</div>
+				${e.description ? `<p class="la-event-desc">${escapeHtml(e.description)}</p>` : ''}
+			</div>
+		</article>`;
+	}
+
+	// expose `closeSheet` so spotlight code can use it later
+	window.__la_closeSheet = closeSheet;
+
+	// ============================================================
+	// SNAP FEED — autoplay, dhikr completion, interactions
+	// ============================================================
+	const feedContainer = $('[data-feed]');
+	if (!feedContainer) return;
+
+	// ============================================================
+	// FEED FILTER CHIPS
+	// ============================================================
+	let currentFilter = '';
+	const chipsBar = $('[data-feed-chips]');
+	chipsBar?.addEventListener('click', async (e) => {
+		const chip = e.target.closest('.la-feed-chip');
+		if (!chip) return;
+		const newType = chip.dataset.type || '';
+		if (newType === currentFilter) return;
+		$$('.la-feed-chip', chipsBar).forEach(c => c.classList.toggle('is-active', c === chip));
+		currentFilter = newType;
+		haptic(8);
+		await reloadFeedForFilter(newType);
+	});
+
+	async function reloadFeedForFilter(type) {
+		// Reset infinite scroll cursor
+		currentPage = 0;
+		exhausted = false;
+		loadingMore = false;
+		// Wipe current cards (keep sentinel + loader)
+		$$('.la-snap', feedContainer).forEach(card => card.remove());
+		// Show loading placeholder
+		const refNode = loader || sentinel;
+		if (refNode) {
+			refNode.insertAdjacentHTML('beforebegin', '<article class="la-snap la-snap--loading"><div class="la-snap-inner"><div class="la-feed-loader-spinner"></div></div></article>');
+		}
+		// Fetch page 0 with filter
+		try {
+			const qs = `page=0&limit=10${type ? '&type=' + encodeURIComponent(type) : ''}`;
+			const res = await fetch(`${LA.apiRoot}feed/more?${qs}`, {
+				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+			});
+			const data = await res.json();
+			$$('.la-snap--loading', feedContainer).forEach(n => n.remove());
+			if (data.html && data.count > 0) {
+				refNode.insertAdjacentHTML('beforebegin', data.html);
+				observeNewCards();
+				// Scroll back to top
+				feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
+			} else {
+				refNode.insertAdjacentHTML('beforebegin',
+					`<article class="la-snap la-snap--empty"><div class="la-snap-inner"><h3>No ${type || 'content'} yet</h3><p>Check back soon — we curate fresh content every day.</p></div></article>`);
+			}
+		} catch (err) {
+			console.error('[loveallah] filter reload failed', err);
+		}
+	}
+
+	const AFFIRMATIONS = [
+		'I love my Lord',
+		'Bring yourself closer to Allah',
+		'My heart finds rest in His remembrance',
+		'He is closer than my jugular vein',
+		'Speak His name, the soul lifts',
+	];
+	function pickAffirmation() { return AFFIRMATIONS[Math.floor(Math.random()*AFFIRMATIONS.length)]; }
+
+	function showAffirmation(text, dur = 1800) {
+		return new Promise(resolve => {
+			const overlay = $('.la-affirmation-overlay');
+			const textEl  = overlay && $('.la-affirmation-text', overlay);
+			if (!overlay || !textEl) { resolve(); return; }
+			textEl.textContent = text;
+			overlay.hidden = false;
+			requestAnimationFrame(() => overlay.classList.add('is-visible'));
+			setTimeout(() => {
+				overlay.classList.remove('is-visible');
+				setTimeout(() => { overlay.hidden = true; resolve(); }, 600);
+			}, dur);
+		});
+	}
+
+	// Dhikr completion via scroll-past: card was seen, then user swipes to next
+	async function completeDhikrOnSwipe(card) {
+		if (card.dataset.busy === '1' || card.classList.contains('is-done')) return;
+		card.dataset.busy = '1';
+
+		let data;
+		try {
+			const res = await fetch(LA.apiRoot + 'dhikr/complete', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+			});
+			data = await res.json();
+			if (!res.ok) throw new Error(data.message || 'failed');
+		} catch (err) {
+			card.dataset.busy = '0';
+			console.error('[loveallah] dhikr complete failed', err);
+			return;
+		}
+
+		tasbeehClick();
+		haptic(12);
+		card.classList.add('is-done');
+
+		if (data.unlocked) {
+			unlockChime();
+			haptic([40, 60, 40]);
+			setTimeout(() => showAffirmation('Today\'s remembrance is complete', 2400), 250);
+		}
+		card.dataset.busy = '0';
+	}
+
+	// ─── Toast notifications ───
+	let toastTimer = null;
+	function showToast(msg, dur = 2400) {
+		let toast = document.querySelector('.la-toast');
+		if (!toast) {
+			toast = document.createElement('div');
+			toast.className = 'la-toast';
+			toast.innerHTML = '<span class="la-toast-text"></span>';
+			document.body.appendChild(toast);
+		}
+		toast.querySelector('.la-toast-text').textContent = msg;
+		toast.classList.add('is-visible');
+		clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => toast.classList.remove('is-visible'), dur);
+	}
+
+	// ─── Action buttons (like / save / share) ───
+	feedContainer.addEventListener('click', async (e) => {
+		const action = e.target.closest('.la-snap-action[data-act]');
+		if (!action) return;
+		const id = action.dataset.id;
+		const act = action.dataset.act;
+		const card = action.closest('.la-snap');
+		haptic(8);
+
+		try {
+			await fetch(`${LA.apiRoot}feed/${id}/${act}`, {
+				method: 'POST',
+				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+			});
+		} catch (err) { console.error(err); }
+
+		if (act === 'like') {
+			action.classList.toggle('is-active');
+			const span = action.querySelector('[data-likes]');
+			if (span) span.textContent = (parseInt(span.textContent || '0', 10) + 1);
+		}
+
+		if (act === 'save') {
+			const saved = action.classList.toggle('is-active');
+			// Mirror to localStorage so a "Saved" view can read it without server roundtrip
+			try {
+				const saves = new Set(JSON.parse(localStorage.getItem('la_saved') || '[]'));
+				saved ? saves.add(id) : saves.delete(id);
+				localStorage.setItem('la_saved', JSON.stringify([...saves]));
+			} catch (e) {}
+			showToast(saved ? 'Saved · view in your library' : 'Removed from saved');
+		}
+
+		if (act === 'share') {
+			await shareCard(card, id);
+		}
+	});
+
+	async function shareCard(card, postId) {
+		const titleEl = card.querySelector('.la-snap-title');
+		const scholarEl = card.querySelector('.la-snap-scholar-name');
+		const title = `${scholarEl?.textContent.trim() || 'Love Allah'} — ${titleEl?.textContent.trim() || ''}`.trim();
+		const url   = `${location.origin}/feed/post/${postId}?ref=share`;
+		const text  = `Watch this on Love Allah`;
+
+		if (navigator.share) {
+			try {
+				await navigator.share({ title, text, url });
+				showToast('Shared');
+			} catch (err) {
+				if (err && err.name === 'AbortError') return; // user cancelled
+				console.error('share failed', err);
+			}
+			return;
+		}
+		// Fallback: copy URL
+		try {
+			await navigator.clipboard.writeText(url);
+			showToast('Link copied');
+		} catch (e) {
+			window.prompt('Copy this link:', url);
+		}
+	}
+
+	// Restore saved-state highlights from localStorage on page load
+	requestAnimationFrame(() => {
+		try {
+			const saves = new Set(JSON.parse(localStorage.getItem('la_saved') || '[]'));
+			$$('.la-snap-action[data-act="save"]').forEach(btn => {
+				if (saves.has(btn.dataset.id)) btn.classList.add('is-active');
+			});
+		} catch (e) {}
+	});
+
+	// ─── Signup card handlers ───
+	feedContainer.addEventListener('submit', async (e) => {
+		const form = e.target.closest('[data-signup-form]');
+		if (!form) return;
+		e.preventDefault();
+		const card = form.closest('.la-snap--signup');
+		const email = form.querySelector('.la-signup-email')?.value?.trim();
+		if (!email) return;
+
+		const submitBtn = form.querySelector('.la-signup-submit');
+		if (submitBtn) submitBtn.disabled = true;
+		haptic(15);
+
+		try {
+			const res = await fetch(`${LA.apiRoot}signup`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+				body: JSON.stringify({ email, source: 'feed' }),
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.message || 'failed');
+
+			localStorage.setItem('la_captured', '1');
+			// Replace card content with thank-you state
+			if (card) {
+				card.innerHTML = `<div class="la-snap-inner"><div class="la-snap-overline">Bismillāh</div><h2 class="la-snap-signup-title">Welcome to Love Allah</h2><p class="la-snap-signup-body">We'll be in touch. May Allah keep your heart close to His remembrance.</p></div>`;
+				card.classList.add('la-snap--signup-done');
+				// Auto-scroll to next card
+				setTimeout(() => {
+					const next = card.nextElementSibling;
+					if (next) next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}, 1800);
+			}
+			showToast('Thank you · check your inbox soon');
+		} catch (err) {
+			console.error('[loveallah] signup failed', err);
+			if (submitBtn) submitBtn.disabled = false;
+			showToast(err.message || 'Could not sign up. Try again.');
+		}
+	});
+
+	feedContainer.addEventListener('click', (e) => {
+		const skip = e.target.closest('[data-signup-skip]');
+		if (!skip) return;
+		const card = skip.closest('.la-snap');
+		if (!card) return;
+		const next = card.nextElementSibling;
+		if (next) next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	});
+
+	// ─── Autoplay / view tracking / dhikr-on-scroll-past ───
+	const seenViews = new Set();
+	const dhikrSeen = new Set();
+	let currentPlaying = null;
+	let userWantsSound = sessionStorage.getItem('la_sound') === '1';
+
+	function setSound(on) {
+		userWantsSound = !!on;
+		sessionStorage.setItem('la_sound', on ? '1' : '0');
+		$$('.la-snap-mute').forEach(btn => btn.classList.toggle('is-on', on));
+		// Reload current video with new mute state, preserving position is impossible across iframe src changes
+		if (currentPlaying) {
+			const card = currentPlaying.closest('.la-snap');
+			if (card) playVideoIn(card);
+		}
+	}
+
+	// Apply initial state to any mute buttons on first paint
+	requestAnimationFrame(() => {
+		$$('.la-snap-mute').forEach(btn => btn.classList.toggle('is-on', userWantsSound));
+	});
+
+	feedContainer.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-action="toggle-mute"]');
+		if (!btn) return;
+		e.stopPropagation();
+		haptic(10);
+		setSound(!userWantsSound);
+	});
+
+	const io = new IntersectionObserver((entries) => {
+		entries.forEach(entry => {
+			const card = entry.target;
+			const type = card.dataset.cardType;
+
+			if (type === 'dhikr') {
+				const idx = card.dataset.dhikrIndex;
+				if (entry.intersectionRatio >= 0.7) {
+					dhikrSeen.add(idx);
+				} else if (entry.intersectionRatio < 0.4 && dhikrSeen.has(idx) && !card.classList.contains('is-done')) {
+					completeDhikrOnSwipe(card);
+				}
+				return;
+			}
+
+			if (type === 'content') {
+				if (entry.intersectionRatio >= 0.7) {
+					const id = card.dataset.postId;
+					if (id && !seenViews.has(id)) {
+						seenViews.add(id);
+						fetch(`${LA.apiRoot}feed/${id}/view`, {
+							method: 'POST',
+							headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+						}).catch(() => {});
+					}
+					playVideoIn(card);
+				} else if (entry.intersectionRatio < 0.3) {
+					pauseVideoIn(card);
+				}
+			}
+		});
+	}, { threshold: [0, 0.3, 0.4, 0.7, 1], root: feedContainer });
+
+	function observeNewCards() {
+		$$('.la-snap:not([data-observed])', feedContainer).forEach(card => {
+			card.dataset.observed = '1';
+			io.observe(card);
+		});
+	}
+	observeNewCards();
+
+	// ============================================================
+	// INFINITE SCROLL — sentinel triggers next batch
+	// ============================================================
+	const sentinel = $('[data-feed-sentinel]', feedContainer);
+	const loader   = $('[data-feed-loader]', feedContainer);
+	let currentPage = 0;
+	let loadingMore = false;
+	let exhausted = false;
+
+	if (sentinel) {
+		const sentinelIO = new IntersectionObserver((entries) => {
+			if (entries[0].isIntersecting && !loadingMore && !exhausted) {
+				loadMore();
+			}
+		}, {
+			root: feedContainer,
+			rootMargin: '1200px 0px 1200px 0px', // prefetch well before user reaches end
+			threshold: 0,
+		});
+		sentinelIO.observe(sentinel);
+	}
+
+	async function loadMore() {
+		if (loadingMore || exhausted) return;
+		loadingMore = true;
+		currentPage += 1;
+		if (loader) loader.hidden = false;
+
+		try {
+			const qs = `page=${currentPage}&limit=10${currentFilter ? '&type=' + encodeURIComponent(currentFilter) : ''}`;
+			const res = await fetch(`${LA.apiRoot}feed/more?${qs}`, {
+				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.message || 'failed');
+			if (!data.html || data.count === 0) {
+				exhausted = true;
+				if (loader) loader.hidden = true;
+				return;
+			}
+			// Insert before sentinel & loader
+			const refNode = loader || sentinel;
+			refNode.insertAdjacentHTML('beforebegin', data.html);
+			observeNewCards();
+		} catch (err) {
+			console.error('[loveallah] load more failed', err);
+			currentPage -= 1; // retry next time
+		} finally {
+			loadingMore = false;
+			if (loader) loader.hidden = true;
+		}
+	}
+
+	function playVideoIn(card) {
+		const iframe = card.querySelector('.la-snap-iframe');
+		if (!iframe || !iframe.dataset.src) return;
+		const wanted = iframe.dataset.src;
+		const muteParam = userWantsSound ? 'mute=0' : 'mute=1';
+		const params = `autoplay=1&${muteParam}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&enablejsapi=1`;
+		const desired = wanted + (wanted.includes('?') ? '&' : '?') + params;
+		if (iframe.src !== desired) iframe.src = desired;
+		if (currentPlaying && currentPlaying !== iframe) {
+			currentPlaying.src = 'about:blank';
+		}
+		currentPlaying = iframe;
+	}
+	function pauseVideoIn(card) {
+		const iframe = card.querySelector('.la-snap-iframe');
+		if (!iframe) return;
+		if (currentPlaying === iframe) currentPlaying = null;
+		iframe.src = 'about:blank';
+	}
+
+	// Play first content card on load
+	const firstContent = feedContainer.querySelector('.la-snap--content');
+	if (firstContent) {
+		const r = firstContent.getBoundingClientRect();
+		const fr = feedContainer.getBoundingClientRect();
+		if (r.top >= fr.top && r.bottom <= fr.bottom + 50) playVideoIn(firstContent);
+	}
+})();

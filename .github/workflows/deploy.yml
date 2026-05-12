@@ -1,0 +1,129 @@
+# ============================================================
+# Love Allah — Auto-Deploy on Push to Main
+#
+# Deploys the loveallah plugin + theme to Cloudways via SSH/rsync,
+# then flushes WP + Varnish + Cloudflare caches.
+#
+# Required GitHub Secrets (Settings > Secrets and variables > Actions):
+#   SSH_PRIVATE_KEY  — base64-encoded private SSH key (cat key | base64 -w0)
+#   SSH_HOST         — Cloudways server host or IP
+#   SSH_USER         — SSH username (Cloudways "Master Credentials")
+#   SSH_PORT         — SSH port (usually 22)
+#   WP_PATH          — absolute path to loveallah WP install
+#                      (e.g. /home/master/applications/xyz/public_html)
+#
+# Optional:
+#   CF_ZONE_ID       — Cloudflare zone ID for loveallah.app
+#   CF_API_TOKEN     — Cloudflare API token (Zone.Cache Purge perm)
+# ============================================================
+
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'theme/**'
+      - '.github/workflows/deploy.yml'
+
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Cloudways
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Test SSH connection
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo 'SSH OK'"
+
+      - name: Deploy loveallah plugin
+        run: |
+          echo "📦 Deploying loveallah plugin..."
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='.DS_Store' \
+            --exclude='node_modules' \
+            --exclude='*.zip' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }}" \
+            ./plugins/loveallah/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.WP_PATH }}/wp-content/plugins/loveallah/
+          echo "✅ Plugin deployed"
+
+      - name: Write deploy timestamp (theme cache buster)
+        run: |
+          echo "$(date +%s)" > ./theme/loveallah-starter/.deploy-time
+
+      - name: Deploy loveallah-starter theme
+        run: |
+          echo "🎨 Deploying loveallah-starter theme..."
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='.DS_Store' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }}" \
+            ./theme/loveallah-starter/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.WP_PATH }}/wp-content/themes/loveallah-starter/
+          echo "✅ Theme deployed"
+
+      - name: Install yt-dlp on server (idempotent)
+        continue-on-error: true
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
+          if ! command -v yt-dlp >/dev/null 2>&1; then
+            echo "Installing yt-dlp..."
+            curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/bin/yt-dlp 2>/dev/null \
+              && chmod a+rx ~/bin/yt-dlp \
+              && echo "yt-dlp installed at ~/bin/yt-dlp"
+          fi
+          ENDSSH
+
+      - name: Clear WordPress + Varnish caches
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
+          cd ${{ secrets.WP_PATH }}
+          wp cache flush 2>/dev/null || true
+          wp transient delete --all 2>/dev/null || true
+          wp breeze purge --all 2>/dev/null || true
+          rm -rf wp-content/cache/* 2>/dev/null || true
+          curl -s -X PURGE http://127.0.0.1:6081/ -H "X-Purge-Method: default" 2>/dev/null || true
+          curl -s -X BAN http://127.0.0.1:6081/ -H "X-Ban-URL: .*" 2>/dev/null || true
+          wp varnish purge 2>/dev/null || true
+          echo "🧹 All caches cleared (WP + Varnish)"
+          ENDSSH
+
+      - name: Purge Cloudflare cache
+        continue-on-error: true
+        env:
+          CF_ZONE: ${{ secrets.CF_ZONE_ID }}
+          CF_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          if [ -n "$CF_ZONE" ] && [ -n "$CF_TOKEN" ]; then
+            curl -s -X POST \
+              "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+              -H "Authorization: Bearer ${CF_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data '{"purge_everything":true}' \
+              && echo "☁️ Cloudflare cache purged"
+          else
+            echo "⏭️ Cloudflare secrets not set — skipping"
+          fi
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

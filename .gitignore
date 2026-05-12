@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+*.log
+.env
+.env.deploy
+deploy_key
+deploy_key.pub
+*.zip
+*.bak
+.~lock.*
+wp-content/uploads/
+theme/loveallah-starter/.deploy-time
