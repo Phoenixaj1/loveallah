@@ -30,17 +30,28 @@ $la_categories = [
 	'other'      => [ 'emoji' => '⭐', 'label' => 'Other' ],
 ];
 
-// Initial server-side list (no JS needed for first paint)
-$la_listings = $wpdb->get_results(
-	"SELECT id, category, title, blurb, full_name, city, country,
-	        contact_email, contact_whatsapp, contact_url,
-	        price_from, price_unit, currency, photo_url,
-	        views_count, contact_count
-	 FROM {$t['skill_listings']}
-	 WHERE status = 'active'
-	 ORDER BY created_at DESC
-	 LIMIT 30"
-);
+// Initial server-side list (no JS needed for first paint).
+// Defensive: if the table doesn't exist yet (fresh install pre-migration)
+// $wpdb->get_results returns null in PHP 8+ — coerce to [] so count() works.
+$la_listings = [];
+if ( ! empty( $t['skill_listings'] ) ) {
+	// $wpdb->get_var with SHOW TABLES is the canonical 'does table exist' check
+	$exists = $wpdb->get_var( $wpdb->prepare(
+		"SHOW TABLES LIKE %s", $t['skill_listings']
+	) );
+	if ( $exists === $t['skill_listings'] ) {
+		$la_listings = $wpdb->get_results(
+			"SELECT id, category, title, blurb, full_name, city, country,
+			        contact_email, contact_whatsapp, contact_url,
+			        price_from, price_unit, currency, photo_url,
+			        views_count, contact_count
+			 FROM {$t['skill_listings']}
+			 WHERE status = 'active'
+			 ORDER BY created_at DESC
+			 LIMIT 30"
+		) ?: [];
+	}
+}
 
 get_header();
 ?>
@@ -93,10 +104,13 @@ get_header();
 					<div class="la-skill-head">
 						<span class="la-skill-cat-emoji" aria-hidden="true"><?php echo $cat['emoji']; ?></span>
 						<div class="la-skill-cat-label"><?php echo esc_html( $cat['label'] ); ?></div>
-						<?php if ( $l->price_from ) : ?>
+						<?php if ( $l->price_from ) :
+							$cur_code = $l->currency ?: 'GBP';
+							$cur_symbol = $cur_code === 'GBP' ? '£' : ( $cur_code === 'EUR' ? '€' : '$' );
+						?>
 							<div class="la-skill-price">
 								<span class="la-skill-price-from">from</span>
-								<?php echo esc_html( $l->currency ?: 'GBP' === 'GBP' ? '£' : '$' ); ?><?php echo (int) $l->price_from; ?>
+								<?php echo esc_html( $cur_symbol ); ?><?php echo (int) $l->price_from; ?>
 								<?php if ( $l->price_unit ) : ?>
 									<span class="la-skill-price-unit">/<?php echo esc_html( $l->price_unit ); ?></span>
 								<?php endif; ?>

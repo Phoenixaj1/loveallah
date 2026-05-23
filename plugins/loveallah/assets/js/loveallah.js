@@ -1673,6 +1673,10 @@
 			root.classList.add('is-' + selected.mode);
 			applyScene(selected.scene);
 
+			// Clear any inline opacity from prior session so the mode-class
+			// CSS rule (e.g. .is-sirri hides Arabic) wins on fresh start.
+			if (breathArabic) breathArabic.style.opacity = '';
+
 			// Background YouTube video — load only on session start so the
 			// bandwidth hit happens once, not on every page view.
 			loadBackgroundVideo(selected.scene);
