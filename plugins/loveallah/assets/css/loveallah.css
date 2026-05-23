@@ -1887,7 +1887,44 @@ button { font-family: inherit; }
 	line-height: 1.45;
 }
 
-/* Duration pills */
+/* Count pills (Sunnah-prescribed reps × estimated minutes) */
+.la-dhikr-count-row {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px;
+}
+.la-dhikr-count-pill {
+	display: flex; flex-direction: column; align-items: center;
+	gap: 2px;
+	padding: 11px 6px 9px;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1.5px solid rgba(255, 255, 255, 0.08);
+	border-radius: 14px;
+	color: #fff;
+	font-family: inherit;
+	cursor: pointer;
+	transition: all 0.2s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dhikr-count-pill strong {
+	font-size: 16px; font-weight: 900;
+	letter-spacing: -0.01em;
+	font-variant-numeric: tabular-nums;
+}
+.la-dhikr-count-pill span {
+	font-size: 10px; font-weight: 600;
+	color: rgba(255, 255, 255, 0.55);
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+.la-dhikr-count-pill.is-selected {
+	background: rgba(237, 28, 108, 0.14);
+	border-color: rgba(237, 28, 108, 0.55);
+	box-shadow: 0 4px 12px rgba(237, 28, 108, 0.18);
+}
+.la-dhikr-count-pill:active { transform: scale(0.96); }
+
+/* Legacy duration pills — kept in case any old templates still render them */
 .la-dhikr-duration-row {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
@@ -2161,7 +2198,7 @@ button { font-family: inherit; }
 }
 .la-breath-arabic {
 	font-family: var(--la-font-arabic);
-	font-size: clamp(30px, 7.5vw, 46px);
+	font-size: clamp(28px, 7vw, 42px);
 	font-weight: 400;
 	color: #0F0F1E;
 	line-height: 1.4;
@@ -2169,6 +2206,19 @@ button { font-family: inherit; }
 	min-height: 1.4em;
 	transition: opacity 0.5s ease;
 }
+/* Transliteration below the Arabic, inside the orb. Smaller + softer
+   so the Arabic stays the primary text. */
+.la-breath-translit {
+	margin-top: 4px;
+	font-size: clamp(13px, 3.4vw, 16px);
+	font-weight: 700;
+	color: rgba(15, 15, 30, 0.62);
+	letter-spacing: 0.005em;
+	font-style: italic;
+	min-height: 1.4em;
+	transition: opacity 0.5s ease;
+}
+.la-app--dhikr-meditate.is-sirri .la-breath-translit { opacity: 0; }
 
 /* Inhale / Exhale label INSIDE the breath orb. Small uppercase pill,
    sits above the Arabic. Flips colour with the breath phase to give

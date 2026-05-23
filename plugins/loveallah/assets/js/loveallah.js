@@ -1366,12 +1366,14 @@
 		const sessionPhrase = root.querySelector('[data-active-phrase]');
 		const sessionTimer  = root.querySelector('[data-active-timer]');
 		const breathArabic  = root.querySelector('[data-breath-arabic]');
+		const breathTranslit = root.querySelector('[data-breath-translit]');
 		const breathPhaseEl = root.querySelector('[data-breath-phase]');
 		const breathCue     = root.querySelector('[data-breath-cue]');
 		const breathMeaning = root.querySelector('[data-breath-meaning]');
 		const breathCountEl = root.querySelector('[data-breath-count-num]');
 		const heartPrompt   = root.querySelector('[data-heart-prompt]');
 		const subsEl        = root.querySelector('[data-dhikr-subs]');
+		const countList     = root.querySelector('[data-count-list]');
 		const breathCircle  = root.querySelector('.la-breath-circle');
 		// breathSplash removed in Wave 23 — water-cascade visual was poor execution.
 		const breathGlow    = root.querySelector('.la-breath-glow');
@@ -1645,7 +1647,9 @@
 
 		let selected = {
 			phrase: phrases[0],
-			duration: 7,
+			// Sunnah-prescribed count. duration in MINUTES is derived live
+			// from count × the phrase's breath_s — see startSession().
+			count: (phrases[0]?.counts && phrases[0].counts[0]) || 33,
 			mode: 'qalbi',
 			// Scene drives BOTH visual AND audio. Pick a scene = pick a
 			// matching soundscape. Cosmos won't play ocean noise.
@@ -1684,9 +1688,32 @@
 		}
 		bindRadio(phraseList, 'data-phrase-key', (btn) => {
 			try { selected.phrase = JSON.parse(btn.getAttribute('data-phrase')); } catch (_) {}
+			rebuildCountRow();  // different phrases have different Sunnah counts
 		});
 		bindRadio(durationList, 'data-duration', (btn) => {
 			selected.duration = parseInt(btn.getAttribute('data-duration'), 10);
+		});
+		// Count radio (Sunnah reps). Rebuild handler runs whenever phrase changes.
+		function rebuildCountRow() {
+			if (!countList || !selected.phrase?.counts) return;
+			const counts = selected.phrase.counts;
+			const breath = selected.phrase.breath_s || 10;
+			countList.innerHTML = counts.map((c, i) => {
+				const mins = Math.max(1, Math.round(c * breath / 60));
+				const sel = i === 0;
+				return `<button type="button" class="la-dhikr-count-pill${sel ? ' is-selected' : ''}" role="radio" aria-checked="${sel ? 'true' : 'false'}" data-count="${c}"><strong>${c}×</strong><span>~${mins} min</span></button>`;
+			}).join('');
+			selected.count = counts[0];
+		}
+		countList?.addEventListener('click', (e) => {
+			const btn = e.target.closest('[data-count]');
+			if (!btn) return;
+			countList.querySelectorAll('[data-count]').forEach(b => {
+				b.classList.toggle('is-selected', b === btn);
+				b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
+			});
+			selected.count = parseInt(btn.getAttribute('data-count'), 10);
+			if (navigator.vibrate) navigator.vibrate(10);
 		});
 		bindRadio(modeList, 'data-mode', (btn) => {
 			selected.mode = btn.getAttribute('data-mode');
@@ -1849,15 +1876,21 @@
 			// arc then ramps continuously, never plateaus.
 			rhythmMode = 'auto';
 			phraseBaseS = selected.phrase.breath_s || 10;
-			endsAt = Date.now() + (selected.duration * 60 * 1000);
 			breathS = +(phraseBaseS * arcMultiplier(0)).toFixed(1);
+			// SESSION DURATION is DERIVED from Sunnah count × the phrase's
+			// natural breath_s. Time becomes the side-effect of completing
+			// the count, not the goal. Session also ends early if the user
+			// hits the count before the (slightly padded) timer expires.
+			selected.duration = Math.max(1, Math.round(selected.count * phraseBaseS / 60));
+			endsAt = Date.now() + (selected.duration * 60 * 1000);
 			updateRhythmDisplay();
 			applyBreathAnimDuration();
 
 			// Initial state — start in inhale phase with the inhale-half
-			// Arabic on the orb (kalimah → "لَا إِلَهَ"). Will flip every
-			// half-breath by updateBreathPhase().
+			// Arabic + transliteration on the orb (kalimah → "لَا إِلَهَ" / "Lā ilāha").
+			// Will flip every half-breath via updateBreathPhase().
 			breathArabic.textContent = selected.phrase.arabic_inhale || selected.phrase.arabic || '';
+			if (breathTranslit) breathTranslit.textContent = selected.phrase.inhale || selected.phrase.translit || '';
 			if (breathPhaseEl) breathPhaseEl.textContent = 'Inhale';
 			sessionPhrase.textContent = selected.phrase.translit || '';
 			breathMeaning.textContent = selected.phrase.meaning || '';
@@ -2136,6 +2169,8 @@
 			breathCue.textContent = cue;
 			if (breathMeaning) breathMeaning.textContent = meaning;
 			if (breathArabic)  breathArabic.textContent  = arabicHalf;
+			// Transliteration on the orb flips with the phase too
+			if (breathTranslit) breathTranslit.textContent = cue;
 			if (breathPhaseEl) {
 				breathPhaseEl.textContent = breathPhase === 'inhale' ? 'Inhale' : 'Exhale';
 				breathPhaseEl.classList.toggle('is-inhale', breathPhase === 'inhale');
@@ -2169,8 +2204,13 @@
 
 			// (Audio scheduling removed in Wave 19 — silent practice.)
 			// Increment breath count + paint it on each new INHALE.
-			if (breathPhase === 'inhale' && breathCountEl) {
-				breathCountEl.textContent = String(breathCycleIndex);
+			if (breathPhase === 'inhale') {
+				if (breathCountEl) breathCountEl.textContent = String(breathCycleIndex);
+				// Session ends as soon as the Sunnah count is reached. The
+				// timer is just an estimate — the COUNT is what matters.
+				if (selected.count && breathCycleIndex >= selected.count) {
+					finishSession();
+				}
 			}
 
 			// (Splash ring removed in Wave 23 — water-cascade visual scrapped.)

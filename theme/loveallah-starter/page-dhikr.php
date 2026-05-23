@@ -89,7 +89,38 @@ $la_phrases = [
 	  'note' => 'Salawat — every blessing on him returns to you tenfold (Muslim 408)', 'breath_s' => 12 ],
 ];
 
-// Durations (minutes)
+// SUNNAH COUNTS — how many repetitions for each phrase.
+// Drawn from established hadith, not arbitrary numbers:
+//   33 Subhan + 33 Hamd + 33 Akbar (or 34 Akbar) after salah = Tasbih
+//     Fatima (Bukhari 6329 + Muslim 595) — totals 99 or 100, the 99
+//     beautiful Names.
+//   La ilaha illa Allah ×100 daily: 'Whoever says it 100 times in a
+//     day, equals freeing 10 slaves, 100 good deeds recorded, 100 sins
+//     erased' (Bukhari 6403, Muslim 2691).
+//   Astaghfirullah ×70+ daily — 'By Allah I seek forgiveness more than
+//     70 times a day' (Bukhari 6307). Some hadith mention 100.
+//   Salawat ×80 each Friday — recommended in Sunnah, blessings × 10
+//     return for each one (Muslim 408).
+//
+// Each phrase carries an ordered list of Sunnah counts; the first is
+// the default. The user picks a count; duration is computed live from
+// count × breath_s and shown next to the chip.
+$la_phrases_meta = [
+	'kalimah'        => [ 33, 100, 300 ],
+	'allah'          => [ 100, 300, 1000 ],
+	'subhanallah'    => [ 33, 100 ],
+	'alhamdulillah'  => [ 33, 100 ],
+	'allahuakbar'    => [ 33, 100 ],
+	'astaghfirullah' => [ 70, 100, 300 ],
+	'salawat'        => [ 10, 80, 100 ],
+];
+foreach ( $la_phrases as &$p ) {
+	$p['counts'] = $la_phrases_meta[ $p['key'] ] ?? [ 33, 100 ];
+}
+unset( $p );
+
+// Legacy minute-based durations — kept for the fallback path but the
+// landing now uses count-based pacing per the Sunnah.
 $la_durations = [ 3, 7, 11, 21 ];
 
 // Modes — the stations of dhikr in Sufi sciences
@@ -169,17 +200,25 @@ get_header();
 			</div>
 		</div>
 
-		<!-- Duration -->
+		<!-- Count — Sunnah-prescribed number of repetitions. Replaces the
+		     old minute-based duration. Time is computed from count × the
+		     phrase's breath_s and shown next to each chip. JS rebuilds the
+		     chip row when the user switches phrase (different Sunnah counts). -->
 		<div class="la-dhikr-section">
-			<h2 class="la-dhikr-section-label">Duration</h2>
-			<div class="la-dhikr-duration-row" data-duration-list role="radiogroup" aria-label="Duration">
-				<?php foreach ( $la_durations as $i => $m ) : ?>
+			<h2 class="la-dhikr-section-label">Count <span class="la-dhikr-section-hint">based on Sunnah</span></h2>
+			<div class="la-dhikr-count-row" data-count-list role="radiogroup" aria-label="Count">
+				<?php
+				$defaultPhrase = $la_phrases[0];
+				foreach ( $defaultPhrase['counts'] as $i => $c ) :
+					$est_min = (int) max( 1, round( $c * $defaultPhrase['breath_s'] / 60 ) );
+				?>
 					<button type="button"
-						class="la-dhikr-duration-pill <?php echo $i === 1 ? 'is-selected' : ''; ?>"
+						class="la-dhikr-count-pill <?php echo $i === 0 ? 'is-selected' : ''; ?>"
 						role="radio"
-						aria-checked="<?php echo $i === 1 ? 'true' : 'false'; ?>"
-						data-duration="<?php echo (int) $m; ?>">
-						<?php echo (int) $m; ?> <span>min</span>
+						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
+						data-count="<?php echo (int) $c; ?>">
+						<strong><?php echo (int) $c; ?>×</strong>
+						<span>~<?php echo $est_min; ?> min</span>
 					</button>
 				<?php endforeach; ?>
 			</div>
@@ -283,10 +322,13 @@ get_header();
 					     breath in real time. Above the Arabic so the eye
 					     reads it first before the contemplated meaning. -->
 					<div class="la-breath-phase" data-breath-phase>Inhale</div>
-					<!-- Arabic also flips to match: kalimah inhale = لَا إِلَهَ,
+					<!-- Arabic flips per breath half: kalimah inhale = لَا إِلَهَ,
 					     exhale = إِلَّا ٱللَّٰه — same split a Sufi practitioner
 					     would use mid-breath. -->
 					<div class="la-breath-arabic" data-breath-arabic dir="rtl" lang="ar">—</div>
+					<!-- Transliteration below the Arabic, also flips per half.
+					     Helps non-Arabic-reading users follow along by sound. -->
+					<div class="la-breath-translit" data-breath-translit>—</div>
 				</div>
 			</div>
 		</div>
