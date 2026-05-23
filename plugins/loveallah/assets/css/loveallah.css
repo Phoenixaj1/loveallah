@@ -427,35 +427,61 @@ button { font-family: inherit; }
 	position: absolute; inset: 0;
 	display: flex; align-items: center; justify-content: center;
 	z-index: 1;
-	padding: 0 0 calc(var(--la-tabbar-h) + 8px);
+	padding: 0;  /* mobile = edge-to-edge, no inset padding */
 }
-/* Default: portrait 9:16 (we only ingest portrait/Shorts content) */
+/* ─── MOBILE: full-bleed, video covers entire snap (TikTok cover-fit) ─── */
 .la-snap-iframe-wrap {
-	position: relative;
-	aspect-ratio: 9 / 16;
-	width: auto;
+	position: absolute;
+	inset: 0;
+	width: 100%;
 	height: 100%;
-	max-width: 100%;
-	max-height: calc(100dvh - var(--la-header-h, 75px) - var(--la-tabbar-h) - 32px);
 	background: #000;
-	border-radius: 8px;
-	box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+	border-radius: 0;
+	box-shadow: none;
 	overflow: hidden;
 }
+/* Iframe sized to COVER: at least 100% of both dimensions while preserving 9:16.
+   On a 9:19+ phone the iframe overflows top/bottom — exactly TikTok behavior. */
 .la-snap-iframe {
-	position: absolute; inset: 0;
-	width: 100%; height: 100%;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
 	border: 0;
 	display: block;
+	min-width: 100%;
+	min-height: 100%;
+	width: auto;
+	height: auto;
+	aspect-ratio: 9 / 16;
 }
 
-/* Desktop: cap iframe to a sensible portrait size, lift with stronger shadow */
+/* ─── DESKTOP / TABLET: revert to centered portrait card with purple backdrop.
+   The TikTok cover only makes sense on phones; on a 1080p monitor a full-bleed
+   video would be 1920px wide which is absurd for a 9:16 portrait clip. */
 @media (min-width: 720px) {
+	.la-snap-video {
+		padding: 0 0 calc(var(--la-tabbar-h) + 8px);
+	}
 	.la-snap-iframe-wrap {
+		position: relative;
+		inset: auto;
+		aspect-ratio: 9 / 16;
+		width: auto;
+		height: 100%;
 		max-width: 420px;
 		max-height: calc(100dvh - 160px);
 		border-radius: 14px;
 		box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+	}
+	.la-snap-iframe {
+		position: absolute;
+		top: 0; left: 0;
+		transform: none;
+		width: 100%; height: 100%;
+		min-width: auto;
+		min-height: auto;
+		aspect-ratio: auto;
 	}
 }
 @media (min-width: 1024px) {
