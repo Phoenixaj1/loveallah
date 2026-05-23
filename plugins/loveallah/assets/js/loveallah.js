@@ -1721,9 +1721,12 @@
 			// Start with the session-arc settle pace (0.8× phrase rate).
 			// The arc auto-ramps as session progresses unless the user
 			// presses the rhythm ± buttons (which locks to manual mode).
+			// IMPORTANT: set endsAt BEFORE updateRhythmDisplay() so the
+			// stage label ('settle') can be computed from progress %.
 			rhythmMode = 'auto';
 			phraseBaseS = selected.phrase.breath_s || 10;
 			breathS = +(phraseBaseS * 0.8).toFixed(1);
+			endsAt = Date.now() + (selected.duration * 60 * 1000);
 			updateRhythmDisplay();
 			applyBreathAnimDuration();
 
@@ -1732,8 +1735,7 @@
 			sessionPhrase.textContent = selected.phrase.translit || '';
 			breathMeaning.textContent = selected.phrase.meaning || '';
 
-			// Timer
-			endsAt = Date.now() + (selected.duration * 60 * 1000);
+			// Timer — endsAt was set above before the rhythm display
 			tickTimer();
 			sessionTimer_handle = setInterval(tickTimer, 500);
 
