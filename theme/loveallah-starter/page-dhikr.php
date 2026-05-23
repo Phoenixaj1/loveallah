@@ -101,15 +101,26 @@ $la_modes = [
 
 // Background scenes — each has a YouTube ambient loop AND a CSS-gradient
 // fallback so the experience never goes blank if YT fails.
-//   video: YouTube ID for an ambient 10hr+ loop (cosmos, nature, etc.)
-//   Swap the IDs below for whatever ambient loops you prefer — anything
-//   long-form, no narration, muted-friendly works.
+//   video: YouTube ID — VERIFIED via oEmbed API (see commit notes).
+//   Swap the IDs below for whatever ambient loops you prefer. Always
+//   verify with `curl -s -o /dev/null -w "%{http_code}" \
+//   "https://www.youtube.com/oembed?url=...&format=json"` returns 200.
 $la_scenes = [
-	[ 'key' => 'cosmos',  'emoji' => '✨', 'label' => 'Cosmos',   'desc' => 'Stars adrift in deep night',  'video' => 'EXX4lU5JJ9w' ],
-	[ 'key' => 'desert',  'emoji' => '🌅', 'label' => 'Desert',   'desc' => 'Dunes at fajr',               'video' => 'qGJ3vR4Cd5w' ],
+	// NASA Live — Earth-from-ISS + cosmos footage, official NASA channel,
+	// permanent live stream.
+	[ 'key' => 'cosmos',  'emoji' => '✨', 'label' => 'Cosmos',   'desc' => 'NASA live cosmos + Earth',     'video' => '21X5lGlDOfg' ],
+	// Tropical beach ambience — warm sand + ocean (closest to "dunes at fajr"
+	// we found in long-form ambient content). Swap for a Sahara loop if you
+	// have one.
+	[ 'key' => 'desert',  'emoji' => '🌅', 'label' => 'Sunset',   'desc' => 'Warm sand + sea at sunset',    'video' => 'DGIXT7ce3vQ' ],
+	// "3 Hours of Amazing Nature Scenery" by Cat Trumpet — established
+	// ambient channel, very stable.
 	[ 'key' => 'forest',  'emoji' => '🌿', 'label' => 'Forest',   'desc' => 'Green canopy at dawn',        'video' => 'BHACKCNDMW8' ],
-	[ 'key' => 'ocean',   'emoji' => '🌊', 'label' => 'Ocean',    'desc' => 'Slow tide under moon',        'video' => 'V-_O7nl0Ii0' ],
-	[ 'key' => 'kaaba',   'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The unseen tawaf',            'video' => 'OvkPldHRMyk' ],
+	[ 'key' => 'ocean',   'emoji' => '🌊', 'label' => 'Ocean',    'desc' => 'Slow tide',                   'video' => 'V-_O7nl0Ii0' ],
+	// No reliable Kaaba-only live stream found — leave empty so the
+	// psychedelic CSS backdrop carries the visual. Drop in a verified
+	// Makkah live stream ID here when one is curated.
+	[ 'key' => 'kaaba',   'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The unseen tawaf',            'video' => '' ],
 	[ 'key' => 'none',    'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else',     'video' => '' ],
 ];
 

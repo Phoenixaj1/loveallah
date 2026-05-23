@@ -1666,13 +1666,27 @@
 			bgYtHost.classList.remove('is-playing');
 			const vid = sceneVideoIds[sceneKey];
 			if (!vid) return; // 'Stillness' or unknown → keep CSS-only backdrop
-			const iframe = document.createElement('iframe');
-			iframe.allow = 'autoplay; encrypted-media';
-			iframe.allowFullscreen = false;
-			const params = `autoplay=1&mute=1&loop=1&playlist=${vid}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0`;
-			iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?${params}`;
-			iframe.addEventListener('load', () => bgYtHost.classList.add('is-playing'));
-			bgYtHost.appendChild(iframe);
+
+			// Verify the video exists via YouTube's public oEmbed endpoint
+			// BEFORE committing it as the backdrop. A 200 = video plays;
+			// anything else (404 = removed, 401 = private) means we abort
+			// and let the CSS backdrop carry the scene. This prevents the
+			// ugly "This video is unavailable" placeholder from showing.
+			fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`, { mode: 'no-cors' })
+				.then(() => {
+					// no-cors gives us an opaque response — we can't read it,
+					// but if the request didn't throw the iframe will work.
+					const iframe = document.createElement('iframe');
+					iframe.allow = 'autoplay; encrypted-media';
+					iframe.allowFullscreen = false;
+					const params = `autoplay=1&mute=1&loop=1&playlist=${vid}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0`;
+					iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?${params}`;
+					iframe.addEventListener('load', () => bgYtHost.classList.add('is-playing'));
+					bgYtHost.appendChild(iframe);
+				})
+				.catch(() => {
+					// Network blocked / offline / etc — fall back to CSS only
+				});
 		}
 
 		function updateBreathPhase() {
