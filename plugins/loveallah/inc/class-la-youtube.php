@@ -127,24 +127,37 @@ class LA_YouTube {
 			) );
 			if ( $exists ) continue;
 
-			$meta = self::single_metadata( $v['id'] );
-			if ( empty( $meta ) ) continue;
-			// Portrait-only: reject landscape videos (Shorts format requirement)
-			if ( ! self::is_portrait( $meta ) ) continue;
-			if ( $meta['duration'] > 0 && $meta['duration'] > $max_dur ) continue;
-
-			$published_at = self::parse_ytdlp_date( $meta['upload_date'] );
+			// FAST PATH for /shorts: portrait is guaranteed by YouTube's format.
+			// Skip yt-dlp per-video metadata fetch (frequently bot-blocked on cloud IPs)
+			// and use lightweight oEmbed for title verification.
+			if ( $used_tab === 'shorts' ) {
+				$oembed = self::oembed( $v['id'] );
+				$title  = $oembed['title'] ?? $v['title'];
+				$caption = '';
+				$duration = 0;
+				$published_at = gmdate( 'Y-m-d H:i:s' );
+			} else {
+				// /videos tab: orientation unknown — must verify via metadata fetch.
+				$meta = self::single_metadata( $v['id'] );
+				if ( empty( $meta ) ) continue;
+				if ( ! self::is_portrait( $meta ) ) continue;
+				if ( $meta['duration'] > 0 && $meta['duration'] > $max_dur ) continue;
+				$title    = $v['title'];
+				$caption  = self::trim_caption( $meta['description'] );
+				$duration = (int) $meta['duration'];
+				$published_at = self::parse_ytdlp_date( $meta['upload_date'] ) ?: gmdate( 'Y-m-d H:i:s' );
+			}
 
 			$wpdb->insert( $t['feed_posts'], [
 				'scholar_id'          => (int) $scholar->id,
 				'type'                => $type,
-				'title'               => mb_substr( $v['title'], 0, 250 ),
-				'caption'             => self::trim_caption( $meta['description'] ),
+				'title'               => mb_substr( $title, 0, 250 ),
+				'caption'             => $caption,
 				'video_url'           => "https://www.youtube.com/embed/{$v['id']}",
-				'thumbnail_url'       => "https://i.ytimg.com/vi/{$v['id']}/maxresdefault.jpg",
+				'thumbnail_url'       => "https://i.ytimg.com/vi/{$v['id']}/hqdefault.jpg",
 				'original_source_url' => $source_url,
-				'duration_sec'        => (int) $meta['duration'],
-				'published_at'        => $published_at ?: gmdate( 'Y-m-d H:i:s' ),
+				'duration_sec'        => $duration,
+				'published_at'        => $published_at,
 			] );
 			$inserted++;
 		}
@@ -162,8 +175,9 @@ class LA_YouTube {
 
 	/** Fast playlist listing: returns array of [id, title, view_count] */
 	private static function flat_list( string $shorts_url, int $limit ) : array {
+		// Extractor args bypass YouTube's bot detection on cloud server IPs.
 		$cmd = sprintf(
-			'%s --flat-playlist --no-warnings --no-cache-dir --playlist-end %d --print "%%(id)s|||%%(title)s|||%%(view_count)s" %s 2>&1',
+			'%s --flat-playlist --no-warnings --no-cache-dir --playlist-end %d --extractor-args "youtube:player_client=web,player_skip=configs" --print "%%(id)s|||%%(title)s|||%%(view_count)s" %s 2>&1',
 			escapeshellcmd( self::ytdlp() ),
 			(int) $limit,
 			escapeshellarg( $shorts_url )
@@ -208,6 +222,18 @@ class LA_YouTube {
 			'width'       => (int) ( $parts[4] ?? 0 ),
 			'height'      => (int) ( $parts[5] ?? 0 ),
 		];
+	}
+
+	/**
+	 * Lightweight oEmbed fetch (no auth needed, no bot wall).
+	 * Returns ['title' => ..., 'author_name' => ..., 'thumbnail_url' => ...] or [].
+	 */
+	private static function oembed( string $video_id ) : array {
+		$url = 'https://www.youtube.com/oembed?format=json&url=' . rawurlencode( "https://www.youtube.com/watch?v={$video_id}" );
+		$res = wp_remote_get( $url, [ 'timeout' => 8, 'redirection' => 3 ] );
+		if ( is_wp_error( $res ) || wp_remote_retrieve_response_code( $res ) !== 200 ) return [];
+		$data = json_decode( wp_remote_retrieve_body( $res ), true );
+		return is_array( $data ) ? $data : [];
 	}
 
 	/** True if the video is portrait (Shorts format) — height > width */
