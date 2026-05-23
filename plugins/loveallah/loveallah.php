@@ -139,6 +139,7 @@ add_action( 'wp_enqueue_scripts', function() {
 		'apiRoot'   => esc_url_raw( rest_url( 'loveallah/v1/' ) ),
 		'nonce'     => wp_create_nonce( 'wp_rest' ),
 		'sessionId' => la_get_or_set_session_id(),
+		'pluginUrl' => esc_url_raw( LA_URL ),  // for audio/asset paths
 		'i18n'      => [
 			'remembered'   => __( 'Remembered',   'loveallah' ),
 			'feed_open'    => __( 'The feed is open', 'loveallah' ),

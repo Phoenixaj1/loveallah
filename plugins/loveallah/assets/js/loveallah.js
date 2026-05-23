@@ -1372,11 +1372,49 @@
 		const guidanceEl    = root.querySelector('[data-dhikr-guidance]');
 		const progressFill  = root.querySelector('[data-progress-fill]');
 
+		const sceneList   = root.querySelector('[data-scene-list]');
+		const soundList   = root.querySelector('[data-sound-list]');
+		const audioRack   = root.querySelector('[data-audio-rack]');
+		const audioEls    = {
+			chant:  audioRack?.querySelector('[data-audio-key="chant"]'),
+			duff:   audioRack?.querySelector('[data-audio-key="duff"]'),
+			breath: audioRack?.querySelector('[data-audio-key="breath"]'),
+		};
+
 		let selected = {
 			phrase: phrases[0],
 			duration: 7,
 			mode: 'qalbi',
+			scene: 'cosmos',
+			sounds: { chant: false, duff: false, breath: false },
 		};
+
+		// Restore persisted scene + sound preferences so each return visit
+		// keeps the user's chosen immersion setup
+		try {
+			const saved = JSON.parse(localStorage.getItem('la_dhikr_prefs') || '{}');
+			if (saved.scene) {
+				selected.scene = saved.scene;
+				root.querySelectorAll('[data-scene]').forEach(b => {
+					const on = b.getAttribute('data-scene') === saved.scene;
+					b.classList.toggle('is-selected', on);
+					b.setAttribute('aria-checked', on ? 'true' : 'false');
+				});
+			}
+			if (saved.sounds) {
+				selected.sounds = { chant: false, duff: false, breath: false, ...saved.sounds };
+				root.querySelectorAll('[data-sound]').forEach(b => {
+					const k = b.getAttribute('data-sound');
+					const on = !!selected.sounds[k];
+					b.classList.toggle('is-selected', on);
+					b.setAttribute('aria-pressed', on ? 'true' : 'false');
+				});
+			}
+		} catch (_) {}
+
+		function persistPrefs() {
+			try { localStorage.setItem('la_dhikr_prefs', JSON.stringify({ scene: selected.scene, sounds: selected.sounds })); } catch (_) {}
+		}
 
 		// Radio-group click handler (delegated)
 		function bindRadio(list, attr, onChange) {
@@ -1400,6 +1438,31 @@
 		bindRadio(modeList, 'data-mode', (btn) => {
 			selected.mode = btn.getAttribute('data-mode');
 		});
+		// Scene = single-select (radio), apply class immediately to preview backdrop
+		bindRadio(sceneList, 'data-scene', (btn) => {
+			selected.scene = btn.getAttribute('data-scene');
+			applyScene(selected.scene);
+			persistPrefs();
+		});
+		// Sound layers = multi-select toggles
+		soundList?.addEventListener('click', (e) => {
+			const btn = e.target.closest('[data-sound]');
+			if (!btn) return;
+			const k = btn.getAttribute('data-sound');
+			selected.sounds[k] = !selected.sounds[k];
+			btn.classList.toggle('is-selected', selected.sounds[k]);
+			btn.setAttribute('aria-pressed', selected.sounds[k] ? 'true' : 'false');
+			persistPrefs();
+			if (navigator.vibrate) navigator.vibrate(10);
+		});
+
+		function applyScene(sceneKey) {
+			['cosmos','desert','forest','ocean','kaaba','none']
+				.forEach(s => root.classList.remove('scene-' + s));
+			root.classList.add('scene-' + (sceneKey || 'cosmos'));
+		}
+		// Apply on first paint
+		applyScene(selected.scene);
 
 		// Begin session
 		beginBtn?.addEventListener('click', () => {
@@ -1426,6 +1489,23 @@
 			document.body.classList.add('is-dhikr-active');
 			root.classList.remove('is-lisani', 'is-qalbi', 'is-sirri');
 			root.classList.add('is-' + selected.mode);
+			applyScene(selected.scene);
+
+			// Start any toggled sound layers. Convention:
+			//   /wp-content/plugins/loveallah/assets/audio/dhikr-{phrase}-{layer}.mp3
+			// Missing files silently fail play() — no error UX, no exception.
+			const audioBase = (window.LA && LA.pluginUrl) ? LA.pluginUrl : '/wp-content/plugins/loveallah/';
+			Object.entries(audioEls).forEach(([k, el]) => {
+				if (!el) return;
+				if (selected.sounds[k]) {
+					const fname = 'dhikr-' + (selected.phrase.key || 'kalimah') + '-' + k + '.mp3';
+					el.src = audioBase + 'assets/audio/' + fname;
+					el.volume = (k === 'breath') ? 0.4 : (k === 'duff' ? 0.55 : 0.7);
+					el.play().catch(() => {});
+				} else {
+					try { el.pause(); el.removeAttribute('src'); el.load(); } catch (_) {}
+				}
+			});
 
 			// Apply breath duration to CSS animation
 			const breathS = selected.phrase.breath_s || 8;
@@ -1521,14 +1601,23 @@
 			sessionTimer_handle = breathTimer_handle = guidanceTimer_handle = null;
 		}
 
+		function stopAudio() {
+			Object.values(audioEls).forEach(el => {
+				if (!el) return;
+				try { el.pause(); el.removeAttribute('src'); el.load(); } catch (_) {}
+			});
+		}
+
 		function endSession() {
 			clearTimers();
+			stopAudio();
 			document.body.classList.remove('is-dhikr-active');
 			showScene('landing');
 		}
 
 		function finishSession() {
 			clearTimers();
+			stopAudio();
 			showScene('complete');
 			if (navigator.vibrate) navigator.vibrate([40, 80, 40]);
 		}

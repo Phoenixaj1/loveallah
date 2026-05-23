@@ -2071,6 +2071,158 @@ button { font-family: inherit; }
 /* Soul mode hides Arabic — pure presence */
 .la-app--dhikr-meditate.is-sirri .la-breath-arabic { opacity: 0; }
 
+/* ────────────── DHIKR SCENE CHIPS (landing UI) ────────────── */
+.la-dhikr-section-hint {
+	font-size: 9.5px; font-weight: 600;
+	color: rgba(255, 255, 255, 0.35);
+	text-transform: none;
+	letter-spacing: 0.04em;
+	margin-left: 6px;
+}
+.la-dhikr-scene-list,
+.la-dhikr-sound-list {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px;
+}
+.la-dhikr-scene-chip,
+.la-dhikr-sound-chip {
+	display: flex; flex-direction: column; align-items: center;
+	gap: 4px;
+	padding: 12px 6px 10px;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1.5px solid rgba(255, 255, 255, 0.08);
+	border-radius: 14px;
+	color: #fff;
+	font-family: inherit;
+	cursor: pointer;
+	transition: all 0.2s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dhikr-scene-emoji,
+.la-dhikr-sound-emoji { font-size: 22px; line-height: 1; }
+.la-dhikr-scene-label,
+.la-dhikr-sound-label { font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+.la-dhikr-scene-chip.is-selected {
+	background: rgba(237, 28, 108, 0.14);
+	border-color: rgba(237, 28, 108, 0.55);
+	box-shadow: 0 4px 12px rgba(237, 28, 108, 0.18);
+}
+.la-dhikr-sound-chip[aria-pressed="true"] {
+	background: rgba(237, 28, 108, 0.14);
+	border-color: rgba(237, 28, 108, 0.55);
+	box-shadow: 0 4px 12px rgba(237, 28, 108, 0.18);
+}
+.la-dhikr-scene-chip:active,
+.la-dhikr-sound-chip:active { transform: scale(0.96); }
+
+/* ────────────── SCENE BACKDROP — pure-CSS immersive layers ────────────── */
+.la-dhikr-backdrop {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	z-index: 0;
+	pointer-events: none;
+}
+.la-dhikr-session { position: relative; }
+.la-dhikr-session > :not(.la-dhikr-backdrop) { position: relative; z-index: 1; }
+
+.la-dhikr-backdrop-stars,
+.la-dhikr-backdrop-haze {
+	position: absolute; inset: 0;
+	transition: background 1.4s ease, opacity 1.4s ease;
+}
+.la-dhikr-backdrop-haze {
+	background: radial-gradient(ellipse at 50% 40%, rgba(237, 28, 108, 0.18) 0%, transparent 60%);
+	animation: la-haze-drift 18s ease-in-out infinite;
+}
+@keyframes la-haze-drift {
+	0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.85; }
+	50%      { transform: translate3d(0, -3%, 0) scale(1.05); opacity: 1; }
+}
+
+/* Cosmos — deep purple/black field with twinkling stars (CSS box-shadow trick) */
+.la-app--dhikr-meditate.scene-cosmos {
+	background: radial-gradient(ellipse at 50% 0%, #2a0e35 0%, #100517 55%, #050208 100%);
+}
+.la-app--dhikr-meditate.scene-cosmos .la-dhikr-backdrop-stars {
+	background:
+		radial-gradient(1px 1px at 17% 22%, #fff 50%, transparent 100%),
+		radial-gradient(1.5px 1.5px at 73% 14%, #ffd1ea 50%, transparent 100%),
+		radial-gradient(1px 1px at 41% 67%, #fff 50%, transparent 100%),
+		radial-gradient(1.2px 1.2px at 88% 49%, #c8d4ff 50%, transparent 100%),
+		radial-gradient(1px 1px at 23% 82%, #fff 50%, transparent 100%),
+		radial-gradient(1.4px 1.4px at 56% 33%, #fff 50%, transparent 100%),
+		radial-gradient(1px 1px at 9% 51%, #ffcce0 50%, transparent 100%),
+		radial-gradient(1.3px 1.3px at 65% 76%, #fff 50%, transparent 100%),
+		radial-gradient(1px 1px at 39% 12%, #fff 50%, transparent 100%),
+		radial-gradient(1.2px 1.2px at 84% 88%, #fff 50%, transparent 100%);
+	animation: la-stars-twinkle 6s ease-in-out infinite;
+}
+@keyframes la-stars-twinkle {
+	0%, 100% { opacity: 0.85; }
+	50%      { opacity: 1; }
+}
+
+/* Desert — golden gradient with dune horizon, fajr palette */
+.la-app--dhikr-meditate.scene-desert {
+	background:
+		linear-gradient(180deg, #1a0a1f 0%, #2c1338 20%, #6b1846 50%, #c84e6c 80%, #f4a261 100%);
+}
+.la-app--dhikr-meditate.scene-desert .la-dhikr-backdrop-stars {
+	background:
+		radial-gradient(ellipse at 50% 70%, rgba(244, 162, 97, 0.5) 0%, transparent 60%);
+	animation: la-haze-drift 22s ease-in-out infinite reverse;
+}
+
+/* Forest — green canopy at dawn */
+.la-app--dhikr-meditate.scene-forest {
+	background:
+		linear-gradient(180deg, #0a1f0e 0%, #1d3a26 40%, #2d5e3a 75%, #4a8a55 100%);
+}
+.la-app--dhikr-meditate.scene-forest .la-dhikr-backdrop-stars {
+	background:
+		radial-gradient(ellipse at 30% 80%, rgba(120, 200, 130, 0.20) 0%, transparent 50%),
+		radial-gradient(ellipse at 80% 20%, rgba(180, 230, 180, 0.18) 0%, transparent 60%);
+	animation: la-haze-drift 24s ease-in-out infinite;
+}
+
+/* Ocean — slow tide under moon, deep blue-black */
+.la-app--dhikr-meditate.scene-ocean {
+	background:
+		linear-gradient(180deg, #001a2e 0%, #003459 50%, #00598a 90%, #4a90b8 100%);
+}
+.la-app--dhikr-meditate.scene-ocean .la-dhikr-backdrop-stars {
+	background:
+		radial-gradient(ellipse at 50% 100%, rgba(74, 144, 184, 0.32) 0%, transparent 60%),
+		radial-gradient(circle 20px at 70% 12%, rgba(255, 255, 255, 0.18) 0%, transparent 80%);
+	animation: la-haze-drift 28s ease-in-out infinite;
+}
+
+/* Haram — black with golden glow (the unseen tawaf) */
+.la-app--dhikr-meditate.scene-kaaba {
+	background:
+		radial-gradient(ellipse at 50% 50%, #1a0a00 0%, #050200 80%);
+}
+.la-app--dhikr-meditate.scene-kaaba .la-dhikr-backdrop-stars {
+	background:
+		radial-gradient(ellipse at 50% 50%, rgba(255, 215, 0, 0.10) 0%, transparent 50%);
+	animation: la-haram-pulse 8s ease-in-out infinite;
+}
+@keyframes la-haram-pulse {
+	0%, 100% { opacity: 0.7; transform: scale(0.95); }
+	50%      { opacity: 1;   transform: scale(1.05); }
+}
+
+/* Stillness — pure black, nothing else (the secret station) */
+.la-app--dhikr-meditate.scene-none {
+	background: #000;
+}
+.la-app--dhikr-meditate.scene-none .la-dhikr-backdrop-stars,
+.la-app--dhikr-meditate.scene-none .la-dhikr-backdrop-haze {
+	opacity: 0;
+}
+
 /* Guidance text under the breath */
 .la-dhikr-guidance {
 	margin-top: 5vh;

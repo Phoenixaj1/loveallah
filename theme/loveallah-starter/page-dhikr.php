@@ -99,6 +99,26 @@ $la_modes = [
 	[ 'key' => 'sirri',  'label' => 'Secret', 'desc' => 'No Arabic shown — pure presence' ],
 ];
 
+// Background scenes — pure CSS animated gradients, no asset downloads needed.
+// Each is designed to be a contemplative immersive backdrop, not entertainment.
+$la_scenes = [
+	[ 'key' => 'cosmos',   'emoji' => '✨', 'label' => 'Cosmos',   'desc' => 'Stars adrift in deep night' ],
+	[ 'key' => 'desert',   'emoji' => '🌅', 'label' => 'Desert',   'desc' => 'Dunes at fajr' ],
+	[ 'key' => 'forest',   'emoji' => '🌿', 'label' => 'Forest',   'desc' => 'Green canopy at dawn' ],
+	[ 'key' => 'ocean',    'emoji' => '🌊', 'label' => 'Ocean',    'desc' => 'Slow tide under moon' ],
+	[ 'key' => 'kaaba',    'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The unseen tawaf' ],
+	[ 'key' => 'none',     'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else' ],
+];
+
+// Sound layers — optional auxiliary tracks to layer with the breath.
+// V1 ships the UI + state; audio assets land in /assets/audio/ and the
+// player wires them up. Toggling without assets is a silent no-op.
+$la_sound_layers = [
+	[ 'key' => 'chant',    'emoji' => '🎙', 'label' => 'Chant',  'desc' => 'A reciter holds the phrase under you' ],
+	[ 'key' => 'duff',     'emoji' => '🥁', 'label' => 'Duff',   'desc' => 'Soft frame-drum heartbeat' ],
+	[ 'key' => 'breath',   'emoji' => '🌬', 'label' => 'Breath', 'desc' => 'Audible inhale/exhale cue' ],
+];
+
 // Wisdom — load + pick three (one for landing, rest rotate during session)
 $la_wisdom = [];
 $wisdom_path = LA_DIR . 'inc/data/dhikr-wisdom.json';
@@ -174,6 +194,46 @@ get_header();
 			</div>
 		</div>
 
+		<!-- Scene — animated CSS backgrounds set the visual immersion. No
+		     external assets, no autoplay video bandwidth, no copyright issues. -->
+		<div class="la-dhikr-section">
+			<h2 class="la-dhikr-section-label">Scene</h2>
+			<div class="la-dhikr-scene-list" data-scene-list role="radiogroup" aria-label="Visual scene">
+				<?php foreach ( $la_scenes as $i => $s ) : ?>
+					<button type="button"
+						class="la-dhikr-scene-chip <?php echo $i === 0 ? 'is-selected' : ''; ?>"
+						role="radio"
+						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
+						data-scene="<?php echo esc_attr( $s['key'] ); ?>"
+						title="<?php echo esc_attr( $s['desc'] ); ?>">
+						<span class="la-dhikr-scene-emoji"><?php echo $s['emoji']; ?></span>
+						<span class="la-dhikr-scene-label"><?php echo esc_html( $s['label'] ); ?></span>
+					</button>
+				<?php endforeach; ?>
+			</div>
+		</div>
+
+		<!-- Sound layers — optional companion audio. Each is independent +
+		     stackable: a reciter chant can play under a duff drum under
+		     audible breath cues. V1 ships UI + state; audio files drop into
+		     /assets/audio/dhikr-{phrase}-{layer}.mp3 — toggling without
+		     a file is a silent no-op so the UI doesn't break. -->
+		<div class="la-dhikr-section">
+			<h2 class="la-dhikr-section-label">Sound layers <span class="la-dhikr-section-hint">optional · stackable</span></h2>
+			<div class="la-dhikr-sound-list" data-sound-list aria-label="Audio layers">
+				<?php foreach ( $la_sound_layers as $s ) : ?>
+					<button type="button"
+						class="la-dhikr-sound-chip"
+						data-sound="<?php echo esc_attr( $s['key'] ); ?>"
+						aria-pressed="false"
+						title="<?php echo esc_attr( $s['desc'] ); ?>">
+						<span class="la-dhikr-sound-emoji"><?php echo $s['emoji']; ?></span>
+						<span class="la-dhikr-sound-label"><?php echo esc_html( $s['label'] ); ?></span>
+					</button>
+				<?php endforeach; ?>
+			</div>
+		</div>
+
 		<button type="button" class="la-dhikr-begin" data-action="begin-dhikr">
 			<span>Begin</span>
 			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l8 6-8 6V6z" fill="currentColor"/></svg>
@@ -186,6 +246,21 @@ get_header();
 
 	<!-- ─── ACTIVE SESSION — the heart pulses with the breath ─── -->
 	<section class="la-dhikr-session" data-dhikr-scene="session" hidden>
+
+		<!-- Scene backdrop — pure CSS layers (stars, haze) coloured by the
+		     active scene class on the root. No video/asset download. -->
+		<div class="la-dhikr-backdrop" data-dhikr-backdrop aria-hidden="true">
+			<div class="la-dhikr-backdrop-stars"></div>
+			<div class="la-dhikr-backdrop-haze"></div>
+		</div>
+
+		<!-- Hidden audio elements — one per sound layer. A 404'd src is
+		     gracefully ignored so missing assets are a silent no-op. -->
+		<div class="la-dhikr-audio-rack" data-audio-rack aria-hidden="true">
+			<audio class="la-dhikr-audio" data-audio-key="chant"  loop preload="none"></audio>
+			<audio class="la-dhikr-audio" data-audio-key="duff"   loop preload="none"></audio>
+			<audio class="la-dhikr-audio" data-audio-key="breath" loop preload="none"></audio>
+		</div>
 
 		<!-- Slim header — phrase + countdown -->
 		<div class="la-dhikr-session-head">
