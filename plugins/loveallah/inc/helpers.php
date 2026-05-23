@@ -86,23 +86,9 @@ function la_render_feed_main( string $type_filter = '' ) : void {
 	}
 	defined( 'DONOTCACHEPAGE' ) || define( 'DONOTCACHEPAGE', true );
 
-	$cards      = LA_Algorithm::for_user( $user_id, $session_id, 20, 0, $type_filter ?: null );
-	$show_chips = ( $type_filter === '' ); // chips only on main Feed
+	$cards = LA_Algorithm::for_user( $user_id, $session_id, 20, 0, $type_filter ?: null );
 	?>
 	<main class="la-app la-app--feed" data-active-filter="<?php echo esc_attr( $type_filter ); ?>">
-
-		<?php if ( $show_chips ) : ?>
-			<nav class="la-feed-chips" data-feed-chips aria-label="Filter feed by type">
-				<button class="la-feed-chip is-active" type="button" data-type=""><?php esc_html_e( 'All', 'loveallah' ); ?></button>
-				<button class="la-feed-chip" type="button" data-type="reminder"><?php esc_html_e( 'Reminders', 'loveallah' ); ?></button>
-				<button class="la-feed-chip" type="button" data-type="nasheed"><?php esc_html_e( 'Nasheeds', 'loveallah' ); ?></button>
-				<button class="la-feed-chip" type="button" data-type="dhikr"><?php esc_html_e( 'Dhikr', 'loveallah' ); ?></button>
-				<button class="la-feed-chip" type="button" data-type="mindfulness"><?php esc_html_e( 'Mindfulness', 'loveallah' ); ?></button>
-				<button class="la-feed-chip" type="button" data-type="qirat"><?php esc_html_e( "Qira'at", 'loveallah' ); ?></button>
-				<button class="la-feed-chip" type="button" data-type="lecture"><?php esc_html_e( 'Lectures', 'loveallah' ); ?></button>
-			</nav>
-		<?php endif; ?>
-
 		<div class="la-feed-snap" data-feed data-initial-filter="<?php echo esc_attr( $type_filter ); ?>">
 			<?php foreach ( $cards as $card ) {
 				echo LA_FeedRender::card( $card );

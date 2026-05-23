@@ -130,12 +130,9 @@ class LA_FeedRender {
 						</div>
 					</div>
 				</div>
-				<?php if ( ! empty( $card->title ) ) : ?>
-					<h3 class="la-snap-title"><?php echo esc_html( $card->title ); ?></h3>
-				<?php endif; ?>
-				<?php if ( ! empty( $card->caption ) ) : ?>
-					<p class="la-snap-caption"><?php echo esc_html( $card->caption ); ?></p>
-				<?php endif; ?>
+				<?php // Title + caption intentionally removed — YouTube's own
+				// player chrome already shows the title, and our overlay was
+				// redundant + crowded the scholar attribution. ?>
 			</div>
 
 			<div class="la-snap-actions" aria-label="Post actions">
