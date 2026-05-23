@@ -557,9 +557,14 @@ button { font-family: inherit; }
 .la-snap-actions {
 	position: absolute;
 	right: 12px;
-	bottom: calc(var(--la-tabbar-h) + 24px + var(--la-safe-bottom));
+	/* Anchor to the middle of the snap area so the action column sits at
+	   eye-level rather than crammed against the tabbar. The flex stack
+	   grows down from the anchor — top button (mute) lands around 45%
+	   from the top of the snap, the others cascade below it. */
+	top: 45%;
+	bottom: auto;
 	display: flex; flex-direction: column;
-	gap: 16px;
+	gap: 18px;
 	z-index: 3;
 }
 

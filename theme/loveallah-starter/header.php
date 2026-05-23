@@ -133,6 +133,9 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 						<span class="la-streak-num"><?php echo (int) $la_streak; ?></span>
 					</div>
 				<?php endif; ?>
+				<a class="la-icon-btn" href="<?php echo esc_url( home_url( '/saved/' ) ); ?>" aria-label="Saved videos — your library" title="Your saved videos">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+				</a>
 				<button class="la-icon-btn la-geo-btn" type="button" aria-label="Use my location for prayer times" data-action="use-geo" title="<?php echo esc_attr( $la_geo_label ); ?> · tap to use my location">
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7-7-12a7 7 0 0 1 14 0c0 5-7 12-7 12z"/><circle cx="12" cy="10" r="2.5" fill="currentColor"/></svg>
 				</button>

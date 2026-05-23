@@ -438,22 +438,36 @@
 		const card = action.closest('.la-snap');
 		haptic(8);
 
+		// Optimistic UI for like/save toggles
+		const wasActive = action.classList.contains('is-active');
+		if (act === 'like' || act === 'save') {
+			action.classList.toggle('is-active', !wasActive);
+			action.setAttribute('aria-pressed', String(!wasActive));
+		}
+
+		// Server toggles. Response is { ok, active } — sync UI to server truth.
+		let res = null;
 		try {
-			await fetch(`${LA.apiRoot}feed/${id}/${act}`, {
+			const r = await fetch(`${LA.apiRoot}feed/${id}/${act}`, {
 				method: 'POST',
 				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
 			});
+			res = await r.json().catch(() => null);
 		} catch (err) { console.error(err); }
 
+		if ((act === 'like' || act === 'save') && res && typeof res.active === 'boolean') {
+			// Sync to server response in case optimistic UI was wrong
+			action.classList.toggle('is-active', res.active);
+			action.setAttribute('aria-pressed', String(res.active));
+		}
+
 		if (act === 'like') {
-			action.classList.toggle('is-active');
-			// Pop the button + tick the count with a slide animation
 			action.classList.remove('is-pop');
-			void action.offsetWidth; // restart animation
+			void action.offsetWidth;
 			action.classList.add('is-pop');
 			const span = action.querySelector('[data-likes]');
 			if (span) {
-				const newVal = parseInt(span.textContent || '0', 10) + (action.classList.contains('is-active') ? 1 : -1);
+				const newVal = parseInt(span.textContent || '0', 10) + (action.classList.contains('is-active') ? (wasActive ? 0 : 1) : (wasActive ? -1 : 0));
 				span.textContent = Math.max(0, newVal);
 				span.classList.remove('is-tick');
 				void span.offsetWidth;
@@ -462,8 +476,14 @@
 		}
 
 		if (act === 'save') {
-			const saved = action.classList.toggle('is-active');
-			// Mirror to localStorage so a "Saved" view can read it without server roundtrip
+			const saved = action.classList.contains('is-active');
+			// Swap label
+			const label = action.querySelector('.la-snap-action-count');
+			if (label) label.textContent = saved ? 'Saved' : 'Save';
+			// Fill the bookmark icon when active
+			const path = action.querySelector('svg path');
+			if (path) path.setAttribute('fill', saved ? 'currentColor' : 'none');
+			// Mirror to localStorage so an offline "Saved" view can read fast
 			try {
 				const saves = new Set(JSON.parse(localStorage.getItem('la_saved') || '[]'));
 				saved ? saves.add(id) : saves.delete(id);

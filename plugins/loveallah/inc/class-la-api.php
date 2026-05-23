@@ -301,6 +301,23 @@ class LA_API {
 		$type  = sanitize_key( (string) $req->get_param( 'type' ) ) ?: null;
 
 		$cards = LA_Algorithm::for_user( $user_id, $session_id, $limit, $page, $type );
+
+		// Bulk-decorate saved/liked state for the new batch (mirrors first-paint behaviour)
+		$post_ids = [];
+		foreach ( $cards as $c ) {
+			if ( ( $c->_card_type ?? '' ) === 'content' && ! empty( $c->id ) ) {
+				$post_ids[] = (int) $c->id;
+			}
+		}
+		$saved_map = LA_Feed::active_actions_for( $user_id, $session_id, $post_ids, 'save' );
+		$liked_map = LA_Feed::active_actions_for( $user_id, $session_id, $post_ids, 'like' );
+		foreach ( $cards as $c ) {
+			if ( ( $c->_card_type ?? '' ) === 'content' && ! empty( $c->id ) ) {
+				$c->_is_saved = isset( $saved_map[ (int) $c->id ] );
+				$c->_is_liked = isset( $liked_map[ (int) $c->id ] );
+			}
+		}
+
 		$html  = '';
 		foreach ( $cards as $card ) {
 			$html .= LA_FeedRender::card( $card );
@@ -317,8 +334,9 @@ class LA_API {
 		$id = (int) $req->get_param( 'id' );
 		$action = sanitize_key( $req->get_param( 'action' ) );
 		[ $user_id, $session_id ] = self::identity( $req );
-		$ok = LA_Feed::record_interaction( $id, $action, $user_id, $session_id );
-		return [ 'ok' => (bool) $ok ];
+		// Returns { ok: bool, active: bool } — active is the resulting state
+		// AFTER the toggle, so client can sync its is-active class correctly.
+		return LA_Feed::record_interaction( $id, $action, $user_id, $session_id );
 	}
 
 	public static function choose_mosque( WP_REST_Request $req ) {

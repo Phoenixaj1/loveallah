@@ -87,6 +87,24 @@ function la_render_feed_main( string $type_filter = '' ) : void {
 	defined( 'DONOTCACHEPAGE' ) || define( 'DONOTCACHEPAGE', true );
 
 	$cards = LA_Algorithm::for_user( $user_id, $session_id, 20, 0, $type_filter ?: null );
+
+	// Bulk-decorate content cards with this identity's saved/liked state
+	// so the bookmark + heart icons render in the correct state on first
+	// paint — no flicker waiting for client-side localStorage hydration.
+	$post_ids = [];
+	foreach ( $cards as $c ) {
+		if ( ( $c->_card_type ?? '' ) === 'content' && ! empty( $c->id ) ) {
+			$post_ids[] = (int) $c->id;
+		}
+	}
+	$saved_map = LA_Feed::active_actions_for( $user_id, $session_id, $post_ids, 'save' );
+	$liked_map = LA_Feed::active_actions_for( $user_id, $session_id, $post_ids, 'like' );
+	foreach ( $cards as $c ) {
+		if ( ( $c->_card_type ?? '' ) === 'content' && ! empty( $c->id ) ) {
+			$c->_is_saved = isset( $saved_map[ (int) $c->id ] );
+			$c->_is_liked = isset( $liked_map[ (int) $c->id ] );
+		}
+	}
 	?>
 	<main class="la-app la-app--feed" data-active-filter="<?php echo esc_attr( $type_filter ); ?>">
 		<div class="la-feed-snap" data-feed data-initial-filter="<?php echo esc_attr( $type_filter ); ?>">

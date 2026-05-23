@@ -45,7 +45,10 @@ class LA_Algorithm {
 	 */
 	public static function for_user( ?int $user_id, ?string $session_id, int $limit = 20, int $page = 0, ?string $type_filter = null ) : array {
 		$affinities = self::scholar_affinities( $user_id, $session_id );
-		$seen_ids   = self::recently_seen_post_ids( $user_id, $session_id, 60 );
+		// Widened from 60 → 250 so the seen-penalty remembers further back,
+		// keeping the feed feeling fresh across many return visits even on
+		// devices/sessions that scroll deep in one sitting.
+		$seen_ids   = self::recently_seen_post_ids( $user_id, $session_id, 250 );
 		$all        = self::ranked_content_full( $affinities, $seen_ids, $user_id, $session_id, $page, $type_filter );
 
 		// Dhikr only mixed in on page 0 AND only when not filtering (filtered views = pure content)

@@ -42,35 +42,100 @@ class LA_Feed {
 		) );
 	}
 
-	public static function record_interaction( int $post_id, string $action, ?int $user_id, ?string $session_id ) : bool {
+	public static function record_interaction( int $post_id, string $action, ?int $user_id, ?string $session_id ) : array {
 		$valid = [ 'view', 'like', 'save', 'share', 'complete' ];
-		if ( ! in_array( $action, $valid, true ) ) return false;
+		if ( ! in_array( $action, $valid, true ) ) return [ 'ok' => false ];
 
 		global $wpdb;
 		$t = LA_DB::tables();
+		$col = $user_id ? 'user_id' : 'session_id';
+		$val = $user_id ?: $session_id;
+		if ( ! $val ) return [ 'ok' => false ];
+
+		// Save + like are TOGGLES — second tap removes the row so the user
+		// can unsave / unlike. view/share/complete always append (audit trail).
+		$is_toggle = in_array( $action, [ 'save', 'like' ], true );
+
+		if ( $is_toggle ) {
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t['feed_interactions']}
+				 WHERE post_id = %d AND action = %s AND {$col} = %s
+				 LIMIT 1",
+				$post_id, $action, (string) $val
+			) );
+			if ( $existing ) {
+				$wpdb->delete( $t['feed_interactions'], [ 'id' => $existing ] );
+				if ( $action === 'like' ) {
+					$wpdb->query( $wpdb->prepare(
+						"UPDATE {$t['feed_posts']} SET likes_count = GREATEST(0, likes_count - 1) WHERE id = %d",
+						$post_id
+					) );
+				} else {
+					$wpdb->query( $wpdb->prepare(
+						"UPDATE {$t['feed_posts']} SET saves_count = GREATEST(0, saves_count - 1) WHERE id = %d",
+						$post_id
+					) );
+				}
+				return [ 'ok' => true, 'active' => false ];
+			}
+			$wpdb->insert( $t['feed_interactions'], [
+				'post_id' => $post_id,
+				'action' => $action,
+				'user_id' => $user_id,
+				'session_id' => $session_id ?: null,
+			] );
+			if ( $action === 'like' ) {
+				$wpdb->query( $wpdb->prepare(
+					"UPDATE {$t['feed_posts']} SET likes_count = likes_count + 1 WHERE id = %d",
+					$post_id
+				) );
+			} else {
+				$wpdb->query( $wpdb->prepare(
+					"UPDATE {$t['feed_posts']} SET saves_count = saves_count + 1 WHERE id = %d",
+					$post_id
+				) );
+			}
+			return [ 'ok' => true, 'active' => true ];
+		}
+
+		// view, share, complete — append every time
 		$wpdb->insert( $t['feed_interactions'], [
 			'post_id' => $post_id,
 			'action' => $action,
 			'user_id' => $user_id,
 			'session_id' => $session_id ?: null,
 		] );
-
-		if ( $action === 'like' ) {
-			$wpdb->query( $wpdb->prepare(
-				"UPDATE {$t['feed_posts']} SET likes_count = likes_count + 1 WHERE id = %d",
-				$post_id
-			) );
-		} elseif ( $action === 'save' ) {
-			$wpdb->query( $wpdb->prepare(
-				"UPDATE {$t['feed_posts']} SET saves_count = saves_count + 1 WHERE id = %d",
-				$post_id
-			) );
-		} elseif ( $action === 'share' ) {
+		if ( $action === 'share' ) {
 			$wpdb->query( $wpdb->prepare(
 				"UPDATE {$t['feed_posts']} SET shares_count = shares_count + 1 WHERE id = %d",
 				$post_id
 			) );
 		}
-		return true;
+		return [ 'ok' => true, 'active' => true ];
+	}
+
+	/**
+	 * Bulk-fetch which post IDs an identity has saved/liked so the feed
+	 * can render the correct is-active state on first paint instead of
+	 * waiting for the client to read localStorage after hydration.
+	 */
+	public static function active_actions_for( ?int $user_id, ?string $session_id, array $post_ids, string $action = 'save' ) : array {
+		if ( empty( $post_ids ) ) return [];
+		global $wpdb;
+		$t = LA_DB::tables();
+		$col = $user_id ? 'user_id' : 'session_id';
+		$val = $user_id ?: $session_id;
+		if ( ! $val ) return [];
+
+		$ids = array_map( 'intval', $post_ids );
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$rows = $wpdb->get_col( $wpdb->prepare(
+			"SELECT DISTINCT post_id FROM {$t['feed_interactions']}
+			 WHERE action = %s AND {$col} = %s AND post_id IN ( $placeholders )",
+			array_merge( [ $action, (string) $val ], $ids )
+		) );
+		$map = [];
+		foreach ( $rows as $id ) { $map[ (int) $id ] = true; }
+		return $map;
 	}
 }
