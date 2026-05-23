@@ -13,10 +13,35 @@ function la_get_or_set_session_id() : string {
 	}
 	$sid = wp_generate_password( 32, false, false );
 	if ( ! headers_sent() ) {
-		setcookie( 'la_session', $sid, time() + ( 30 * DAY_IN_SECONDS ), COOKIEPATH ?: '/', COOKIE_DOMAIN, is_ssl(), true );
+		setcookie(
+			'la_session',
+			$sid,
+			[
+				'expires'  => time() + ( 30 * DAY_IN_SECONDS ),
+				'path'     => COOKIEPATH ?: '/',
+				'domain'   => COOKIE_DOMAIN,
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			]
+		);
 	}
 	$_COOKIE['la_session'] = $sid;
 	return $sid;
+}
+
+/**
+ * Set the la_session cookie early on every request, before any output.
+ * Without this, get_header() flushes output before la_render_feed_main()
+ * runs — so setcookie() silently fails (headers already sent) and every
+ * page load creates a brand-new session, wiping the user's unlock state.
+ */
+add_action( 'send_headers', 'la_seed_session_cookie_early', 1 );
+function la_seed_session_cookie_early() : void {
+	if ( is_admin() ) return;
+	if ( headers_sent() ) return;
+	if ( ! empty( $_COOKIE['la_session'] ) ) return;
+	la_get_or_set_session_id();
 }
 
 function la_chosen_mosque() {
