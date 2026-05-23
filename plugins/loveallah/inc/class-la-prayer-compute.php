@@ -81,14 +81,44 @@ class LA_Prayer_Compute {
 			$isha_t = self::compute_time( (float) $isha_angle, 18.0 / 24.0, $julian, $lat, $lng, $tz_offset );
 		}
 
-		// Convert local-day fractions to HH:MM
+		// HIGH-LATITUDE FIX: at lat > ~48° in summer the sun never gets
+		// 15-18° below the horizon — Fajr/Isha angle equations wrap around
+		// and produce nonsense (Fajr after sunrise, Isha before maghrib).
+		// Fallback to the "Angle-Based" rule: take a fraction of the night
+		// duration based on the configured angle (commonly used in UK/EU).
+		$offset_to_local = $tz_offset - $lng / 15.0;
+		$sunrise_local = self::fix_hour( $sunrise_t + $offset_to_local );
+		$sunset_local  = self::fix_hour( $maghrib_t + $offset_to_local );
+		$night_hours   = self::fix_hour( $sunrise_local - $sunset_local + 24 ) - 24 < 0
+			? ( 24 - $sunset_local ) + $sunrise_local
+			: ( 24 - $sunset_local ) + $sunrise_local;
+
+		$fajr_local = self::fix_hour( $fajr_t + $offset_to_local );
+		$isha_local = is_string( $isha_angle ) ? null : self::fix_hour( $isha_t + $offset_to_local );
+
+		// If Fajr falls AFTER sunrise or more than 3h before sunrise on
+		// a short summer night, recompute using angle-based proportion.
+		$fajr_distance_from_sunrise = self::fix_hour( $sunrise_local - $fajr_local + 24 );
+		if ( $fajr_distance_from_sunrise > 6 || $fajr_distance_from_sunrise < 0.3 ) {
+			$fajr_local = self::fix_hour( $sunrise_local - ( $fajr_angle / 60.0 ) * $night_hours );
+		}
+		if ( $isha_local !== null ) {
+			$isha_distance_from_maghrib = self::fix_hour( $isha_local - $sunset_local + 24 );
+			$isha_distance_from_maghrib = $isha_distance_from_maghrib > 12 ? ( $isha_distance_from_maghrib - 24 ) : $isha_distance_from_maghrib;
+			if ( $isha_distance_from_maghrib > 6 || $isha_distance_from_maghrib < 0.3 ) {
+				$isha_local = self::fix_hour( $sunset_local + ( (float) $isha_angle / 60.0 ) * $night_hours );
+			}
+		} else {
+			$isha_local = self::fix_hour( $isha_t + $offset_to_local );
+		}
+
 		return [
-			'Fajr'    => self::frac_to_hhmm( $fajr_t + $tz_offset - $lng / 15.0 ),
-			'Sunrise' => self::frac_to_hhmm( $sunrise_t + $tz_offset - $lng / 15.0 ),
-			'Dhuhr'   => self::frac_to_hhmm( $dhuhr_t + $tz_offset - $lng / 15.0 ),
-			'Asr'     => self::frac_to_hhmm( $asr_t + $tz_offset - $lng / 15.0 ),
-			'Maghrib' => self::frac_to_hhmm( $maghrib_t + $tz_offset - $lng / 15.0 ),
-			'Isha'    => self::frac_to_hhmm( $isha_t + $tz_offset - $lng / 15.0 ),
+			'Fajr'    => self::frac_to_hhmm( $fajr_local ),
+			'Sunrise' => self::frac_to_hhmm( $sunrise_local ),
+			'Dhuhr'   => self::frac_to_hhmm( $dhuhr_t + $offset_to_local ),
+			'Asr'     => self::frac_to_hhmm( $asr_t + $offset_to_local ),
+			'Maghrib' => self::frac_to_hhmm( $sunset_local ),
+			'Isha'    => self::frac_to_hhmm( $isha_local ),
 		];
 	}
 
