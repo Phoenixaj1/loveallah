@@ -2271,7 +2271,7 @@ button { font-family: inherit; }
 .la-dhikr-rhythm-meta {
 	display: flex; flex-direction: column; align-items: center;
 	color: rgba(255, 255, 255, 0.88);
-	min-width: 56px;
+	min-width: 96px;
 }
 .la-dhikr-rhythm-label {
 	font-size: 9px; font-weight: 800;
@@ -2280,10 +2280,25 @@ button { font-family: inherit; }
 	color: rgba(255, 255, 255, 0.5);
 }
 .la-dhikr-rhythm-value {
-	font-size: 16px; font-weight: 800;
-	font-variant-numeric: tabular-nums;
+	display: flex; flex-direction: column; align-items: center;
 	color: #fff;
 	margin-top: -1px;
+	line-height: 1.1;
+}
+.la-dhikr-rhythm-num {
+	font-size: 14px; font-weight: 800;
+	font-variant-numeric: tabular-nums;
+}
+.la-dhikr-rhythm-stage {
+	font-size: 9px; font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: lowercase;
+	color: rgba(255, 255, 255, 0.55);
+	margin-top: 1px;
+}
+.la-dhikr-rhythm-value.is-coherence .la-dhikr-rhythm-num {
+	color: #ffd966;
+	text-shadow: 0 0 8px rgba(255, 217, 102, 0.55);
 }
 
 /* Pulse animation — drives the circle to expand on inhale, contract on exhale.

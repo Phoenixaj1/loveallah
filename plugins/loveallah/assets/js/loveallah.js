@@ -1663,8 +1663,36 @@
 			});
 		}
 
-		// Live breath duration in seconds (mutable — rhythm slider updates this)
+		// Live breath duration in seconds. Mutable: the session arc auto-ramps
+		// this (settle → coherence → deepen → hold). Manual ± slider locks
+		// rhythmMode to 'manual' and the arc stops touching it.
 		let breathS = 8;
+		let rhythmMode = 'auto';     // 'auto' | 'manual'
+		let phraseBaseS = 10;        // captured from selected.phrase.breath_s at session start
+
+		// SESSION ARC — guided respiratory ramping toward transcendence.
+		// Research (HeartMath, Lehrer/Gevirtz) shows you can't drop a user
+		// straight to 6/min — they need to be eased in, held in coherence,
+		// then deepened. Returns multiplier of the phrase's natural breath_s.
+		//   0-15%   settle    → 0.8× phrase_s (gentler than coherence)
+		//   15-25%  ramp-in   → smooth interpolate 0.8 → 1.0
+		//   25-70%  coherence → 1.0× (= phrase's breath_s, 6/min for kalimah)
+		//   70-90%  deepen    → smooth interpolate 1.0 → 1.2
+		//   90-100% hold      → 1.2× (5/min for kalimah — opens the heart)
+		function arcMultiplier(progress) {
+			if (progress < 0.15) return 0.8;
+			if (progress < 0.25) return 0.8 + (progress - 0.15) / 0.10 * 0.2;
+			if (progress < 0.70) return 1.0;
+			if (progress < 0.90) return 1.0 + (progress - 0.70) / 0.20 * 0.2;
+			return 1.2;
+		}
+		function arcStageLabel(progress) {
+			if (progress < 0.15) return 'settle';
+			if (progress < 0.25) return 'easing in';
+			if (progress < 0.70) return 'coherence';
+			if (progress < 0.90) return 'deepening';
+			return 'holding';
+		}
 
 		function startSession() {
 			showScene('session');
@@ -1690,9 +1718,12 @@
 			audioLayers.chant?.on();
 			// Duff fires on each breath beat, see breathTick below
 
-			// Apply breath duration to CSS animation. breath_s comes from the phrase
-			// (typical 7-9s) but the rhythm slider can override it per-session.
-			breathS = selected.phrase.breath_s || 8;
+			// Start with the session-arc settle pace (0.8× phrase rate).
+			// The arc auto-ramps as session progresses unless the user
+			// presses the rhythm ± buttons (which locks to manual mode).
+			rhythmMode = 'auto';
+			phraseBaseS = selected.phrase.breath_s || 10;
+			breathS = +(phraseBaseS * 0.8).toFixed(1);
 			updateRhythmDisplay();
 			applyBreathAnimDuration();
 
@@ -1859,15 +1890,18 @@
 			}
 		}
 
-		// Rhythm controls — ± buttons step breath_s by 1s, clamped [3, 18]
+		// Rhythm controls — ± buttons step breath_s by 1s, clamped [3, 18].
+		// First manual press locks rhythmMode to 'manual' for the rest of
+		// the session (user agency overrides the auto-ramp).
 		rhythmControl?.addEventListener('click', (e) => {
 			const btn = e.target.closest('[data-rhythm]');
 			if (!btn) return;
 			const dir = btn.getAttribute('data-rhythm');
-			let next = breathS + (dir === 'faster' ? -1 : 1);
+			let next = Math.round(breathS) + (dir === 'faster' ? -1 : 1);
 			next = Math.max(3, Math.min(18, next));
-			if (next === breathS) return;
+			if (next === Math.round(breathS)) return;
 			breathS = next;
+			rhythmMode = 'manual';
 			updateRhythmDisplay();
 			applyBreathAnimDuration();
 			startBreathInterval();
@@ -1875,12 +1909,23 @@
 		});
 		function updateRhythmDisplay() {
 			if (!rhythmValue) return;
-			// Show seconds + breaths-per-minute. 6/min ≈ coherence frequency
-			// (gold-standard for HRV/parasympathetic activation).
+			// Show seconds + breaths-per-minute on line 1, arc-stage on line 2.
+			// 6/min ≈ coherence frequency (Lehrer & Gevirtz 2014; gold-standard
+			// for HRV + parasympathetic activation).
 			const bpm = (60 / breathS).toFixed(1).replace(/\.0$/, '');
-			rhythmValue.textContent = breathS + 's · ' + bpm + '/min';
-			// Add a hint when the user is in the coherence band (5-7/min)
-			rhythmValue.classList.toggle('is-coherence', breathS >= 8 && breathS <= 12);
+			let stage = '';
+			if (rhythmMode === 'auto' && endsAt) {
+				const total = selected.duration * 60 * 1000;
+				const elapsed = total - Math.max(0, endsAt - Date.now());
+				const pct = Math.max(0, Math.min(1, elapsed / total));
+				stage = arcStageLabel(pct);
+			} else if (rhythmMode === 'manual') {
+				stage = 'manual';
+			}
+			const secs = breathS.toFixed(1).replace(/\.0$/, '');
+			rhythmValue.innerHTML = '<span class="la-dhikr-rhythm-num">' + secs + 's · ' + bpm + '/min</span>'
+				+ (stage ? '<span class="la-dhikr-rhythm-stage">' + stage + '</span>' : '');
+			rhythmValue.classList.toggle('is-coherence', breathS >= 8 && breathS <= 13);
 		}
 
 		function destroyAudioLayers() {
@@ -1900,6 +1945,21 @@
 			const elapsed = total - remaining;
 			const pct = Math.min(100, (elapsed / total) * 100);
 			if (progressFill) progressFill.style.width = pct + '%';
+
+			// Auto-ramp the breath rhythm along the session arc. Only when in
+			// 'auto' mode (user hasn't manually overridden via ± buttons).
+			// Only update by ≥0.3s steps to avoid jittery micro-adjustments.
+			if (rhythmMode === 'auto') {
+				const target = +(phraseBaseS * arcMultiplier(pct / 100)).toFixed(1);
+				if (Math.abs(target - breathS) >= 0.3) {
+					breathS = target;
+					updateRhythmDisplay();
+					applyBreathAnimDuration();
+					// Don't restart interval mid-cycle — the next nextHalf()
+					// call already reads breathS dynamically.
+				}
+			}
+
 			if (remaining <= 0) finishSession();
 		}
 
