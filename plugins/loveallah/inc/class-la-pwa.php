@@ -16,9 +16,32 @@ class LA_PWA {
 	public static function register() : void {
 		add_action( 'init',          [ __CLASS__, 'rewrites' ] );
 		add_filter( 'query_vars',    [ __CLASS__, 'query_vars' ] );
+		add_action( 'parse_request', [ __CLASS__, 'serve_early' ] );
 		add_action( 'template_redirect', [ __CLASS__, 'serve' ] );
+		// Block WP's canonical redirect for our PWA endpoints (it adds trailing slash).
+		add_filter( 'redirect_canonical', [ __CLASS__, 'no_canonical_for_pwa' ], 10, 2 );
 		add_action( 'wp_head',       [ __CLASS__, 'head_tags' ], 1 );
 		add_action( 'wp_footer',     [ __CLASS__, 'register_sw_script' ], 99 );
+	}
+
+	/**
+	 * Serve PWA assets as early as possible — before WP's redirect_canonical fires.
+	 */
+	public static function serve_early( $wp ) : void {
+		if ( empty( $wp->query_vars['la_pwa'] ) ) return;
+		self::dispatch( $wp->query_vars['la_pwa'] );
+	}
+
+	/**
+	 * Disable trailing-slash redirect for PWA paths.
+	 */
+	public static function no_canonical_for_pwa( $redirect_url, $requested_url ) {
+		$path = wp_parse_url( $requested_url, PHP_URL_PATH );
+		if ( ! $path ) return $redirect_url;
+		if ( $path === '/manifest.json' || $path === '/sw.js' || $path === '/.well-known/assetlinks.json' ) {
+			return false;
+		}
+		return $redirect_url;
 	}
 
 	public static function rewrites() : void {
@@ -38,7 +61,10 @@ class LA_PWA {
 	public static function serve() : void {
 		$type = get_query_var( 'la_pwa' );
 		if ( ! $type ) return;
+		self::dispatch( $type );
+	}
 
+	private static function dispatch( string $type ) : void {
 		switch ( $type ) {
 			case 'manifest':   self::send_manifest();   break;
 			case 'sw':         self::send_sw();         break;
