@@ -846,7 +846,106 @@
 		);
 	});
 
-	// ─── Duas snap feed — Ameen / Save / Share ───
+	// ─── Duas sidebar — switch categories ───
+	const duasApp = document.querySelector('.la-app--duas-sidebar');
+	if (duasApp) {
+		const railButtons = duasApp.querySelectorAll('[data-cat]');
+		const sections = duasApp.querySelectorAll('[data-cat-section]');
+		const catIcon = duasApp.querySelector('[data-cat-icon]');
+		const catTitle = duasApp.querySelector('[data-cat-title]');
+		const catSub = duasApp.querySelector('[data-cat-sub]');
+		let cats = {};
+		try { cats = JSON.parse(duasApp.querySelector('#la-duas-cats').textContent); } catch (_) {}
+
+		railButtons.forEach(btn => {
+			btn.addEventListener('click', () => {
+				const key = btn.dataset.cat;
+				railButtons.forEach(b => b.classList.toggle('is-active', b === btn));
+				sections.forEach(s => s.classList.toggle('is-active', s.dataset.catSection === key));
+				const meta = cats[key];
+				if (meta) {
+					if (catIcon) catIcon.textContent = meta.emoji;
+					if (catTitle) catTitle.textContent = meta.label;
+					if (catSub) catSub.textContent = meta.sub;
+				}
+				// Reset scroll to top for new category
+				const pane = duasApp.querySelector('.la-duas-pane');
+				pane?.scrollTo({ top: 0, behavior: 'smooth' });
+				if (navigator.vibrate) navigator.vibrate(10);
+			});
+		});
+	}
+
+	// ─── New duas layout — Ameen / Copy / Share buttons ───
+	document.addEventListener('click', async (e) => {
+		const btn = e.target.closest('.la-dua-btn');
+		if (!btn) return;
+		const card = btn.closest('.la-dua');
+		if (!card) return;
+		const action = btn.dataset.action;
+		const id = btn.dataset.id;
+		if (!id) return;
+
+		if (action === 'ameen') {
+			const was = btn.classList.contains('is-active');
+			btn.classList.toggle('is-active', !was);
+			btn.setAttribute('aria-pressed', String(!was));
+			btn.classList.remove('is-popping'); void btn.offsetWidth; btn.classList.add('is-popping');
+			const countEl = btn.querySelector('[data-ameen-count]');
+			if (countEl) {
+				const cur = parseInt(countEl.textContent || '0', 10);
+				countEl.textContent = Math.max(0, cur + (was ? -1 : 1));
+			}
+			if (navigator.vibrate) navigator.vibrate(was ? [12, 30, 12] : [18, 24, 30]);
+			try {
+				const res = await fetch(`${LA.apiRoot}duas/${id}/ameen`, {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': LA.nonce, 'Content-Type': 'application/json' },
+					credentials: 'include',
+				});
+				if (!res.ok) throw new Error('failed');
+				const data = await res.json();
+				btn.classList.toggle('is-active', !!data.ameen);
+				btn.setAttribute('aria-pressed', String(!!data.ameen));
+				if (countEl) countEl.textContent = data.count || 0;
+			} catch (_) {
+				btn.classList.toggle('is-active', was);
+				btn.setAttribute('aria-pressed', String(was));
+			}
+			return;
+		}
+
+		// Copy / Share — assemble dua text
+		const arabic = card.querySelector('.la-dua-arabic')?.textContent.trim() || '';
+		const translit = card.querySelector('.la-dua-translit')?.textContent.trim() || '';
+		const meaning = card.querySelector('.la-dua-meaning')?.textContent.trim() || '';
+		const source = card.querySelector('.la-dua-source')?.textContent.trim() || '';
+		const title = card.querySelector('.la-dua-title')?.textContent.trim() || '';
+		const txt = [title, arabic, translit, meaning, source && '— ' + source].filter(Boolean).join('\n\n');
+
+		if (action === 'save') {
+			try {
+				await navigator.clipboard.writeText(txt);
+				btn.classList.add('is-active');
+				const lbl = btn.querySelector('span');
+				const orig = lbl.textContent;
+				lbl.textContent = 'Copied';
+				if (navigator.vibrate) navigator.vibrate(15);
+				setTimeout(() => { btn.classList.remove('is-active'); lbl.textContent = orig; }, 1600);
+			} catch (_) {}
+		} else if (action === 'share') {
+			if (navigator.share) {
+				try {
+					await navigator.share({ title: 'Love Allah · ' + title, text: txt, url: location.origin + '/duas/' });
+					if (navigator.vibrate) navigator.vibrate(15);
+				} catch (_) {}
+			} else {
+				try { await navigator.clipboard.writeText(txt); btn.querySelector('span').textContent = 'Copied'; } catch (_) {}
+			}
+		}
+	});
+
+	// ─── Legacy snap-feed Ameen handler (kept for back-compat if old layout reappears) ───
 	document.addEventListener('click', async (e) => {
 		const btn = e.target.closest('.la-dua-snap-action');
 		if (!btn) return;
@@ -1111,6 +1210,210 @@
 	}
 	const tasbeehEl = document.querySelector('[data-tasbeeh]');
 	if (tasbeehEl) initTasbeeh(tasbeehEl);
+
+	// ─── Heart-Polish dhikr meditation (only on /dhikr v0.8+) ───
+	const dhikrApp = document.querySelector('[data-dhikr-app]');
+	if (dhikrApp) initDhikrMeditation(dhikrApp);
+
+	function initDhikrMeditation(root) {
+		const cfgEl = root.querySelector('#la-dhikr-config');
+		if (!cfgEl) return;
+		let config = {};
+		try { config = JSON.parse(cfgEl.textContent); } catch (_) { return; }
+		const phrases = config.phrases || [];
+		const wisdom = config.wisdom || [];
+		if (!phrases.length) return;
+
+		// Scenes
+		const scenes = {
+			landing:  root.querySelector('[data-dhikr-scene="landing"]'),
+			session:  root.querySelector('[data-dhikr-scene="session"]'),
+			complete: root.querySelector('[data-dhikr-scene="complete"]'),
+		};
+
+		// Landing controls
+		const phraseList = root.querySelector('[data-phrase-list]');
+		const durationList = root.querySelector('[data-duration-list]');
+		const modeList = root.querySelector('[data-mode-list]');
+		const beginBtn = root.querySelector('[data-action="begin-dhikr"]');
+
+		// Session UI refs
+		const sessionPhrase = root.querySelector('[data-active-phrase]');
+		const sessionTimer  = root.querySelector('[data-active-timer]');
+		const breathArabic  = root.querySelector('[data-breath-arabic]');
+		const breathCue     = root.querySelector('[data-breath-cue]');
+		const breathCircle  = root.querySelector('.la-breath-circle');
+		const breathGlow    = root.querySelector('.la-breath-glow');
+		const guidanceEl    = root.querySelector('[data-dhikr-guidance]');
+		const progressFill  = root.querySelector('[data-progress-fill]');
+
+		let selected = {
+			phrase: phrases[0],
+			duration: 7,
+			mode: 'qalbi',
+		};
+
+		// Radio-group click handler (delegated)
+		function bindRadio(list, attr, onChange) {
+			list?.addEventListener('click', (e) => {
+				const btn = e.target.closest('[' + attr + ']');
+				if (!btn) return;
+				list.querySelectorAll('[' + attr + ']').forEach(b => {
+					b.classList.toggle('is-selected', b === btn);
+					b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
+				});
+				onChange(btn);
+				if (navigator.vibrate) navigator.vibrate(10);
+			});
+		}
+		bindRadio(phraseList, 'data-phrase-key', (btn) => {
+			try { selected.phrase = JSON.parse(btn.getAttribute('data-phrase')); } catch (_) {}
+		});
+		bindRadio(durationList, 'data-duration', (btn) => {
+			selected.duration = parseInt(btn.getAttribute('data-duration'), 10);
+		});
+		bindRadio(modeList, 'data-mode', (btn) => {
+			selected.mode = btn.getAttribute('data-mode');
+		});
+
+		// Begin session
+		beginBtn?.addEventListener('click', () => {
+			startSession();
+		});
+
+		// Session state
+		let sessionTimer_handle = null;
+		let breathTimer_handle = null;
+		let guidanceTimer_handle = null;
+		let endsAt = 0;
+		let breathPhase = 'inhale'; // inhale | exhale
+		let breathCycleIndex = 0;
+
+		function showScene(name) {
+			Object.entries(scenes).forEach(([k, el]) => {
+				if (!el) return;
+				el.hidden = (k !== name);
+			});
+		}
+
+		function startSession() {
+			showScene('session');
+			document.body.classList.add('is-dhikr-active');
+			root.classList.remove('is-lisani', 'is-qalbi', 'is-sirri');
+			root.classList.add('is-' + selected.mode);
+
+			// Apply breath duration to CSS animation
+			const breathS = selected.phrase.breath_s || 8;
+			breathCircle.style.animationDuration = breathS + 's';
+			breathGlow.style.animationDuration = breathS + 's';
+
+			// Initial Arabic
+			breathArabic.textContent = selected.phrase.arabic || '';
+			sessionPhrase.textContent = selected.phrase.translit || '';
+
+			// Timer
+			endsAt = Date.now() + (selected.duration * 60 * 1000);
+			tickTimer();
+			sessionTimer_handle = setInterval(tickTimer, 500);
+
+			// Breath cycle — toggle inhale/exhale on half-breath cadence
+			breathPhase = 'inhale';
+			breathCycleIndex = 0;
+			updateBreathPhase();
+			breathTimer_handle = setInterval(() => {
+				breathPhase = (breathPhase === 'inhale') ? 'exhale' : 'inhale';
+				if (breathPhase === 'inhale') breathCycleIndex++;
+				updateBreathPhase();
+			}, (breathS / 2) * 1000);
+
+			// Guidance rotation
+			rotateGuidance();
+			guidanceTimer_handle = setInterval(rotateGuidance, 18000);
+
+			// Soft start haptic
+			if (navigator.vibrate) navigator.vibrate([20, 60, 30, 60, 20]);
+		}
+
+		function updateBreathPhase() {
+			const p = selected.phrase;
+			const cue = breathPhase === 'inhale' ? (p.inhale || 'Inhale') : (p.exhale || 'Exhale');
+			breathCue.textContent = cue;
+			// In Sirri (Secret) mode, Arabic stays hidden
+			if (selected.mode !== 'sirri') {
+				breathArabic.style.opacity = breathPhase === 'inhale' ? '1' : '0.55';
+			}
+		}
+
+		function tickTimer() {
+			const remaining = Math.max(0, endsAt - Date.now());
+			const mins = Math.floor(remaining / 60000);
+			const secs = Math.floor((remaining % 60000) / 1000);
+			sessionTimer.textContent = mins + ':' + String(secs).padStart(2, '0');
+			const total = selected.duration * 60 * 1000;
+			const elapsed = total - remaining;
+			const pct = Math.min(100, (elapsed / total) * 100);
+			if (progressFill) progressFill.style.width = pct + '%';
+			if (remaining <= 0) finishSession();
+		}
+
+		// Guidance: rotate Sufi prompts/wisdom during the session
+		const guidancePrompts = [
+			'Bring your attention to the heart, two fingers beneath the centre of your chest.',
+			'Let the breath be slow. The dhikr enters with the inhale, the world leaves with the exhale.',
+			'Do not chase the count. The Beloved sees the heart, not the tongue.',
+			'Notice the stillness between breaths. Allah is there.',
+			'When the mind wanders, return without scolding. The return itself is the dhikr.',
+			'Imagine the Name descending into the heart with each breath.',
+			'The polish needs no force. Only persistence.',
+			'You are not calling Him from afar. He is closer to you than your jugular vein.',
+		];
+		let guidanceIdx = 0;
+		function rotateGuidance() {
+			if (!guidanceEl) return;
+			// In Sirri mode, no guidance text — pure presence
+			if (selected.mode === 'sirri') {
+				guidanceEl.textContent = '';
+				return;
+			}
+			guidanceEl.style.opacity = '0';
+			setTimeout(() => {
+				// Alternate between guidance prompts and wisdom quotes
+				if (guidanceIdx % 2 === 0 || !wisdom.length) {
+					guidanceEl.textContent = guidancePrompts[guidanceIdx % guidancePrompts.length];
+				} else {
+					const w = wisdom[Math.floor(Math.random() * wisdom.length)];
+					guidanceEl.textContent = '"' + w.quote + '"';
+				}
+				guidanceEl.style.opacity = '1';
+				guidanceIdx++;
+			}, 600);
+		}
+
+		function clearTimers() {
+			clearInterval(sessionTimer_handle);
+			clearInterval(breathTimer_handle);
+			clearInterval(guidanceTimer_handle);
+			sessionTimer_handle = breathTimer_handle = guidanceTimer_handle = null;
+		}
+
+		function endSession() {
+			clearTimers();
+			document.body.classList.remove('is-dhikr-active');
+			showScene('landing');
+		}
+
+		function finishSession() {
+			clearTimers();
+			showScene('complete');
+			if (navigator.vibrate) navigator.vibrate([40, 80, 40]);
+		}
+
+		root.querySelector('[data-action="end-session"]')?.addEventListener('click', endSession);
+		root.querySelector('[data-action="return-home"]')?.addEventListener('click', endSession);
+		root.querySelector('[data-action="reset-session"]')?.addEventListener('click', () => {
+			showScene('landing');
+		});
+	}
 
 	// ─── Prayer tracking — tap a prayer cell to mark prayed today ───
 	header.addEventListener('click', async (e) => {

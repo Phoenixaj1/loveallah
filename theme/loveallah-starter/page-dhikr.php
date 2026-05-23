@@ -1,145 +1,241 @@
 <?php
 /**
- * Dhikr page — interactive tasbeeh counter + curated dhikr feed below.
+ * Dhikr — heart-polishing contemplation.
  *
- * The big circular tap target is the primary experience here; videos
- * scroll up from below for users who want to soak in recitation.
+ * Not a counter, not a game. A breath-paced silent practice rooted in
+ * the Sufi sciences: dhikr is the polish for the heart's rust, the
+ * means by which the slave's heart finds rest (Quran 13:28).
+ *
+ * UX:  Landing (phrase + duration + mode) → breath circle session →
+ *      reflection completion.
  *
  * @package LoveAllah
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Tasbeeh phrases — cycles 33 → 33 → 34 (standard post-salah tasbih).
-// Each has a hand-picked YouTube video that loops the chant — used as a
-// karaoke-style background behind the tasbeeh bead.
-$la_tasbeeh = [
+// The dhikr phrases — ordered from the highest to the everyday.
+// La ilaha illa Allah is the primary dhikr of the Sufi orders (the kalimah),
+// the testimony itself and the means by which the heart is unlocked.
+$la_phrases = [
 	[
-		'key' => 'subhanallah',
-		'arabic' => 'سُبْحَانَ ٱللَّٰه',
-		'translit' => 'Subḥān Allāh',
-		'meaning' => 'Glory be to Allah',
-		'target' => 33,
-		'color' => '#1e8e3e',
-		'video' => 'MR6q9ztx-Ds', // Subhanallah · Ali Dawud · 2hr loop
+		'key'       => 'kalimah',
+		'arabic'    => 'لَا إِلَهَ إِلَّا ٱللَّٰه',
+		'translit'  => 'Lā ilāha illa-llāh',
+		'meaning'   => 'There is no god but Allah',
+		'inhale'    => 'Lā ilāha',
+		'exhale'    => 'illa-llāh',
+		'note'      => 'The kalimah — the testimony and the highest dhikr',
+		'breath_s'  => 8,
 	],
 	[
-		'key' => 'alhamdulillah',
-		'arabic' => 'ٱلْحَمْدُ لِلَّٰه',
-		'translit' => 'Alḥamdulillāh',
-		'meaning' => 'All praise is for Allah',
-		'target' => 33,
-		'color' => '#1976d2',
-		'video' => 'jbeb7uNncys', // Alhamdulillah · Mohammad Shariq · 1hr zikr
+		'key'       => 'allah',
+		'arabic'    => 'ٱللَّٰه',
+		'translit'  => 'Allāh',
+		'meaning'   => 'The Divine Name',
+		'inhale'    => 'Al-',
+		'exhale'    => 'lāh',
+		'note'      => 'The singular Name — the dhikr of the gnostics',
+		'breath_s'  => 8,
 	],
 	[
-		'key' => 'allahuakbar',
-		'arabic' => 'ٱللَّٰهُ أَكْبَر',
-		'translit' => 'Allāhu akbar',
-		'meaning' => 'Allah is greatest',
-		'target' => 34,
-		'color' => '#ED1C6C',
-		'video' => 'MpP891hfZUc', // Allahu Akbar takbeer · Mishary Alafasy · 1hr loop
+		'key'       => 'subhanallah',
+		'arabic'    => 'سُبْحَانَ ٱللَّٰه',
+		'translit'  => 'Subḥān Allāh',
+		'meaning'   => 'Glory be to Allah',
+		'inhale'    => 'Subḥān',
+		'exhale'    => 'Allāh',
+		'note'      => 'Glorification — the dhikr of declaring Allah free from any imperfection',
+		'breath_s'  => 7,
+	],
+	[
+		'key'       => 'alhamdulillah',
+		'arabic'    => 'ٱلْحَمْدُ لِلَّٰه',
+		'translit'  => 'Alḥamdulillāh',
+		'meaning'   => 'All praise is for Allah',
+		'inhale'    => 'Alḥamdu',
+		'exhale'    => 'lillāh',
+		'note'      => 'Gratitude — the dhikr that fills the scales',
+		'breath_s'  => 7,
+	],
+	[
+		'key'       => 'allahuakbar',
+		'arabic'    => 'ٱللَّٰهُ أَكْبَر',
+		'translit'  => 'Allāhu akbar',
+		'meaning'   => 'Allah is greater',
+		'inhale'    => 'Allāhu',
+		'exhale'    => 'akbar',
+		'note'      => 'Magnification — the dhikr that puts every other concern in its place',
+		'breath_s'  => 7,
+	],
+	[
+		'key'       => 'astaghfirullah',
+		'arabic'    => 'أَسْتَغْفِرُ ٱللَّٰه',
+		'translit'  => 'Astaghfirullāh',
+		'meaning'   => 'I seek forgiveness of Allah',
+		'inhale'    => 'Astaghfi',
+		'exhale'    => 'rullāh',
+		'note'      => 'The polish — the Prophet ﷺ sought forgiveness 70+ times a day',
+		'breath_s'  => 8,
+	],
+	[
+		'key'       => 'salawat',
+		'arabic'    => 'صَلَّى ٱللَّٰهُ عَلَيْهِ وَسَلَّم',
+		'translit'  => 'Ṣalla-llāhu ʿalayhi wa sallam',
+		'meaning'   => 'Peace and blessings upon the Prophet ﷺ',
+		'inhale'    => 'Ṣalla-llāhu',
+		'exhale'    => 'ʿalayhi wa sallam',
+		'note'      => 'Salawat — every blessing on him returns to you tenfold',
+		'breath_s'  => 9,
 	],
 ];
 
+// Durations (minutes)
+$la_durations = [ 3, 7, 11, 21 ];
+
+// Modes — the stations of dhikr in Sufi sciences
+$la_modes = [
+	[ 'key' => 'lisani', 'label' => 'Tongue', 'desc' => 'Audible, with recitation playing' ],
+	[ 'key' => 'qalbi',  'label' => 'Heart',  'desc' => 'Silent, breath only — the dhikr enters the heart' ],
+	[ 'key' => 'sirri',  'label' => 'Secret', 'desc' => 'No Arabic shown — pure presence' ],
+];
+
+// Wisdom — load + pick three (one for landing, rest rotate during session)
+$la_wisdom = [];
+$wisdom_path = LA_DIR . 'inc/data/dhikr-wisdom.json';
+if ( file_exists( $wisdom_path ) ) {
+	$la_wisdom = json_decode( file_get_contents( $wisdom_path ), true ) ?: [];
+}
+$la_wisdom_landing = $la_wisdom ? $la_wisdom[ array_rand( $la_wisdom ) ] : null;
+
 get_header();
 ?>
-<main class="la-app la-app--dhikr">
+<main class="la-app la-app--dhikr-meditate" data-dhikr-app>
 
-	<!-- TASBEEH INTERFACE -->
-	<section class="la-tasbeeh" data-tasbeeh aria-label="Tasbeeh counter">
-		<!-- Karaoke background — autoplay muted YouTube of the current phrase chant.
-		     Render the iframe with the full URL on initial server-render so the
-		     browser counts the autoplay-muted as legitimate (changing src via JS
-		     later loses that trust and the video stays paused/black). -->
-		<?php
-		$la_init_vid = $la_tasbeeh[0]['video'];
-		$la_init_url = "https://www.youtube.com/embed/{$la_init_vid}?autoplay=1&mute=1&loop=1&playlist={$la_init_vid}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1";
-		?>
-		<div class="la-tasbeeh-bg" aria-hidden="true">
-			<iframe class="la-tasbeeh-bg-iframe"
-				data-tasbeeh-bg-iframe
-				src="<?php echo esc_url( $la_init_url ); ?>"
-				allow="autoplay; encrypted-media; picture-in-picture"
-				allowfullscreen
-				frameborder="0"
-				tabindex="-1"></iframe>
-			<div class="la-tasbeeh-bg-vignette"></div>
+	<!-- ─── LANDING — choose phrase + duration + mode ─── -->
+	<section class="la-dhikr-landing" data-dhikr-scene="landing">
+
+		<!-- Wisdom hero — rotates on each page load -->
+		<div class="la-dhikr-wisdom" data-dhikr-wisdom>
+			<?php if ( $la_wisdom_landing ) : ?>
+				<blockquote class="la-dhikr-wisdom-quote">"<?php echo esc_html( $la_wisdom_landing['quote'] ); ?>"</blockquote>
+				<cite class="la-dhikr-wisdom-cite">— <?php echo esc_html( $la_wisdom_landing['speaker'] ); ?> · <span><?php echo esc_html( $la_wisdom_landing['source'] ); ?></span></cite>
+			<?php endif; ?>
 		</div>
-		<header class="la-tasbeeh-head">
-			<div class="la-tasbeeh-overline"><?php esc_html_e( "Today's Tasbeeh", 'loveallah' ); ?></div>
-			<div class="la-tasbeeh-stats" data-tasbeeh-stats>
-				<span data-stat-total>0</span>
-				<span class="la-tasbeeh-stats-label"><?php esc_html_e( 'remembrance today', 'loveallah' ); ?></span>
+
+		<!-- Phrase selector — small horizontal scroll of cards -->
+		<div class="la-dhikr-section">
+			<h2 class="la-dhikr-section-label">Choose your dhikr</h2>
+			<div class="la-dhikr-phrase-list" data-phrase-list role="radiogroup" aria-label="Dhikr phrase">
+				<?php foreach ( $la_phrases as $i => $p ) : ?>
+					<button type="button"
+						class="la-dhikr-phrase-card <?php echo $i === 0 ? 'is-selected' : ''; ?>"
+						role="radio"
+						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
+						data-phrase-key="<?php echo esc_attr( $p['key'] ); ?>"
+						data-phrase='<?php echo esc_attr( wp_json_encode( $p ) ); ?>'>
+						<span class="la-dhikr-phrase-arabic" dir="rtl" lang="ar"><?php echo esc_html( $p['arabic'] ); ?></span>
+						<span class="la-dhikr-phrase-translit"><?php echo esc_html( $p['translit'] ); ?></span>
+						<span class="la-dhikr-phrase-note"><?php echo esc_html( $p['note'] ); ?></span>
+					</button>
+				<?php endforeach; ?>
 			</div>
-		</header>
-
-		<!-- Phrase pills (which one we're on) -->
-		<div class="la-tasbeeh-pills">
-			<?php foreach ( $la_tasbeeh as $i => $p ) : ?>
-				<button type="button"
-					class="la-tasbeeh-pill <?php echo $i === 0 ? 'is-active' : ''; ?>"
-					data-pill-index="<?php echo (int) $i; ?>"
-					data-key="<?php echo esc_attr( $p['key'] ); ?>">
-					<span class="la-tasbeeh-pill-name"><?php echo esc_html( $p['translit'] ); ?></span>
-					<span class="la-tasbeeh-pill-count" data-pill-count="<?php echo esc_attr( $p['key'] ); ?>">0/<?php echo (int) $p['target']; ?></span>
-				</button>
-			<?php endforeach; ?>
 		</div>
 
-		<!-- THE BIG TAP TARGET -->
-		<div class="la-tasbeeh-stage">
-			<button type="button"
-				class="la-tasbeeh-bead"
-				data-tasbeeh-bead
-				aria-label="<?php esc_attr_e( 'Tap to count', 'loveallah' ); ?>">
-				<svg class="la-tasbeeh-ring" viewBox="0 0 200 200" aria-hidden="true">
-					<circle class="la-tasbeeh-ring-track" cx="100" cy="100" r="92" fill="none" stroke="rgba(237,28,108,0.12)" stroke-width="6"/>
-					<circle class="la-tasbeeh-ring-progress" cx="100" cy="100" r="92" fill="none" stroke="#ED1C6C" stroke-width="6" stroke-linecap="round" stroke-dasharray="578" stroke-dashoffset="578" transform="rotate(-90 100 100)"/>
-				</svg>
-				<div class="la-tasbeeh-bead-inner">
-					<div class="la-tasbeeh-arabic" data-tasbeeh-arabic dir="rtl" lang="ar"><?php echo esc_html( $la_tasbeeh[0]['arabic'] ); ?></div>
-					<div class="la-tasbeeh-translit" data-tasbeeh-translit><?php echo esc_html( $la_tasbeeh[0]['translit'] ); ?></div>
-					<div class="la-tasbeeh-count" data-tasbeeh-count>
-						<span data-current>0</span>
-						<span class="la-tasbeeh-count-sep">/</span>
-						<span data-target><?php echo (int) $la_tasbeeh[0]['target']; ?></span>
-					</div>
-				</div>
-				<div class="la-tasbeeh-ripple" aria-hidden="true"></div>
-			</button>
+		<!-- Duration -->
+		<div class="la-dhikr-section">
+			<h2 class="la-dhikr-section-label">Duration</h2>
+			<div class="la-dhikr-duration-row" data-duration-list role="radiogroup" aria-label="Duration">
+				<?php foreach ( $la_durations as $i => $m ) : ?>
+					<button type="button"
+						class="la-dhikr-duration-pill <?php echo $i === 1 ? 'is-selected' : ''; ?>"
+						role="radio"
+						aria-checked="<?php echo $i === 1 ? 'true' : 'false'; ?>"
+						data-duration="<?php echo (int) $m; ?>">
+						<?php echo (int) $m; ?> <span>min</span>
+					</button>
+				<?php endforeach; ?>
+			</div>
 		</div>
 
-		<div class="la-tasbeeh-meaning" data-tasbeeh-meaning><?php echo esc_html( $la_tasbeeh[0]['meaning'] ); ?></div>
-
-		<div class="la-tasbeeh-controls">
-			<button type="button" class="la-tasbeeh-control" data-tasbeeh-action="reset" aria-label="<?php esc_attr_e( 'Reset today', 'loveallah' ); ?>">
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-				<span><?php esc_html_e( 'Reset', 'loveallah' ); ?></span>
-			</button>
-			<div class="la-tasbeeh-spacer"></div>
-			<button type="button" class="la-tasbeeh-control" data-tasbeeh-action="sound-toggle" aria-label="<?php esc_attr_e( 'Play chant audio', 'loveallah' ); ?>" data-sound-state="off">
-				<svg class="la-tasbeeh-snd-off" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
-				<svg class="la-tasbeeh-snd-on" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
-				<span data-sound-label><?php esc_html_e( 'Sound off', 'loveallah' ); ?></span>
-			</button>
-			<button type="button" class="la-tasbeeh-control" data-tasbeeh-action="vibrate-toggle" aria-label="<?php esc_attr_e( 'Toggle vibration', 'loveallah' ); ?>">
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 8v8M5 6v12M19 6v12M22 8v8M9 4v16M15 4v16"/></svg>
-			</button>
+		<!-- Mode (station of dhikr) -->
+		<div class="la-dhikr-section">
+			<h2 class="la-dhikr-section-label">Station</h2>
+			<div class="la-dhikr-mode-list" data-mode-list role="radiogroup" aria-label="Mode">
+				<?php foreach ( $la_modes as $i => $m ) : ?>
+					<button type="button"
+						class="la-dhikr-mode-card <?php echo $i === 1 ? 'is-selected' : ''; ?>"
+						role="radio"
+						aria-checked="<?php echo $i === 1 ? 'true' : 'false'; ?>"
+						data-mode="<?php echo esc_attr( $m['key'] ); ?>">
+						<strong><?php echo esc_html( $m['label'] ); ?></strong>
+						<span><?php echo esc_html( $m['desc'] ); ?></span>
+					</button>
+				<?php endforeach; ?>
+			</div>
 		</div>
 
-		<script id="la-tasbeeh-config" type="application/json"><?php
-			echo wp_json_encode( $la_tasbeeh );
-		?></script>
+		<button type="button" class="la-dhikr-begin" data-action="begin-dhikr">
+			<span>Begin</span>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l8 6-8 6V6z" fill="currentColor"/></svg>
+		</button>
+
+		<p class="la-dhikr-landing-footnote">
+			Dhikr is the polish of the heart. Let the breath guide you in.
+		</p>
 	</section>
 
-	<!-- Divider before video feed -->
-	<div class="la-tasbeeh-divider">
-		<span><?php esc_html_e( 'or listen to a recitation', 'loveallah' ); ?></span>
-	</div>
+	<!-- ─── ACTIVE SESSION — the heart pulses with the breath ─── -->
+	<section class="la-dhikr-session" data-dhikr-scene="session" hidden>
+
+		<!-- Slim header — phrase + countdown -->
+		<div class="la-dhikr-session-head">
+			<button type="button" class="la-dhikr-back" data-action="end-session" aria-label="End session">
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+			</button>
+			<div class="la-dhikr-session-phrase" data-active-phrase>—</div>
+			<div class="la-dhikr-session-timer" data-active-timer>—:—</div>
+		</div>
+
+		<!-- The breath circle: expands on inhale, contracts on exhale.
+		     CSS animation drives the visual; JS drives the phrase text. -->
+		<div class="la-breath" data-breath-ring>
+			<div class="la-breath-glow"></div>
+			<div class="la-breath-circle">
+				<div class="la-breath-inner">
+					<div class="la-breath-arabic" data-breath-arabic dir="rtl" lang="ar">—</div>
+					<div class="la-breath-cue" data-breath-cue>Settle</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Soft guidance below — rotates -->
+		<div class="la-dhikr-guidance" data-dhikr-guidance>—</div>
+
+		<!-- Progress arc -->
+		<div class="la-dhikr-progress" aria-hidden="true">
+			<div class="la-dhikr-progress-fill" data-progress-fill></div>
+		</div>
+	</section>
+
+	<!-- ─── COMPLETION — reflection, not celebration ─── -->
+	<section class="la-dhikr-complete" data-dhikr-scene="complete" hidden>
+		<div class="la-dhikr-complete-glow"></div>
+		<div class="la-dhikr-complete-inner">
+			<div class="la-dhikr-complete-arabic" dir="rtl" lang="ar">وَلَذِكْرُ ٱللَّهِ أَكْبَرُ</div>
+			<div class="la-dhikr-complete-translit">Wa la dhikru-llāhi akbar</div>
+			<div class="la-dhikr-complete-meaning">"And the remembrance of Allah is greater" — Quran 29:45</div>
+			<div class="la-dhikr-complete-actions">
+				<button type="button" class="la-dhikr-secondary" data-action="reset-session">Settle longer</button>
+				<button type="button" class="la-dhikr-primary" data-action="return-home">Return</button>
+			</div>
+		</div>
+	</section>
+
+	<!-- ─── Data embedded for JS (phrases + wisdom) ─── -->
+	<script id="la-dhikr-config" type="application/json">
+		<?php echo wp_json_encode( [ 'phrases' => $la_phrases, 'wisdom' => $la_wisdom ] ); ?>
+	</script>
 
 </main>
 <?php
-// Existing dhikr video feed below
-la_render_feed_main( 'dhikr' );
 get_footer();

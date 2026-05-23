@@ -1747,7 +1747,397 @@ button { font-family: inherit; }
 }
 
 /* ============================================================
-   TASBEEH COUNTER — /dhikr page interactive bead
+   DHIKR — Heart-Polish contemplation (replaces old tasbeeh counter)
+   ============================================================ */
+.la-app--dhikr-meditate {
+	padding: 0;
+	background:
+		radial-gradient(ellipse at 50% 0%, #2a0e35 0%, #100517 55%, #050208 100%);
+	color: #fff;
+	min-height: 100vh;
+	min-height: 100dvh;
+}
+
+/* ───── LANDING SCENE ───── */
+.la-dhikr-landing {
+	padding: 28px 22px calc(var(--la-tabbar-h) + 36px);
+	max-width: 560px; margin: 0 auto;
+}
+.la-dhikr-wisdom {
+	background:
+		linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 18px;
+	padding: 22px 22px 18px;
+	margin-bottom: 28px;
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+}
+.la-dhikr-wisdom-quote {
+	font-size: clamp(15px, 4vw, 17px);
+	line-height: 1.65;
+	color: rgba(255, 255, 255, 0.92);
+	font-style: italic;
+	margin: 0 0 14px;
+	letter-spacing: -0.005em;
+}
+.la-dhikr-wisdom-cite {
+	display: block;
+	font-size: 11px; font-weight: 700;
+	color: rgba(237, 28, 108, 0.85);
+	letter-spacing: 0.04em;
+	font-style: normal;
+}
+.la-dhikr-wisdom-cite span {
+	color: rgba(255, 255, 255, 0.55);
+	font-weight: 500;
+	margin-left: 6px;
+}
+
+.la-dhikr-section { margin-bottom: 24px; }
+.la-dhikr-section-label {
+	font-size: 11px; font-weight: 800;
+	color: rgba(255, 255, 255, 0.55);
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	margin: 0 0 10px;
+}
+
+/* Phrase cards — horizontal scroll */
+.la-dhikr-phrase-list {
+	display: flex; gap: 10px;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: none;
+	padding: 4px 2px 12px;
+	scroll-snap-type: x mandatory;
+	margin: 0 -22px;
+	padding-left: 22px;
+	padding-right: 22px;
+}
+.la-dhikr-phrase-list::-webkit-scrollbar { display: none; }
+.la-dhikr-phrase-card {
+	flex-shrink: 0;
+	width: 240px;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1.5px solid rgba(255, 255, 255, 0.08);
+	border-radius: 16px;
+	padding: 18px 16px 14px;
+	color: inherit;
+	font-family: inherit;
+	cursor: pointer;
+	text-align: center;
+	scroll-snap-align: start;
+	display: flex; flex-direction: column; gap: 6px;
+	transition: all 0.2s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dhikr-phrase-card.is-selected {
+	background: rgba(237, 28, 108, 0.14);
+	border-color: rgba(237, 28, 108, 0.55);
+	box-shadow: 0 6px 18px rgba(237,28,108,0.20);
+}
+.la-dhikr-phrase-arabic {
+	font-family: var(--la-font-arabic);
+	font-size: 28px;
+	font-weight: 400;
+	color: #fff;
+	line-height: 1.55;
+	letter-spacing: 0.01em;
+}
+.la-dhikr-phrase-translit {
+	font-size: 13px; font-weight: 600;
+	color: rgba(255, 255, 255, 0.78);
+}
+.la-dhikr-phrase-note {
+	font-size: 11px;
+	color: rgba(255, 255, 255, 0.45);
+	font-style: italic;
+	line-height: 1.45;
+}
+
+/* Duration pills */
+.la-dhikr-duration-row {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 8px;
+}
+.la-dhikr-duration-pill {
+	padding: 12px 0;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1.5px solid rgba(255, 255, 255, 0.08);
+	border-radius: 14px;
+	color: #fff;
+	font-family: inherit;
+	font-weight: 800;
+	font-size: 16px;
+	cursor: pointer;
+	transition: all 0.2s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dhikr-duration-pill span { font-size: 11px; font-weight: 600; opacity: 0.6; }
+.la-dhikr-duration-pill.is-selected {
+	background: rgba(237, 28, 108, 0.14);
+	border-color: rgba(237, 28, 108, 0.55);
+}
+
+/* Mode cards */
+.la-dhikr-mode-list {
+	display: grid; gap: 8px;
+}
+.la-dhikr-mode-card {
+	background: rgba(255, 255, 255, 0.05);
+	border: 1.5px solid rgba(255, 255, 255, 0.08);
+	border-radius: 14px;
+	padding: 14px 16px;
+	color: #fff;
+	font-family: inherit;
+	cursor: pointer;
+	text-align: left;
+	display: flex; flex-direction: column; gap: 2px;
+	transition: all 0.2s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dhikr-mode-card strong { font-size: 14px; font-weight: 800; }
+.la-dhikr-mode-card span { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
+.la-dhikr-mode-card.is-selected {
+	background: rgba(237, 28, 108, 0.14);
+	border-color: rgba(237, 28, 108, 0.55);
+}
+
+/* Begin button */
+.la-dhikr-begin {
+	width: 100%;
+	display: inline-flex; align-items: center; justify-content: center;
+	gap: 8px;
+	padding: 16px;
+	background: linear-gradient(180deg, #ED1C6C 0%, #B11055 100%);
+	border: none;
+	border-radius: 999px;
+	color: #fff;
+	font-family: inherit;
+	font-size: 16px; font-weight: 800;
+	letter-spacing: 0.02em;
+	cursor: pointer;
+	margin-top: 8px;
+	box-shadow: 0 8px 24px rgba(237, 28, 108, 0.40);
+	transition: transform 0.18s var(--la-spring);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dhikr-begin:active { transform: scale(0.97); }
+
+.la-dhikr-landing-footnote {
+	text-align: center;
+	font-size: 13px; font-style: italic;
+	color: rgba(255, 255, 255, 0.50);
+	margin: 18px 0 0;
+}
+
+/* ───── ACTIVE SESSION SCENE ───── */
+.la-dhikr-session {
+	min-height: 100vh; min-height: 100dvh;
+	padding: 14px 22px calc(var(--la-tabbar-h) + 22px);
+	display: flex; flex-direction: column;
+	align-items: center;
+}
+.la-dhikr-session-head {
+	width: 100%;
+	display: flex; align-items: center;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+.la-dhikr-back {
+	width: 36px; height: 36px;
+	background: rgba(255,255,255,0.08);
+	border: 1px solid rgba(255,255,255,0.10);
+	border-radius: 50%;
+	color: #fff;
+	display: inline-flex; align-items: center; justify-content: center;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dhikr-session-phrase {
+	flex: 1;
+	font-family: var(--la-font-arabic);
+	font-size: 18px;
+	color: rgba(255, 255, 255, 0.78);
+	text-align: center;
+}
+.la-dhikr-session-timer {
+	font-size: 14px; font-weight: 700;
+	color: rgba(255, 255, 255, 0.55);
+	font-variant-numeric: tabular-nums;
+	min-width: 50px;
+	text-align: right;
+}
+
+/* The breath ring — outer glow + circle + inner */
+.la-breath {
+	position: relative;
+	width: min(82vw, 360px);
+	aspect-ratio: 1;
+	display: flex; align-items: center; justify-content: center;
+	margin: 6vh 0 auto;
+}
+.la-breath-glow {
+	position: absolute; inset: -28px;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(237,28,108,0.32) 0%, transparent 70%);
+	animation: la-breath-glow 8s ease-in-out infinite;
+	z-index: 0;
+}
+.la-breath-circle {
+	position: relative;
+	width: 100%; height: 100%;
+	border-radius: 50%;
+	background:
+		radial-gradient(circle at 35% 30%, rgba(255, 240, 250, 0.96) 0%, rgba(255, 220, 235, 0.85) 50%, rgba(237, 28, 108, 0.4) 100%);
+	display: flex; align-items: center; justify-content: center;
+	box-shadow:
+		0 2px 0 rgba(255,255,255,0.4) inset,
+		0 -8px 24px rgba(237,28,108,0.30) inset,
+		0 24px 80px rgba(237,28,108,0.36),
+		0 0 0 1px rgba(255,255,255,0.10);
+	animation: la-breath-pulse 8s ease-in-out infinite;
+	z-index: 1;
+}
+.la-breath-inner {
+	text-align: center;
+	padding: 24px;
+	user-select: none;
+}
+.la-breath-arabic {
+	font-family: var(--la-font-arabic);
+	font-size: clamp(34px, 9vw, 52px);
+	font-weight: 400;
+	color: #0F0F1E;
+	line-height: 1.45;
+	letter-spacing: 0.01em;
+	margin-bottom: 12px;
+	min-height: 1.5em;
+	transition: opacity 0.5s ease;
+}
+.la-breath-cue {
+	font-size: 13px; font-weight: 700;
+	color: rgba(15, 15, 30, 0.62);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	font-variant-numeric: tabular-nums;
+	transition: opacity 0.4s ease;
+}
+
+/* Pulse animation — drives the circle to expand on inhale, contract on exhale.
+   The duration is overridden inline via --breath-s by JS based on phrase. */
+@keyframes la-breath-pulse {
+	0%, 100% { transform: scale(0.92); }
+	50%      { transform: scale(1.08); }
+}
+@keyframes la-breath-glow {
+	0%, 100% { opacity: 0.55; transform: scale(0.95); }
+	50%      { opacity: 0.95; transform: scale(1.10); }
+}
+
+/* Soul mode hides Arabic — pure presence */
+.la-app--dhikr-meditate.is-sirri .la-breath-arabic { opacity: 0; }
+
+/* Guidance text under the breath */
+.la-dhikr-guidance {
+	margin-top: 5vh;
+	text-align: center;
+	font-size: 14px; font-style: italic;
+	color: rgba(255, 255, 255, 0.62);
+	max-width: 24ch;
+	line-height: 1.55;
+	min-height: 3em;
+	transition: opacity 0.6s ease;
+}
+
+/* Progress arc — slim line at bottom */
+.la-dhikr-progress {
+	margin-top: auto;
+	width: 100%;
+	max-width: 280px;
+	height: 3px;
+	background: rgba(255, 255, 255, 0.10);
+	border-radius: 2px;
+	overflow: hidden;
+}
+.la-dhikr-progress-fill {
+	height: 100%;
+	width: 0%;
+	background: linear-gradient(90deg, rgba(237, 28, 108, 0.6), rgba(237, 28, 108, 1));
+	border-radius: 2px;
+	transition: width 0.5s linear;
+}
+
+/* ───── COMPLETION SCENE ───── */
+.la-dhikr-complete {
+	position: relative;
+	min-height: 100vh; min-height: 100dvh;
+	display: flex; align-items: center; justify-content: center;
+	padding: 32px 22px;
+	text-align: center;
+}
+.la-dhikr-complete-glow {
+	position: absolute; inset: 0;
+	background: radial-gradient(ellipse at 50% 40%, rgba(237, 28, 108, 0.18) 0%, transparent 60%);
+	pointer-events: none;
+}
+.la-dhikr-complete-inner {
+	position: relative; z-index: 1;
+	max-width: 28ch;
+	animation: la-fade-rise 1.4s ease;
+}
+@keyframes la-fade-rise {
+	from { opacity: 0; transform: translateY(20px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+.la-dhikr-complete-arabic {
+	font-family: var(--la-font-arabic);
+	font-size: clamp(40px, 11vw, 58px);
+	font-weight: 400;
+	color: #fff;
+	line-height: 1.5;
+	letter-spacing: 0.01em;
+	margin-bottom: 12px;
+}
+.la-dhikr-complete-translit {
+	font-size: 17px; font-weight: 600;
+	color: rgba(255, 255, 255, 0.72);
+	margin-bottom: 10px;
+}
+.la-dhikr-complete-meaning {
+	font-size: 13px; font-style: italic;
+	color: rgba(255, 255, 255, 0.5);
+	line-height: 1.6;
+	margin-bottom: 32px;
+}
+.la-dhikr-complete-actions {
+	display: inline-flex; gap: 10px;
+}
+.la-dhikr-primary, .la-dhikr-secondary {
+	padding: 12px 22px;
+	border-radius: 999px;
+	font-family: inherit; font-weight: 700; font-size: 14px;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	transition: transform 0.18s var(--la-spring);
+}
+.la-dhikr-primary {
+	background: #ED1C6C;
+	border: none;
+	color: #fff;
+	box-shadow: 0 6px 18px rgba(237, 28, 108, 0.35);
+}
+.la-dhikr-secondary {
+	background: transparent;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	color: rgba(255, 255, 255, 0.85);
+}
+.la-dhikr-primary:active, .la-dhikr-secondary:active { transform: scale(0.96); }
+
+/* ============================================================
+   OLD TASBEEH STYLES — kept for back-compat, no longer rendered
    ============================================================ */
 .la-app--dhikr { padding-bottom: 0; min-height: auto; background: var(--la-bg); }
 
@@ -2015,7 +2405,242 @@ button { font-family: inherit; }
 .la-tasbeeh-divider span::after  { left: 100%; }
 
 /* ============================================================
-   DUAS FEED — full-screen vertical snap scroll, one dua per card
+   DUAS — Left emoji-rail + scrollable card pane
+   ============================================================ */
+.la-app--duas-sidebar {
+	padding: 0;
+	display: flex;
+	min-height: calc(100vh - var(--la-tabbar-h));
+	min-height: calc(100dvh - var(--la-tabbar-h));
+	background: #faf8fc;
+}
+
+/* Left rail */
+.la-duas-rail {
+	flex-shrink: 0;
+	width: 78px;
+	background: #fff;
+	border-right: 1px solid var(--la-line);
+	padding: 12px 6px;
+	overflow-y: auto;
+	scrollbar-width: none;
+	position: sticky; top: 0;
+	height: calc(100vh - var(--la-tabbar-h));
+	height: calc(100dvh - var(--la-tabbar-h));
+}
+.la-duas-rail::-webkit-scrollbar { display: none; }
+.la-duas-rail-btn {
+	display: flex; flex-direction: column; align-items: center;
+	width: 100%;
+	padding: 12px 4px 10px;
+	background: transparent;
+	border: none;
+	border-radius: 14px;
+	color: var(--la-ink-dark);
+	font-family: inherit;
+	cursor: pointer;
+	margin-bottom: 4px;
+	position: relative;
+	transition: all 0.18s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-duas-rail-emoji {
+	font-size: 24px;
+	line-height: 1;
+	margin-bottom: 4px;
+	filter: grayscale(0.4);
+	transition: filter 0.2s ease, transform 0.2s ease;
+}
+.la-duas-rail-label {
+	font-size: 9.5px;
+	font-weight: 700;
+	color: var(--la-ink-soft);
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+.la-duas-rail-count {
+	position: absolute;
+	top: 6px; right: 8px;
+	background: rgba(15, 15, 30, 0.10);
+	color: var(--la-ink-soft);
+	font-size: 9px;
+	font-weight: 800;
+	padding: 1px 5px;
+	border-radius: 999px;
+	min-width: 14px; text-align: center;
+}
+.la-duas-rail-btn.is-active {
+	background: rgba(237, 28, 108, 0.10);
+}
+.la-duas-rail-btn.is-active .la-duas-rail-emoji {
+	filter: grayscale(0);
+	transform: scale(1.12);
+}
+.la-duas-rail-btn.is-active .la-duas-rail-label { color: var(--la-primary-dark); }
+.la-duas-rail-btn.is-active .la-duas-rail-count {
+	background: var(--la-primary);
+	color: #fff;
+}
+.la-duas-rail-btn::before {
+	content: '';
+	position: absolute;
+	left: -6px; top: 50%;
+	transform: translateY(-50%) scaleY(0);
+	width: 3px; height: 26px;
+	background: var(--la-primary);
+	border-radius: 0 3px 3px 0;
+	transition: transform 0.2s var(--la-spring);
+}
+.la-duas-rail-btn.is-active::before { transform: translateY(-50%) scaleY(1); }
+.la-duas-rail-btn:active { transform: scale(0.96); }
+
+/* Right pane */
+.la-duas-pane {
+	flex: 1;
+	min-width: 0;
+	padding: 20px 18px calc(var(--la-tabbar-h) + 24px);
+}
+.la-duas-pane-head {
+	display: flex; align-items: center; gap: 12px;
+	margin-bottom: 16px;
+}
+.la-duas-pane-icon {
+	font-size: 36px;
+	width: 56px; height: 56px;
+	display: inline-flex; align-items: center; justify-content: center;
+	background: #fff;
+	border: 1px solid var(--la-line);
+	border-radius: 16px;
+	box-shadow: 0 1px 0 rgba(15,15,30,0.02);
+}
+.la-duas-pane-title {
+	font-size: 22px; font-weight: 900;
+	letter-spacing: -0.02em;
+	margin: 0;
+	color: var(--la-ink-dark);
+}
+.la-duas-pane-sub {
+	font-size: 12px;
+	color: var(--la-ink-soft);
+	margin: 1px 0 0;
+}
+
+/* Dua card list — only active section visible */
+.la-duas-list { display: none; }
+.la-duas-list.is-active { display: block; animation: la-cat-fade 0.3s ease; }
+@keyframes la-cat-fade {
+	from { opacity: 0; transform: translateY(8px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+.la-dua {
+	background: #fff;
+	border: 1px solid var(--la-line);
+	border-radius: 16px;
+	padding: 16px;
+	margin-bottom: 12px;
+	box-shadow: 0 1px 0 rgba(15,15,30,0.02);
+}
+.la-dua-head {
+	display: flex; align-items: center; justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+.la-dua-title {
+	font-size: 14px; font-weight: 700;
+	color: var(--la-ink-dark);
+	margin: 0;
+	letter-spacing: -0.01em;
+}
+.la-dua-repeat {
+	flex-shrink: 0;
+	padding: 3px 9px;
+	background: rgba(237,28,108,0.10);
+	color: var(--la-primary-dark);
+	border-radius: 999px;
+	font-size: 11px; font-weight: 800;
+}
+.la-dua-arabic {
+	font-family: var(--la-font-arabic);
+	font-size: clamp(20px, 5vw, 24px);
+	font-weight: 400;
+	color: #0F0F1E;
+	line-height: 1.95;
+	letter-spacing: 0.005em;
+	margin-bottom: 10px;
+}
+.la-dua-translit {
+	font-size: 13px; font-weight: 500;
+	color: #6B6B7E;
+	line-height: 1.55;
+	font-style: italic;
+	margin-bottom: 8px;
+}
+.la-dua-meaning {
+	font-size: 13px; line-height: 1.6;
+	color: var(--la-ink-soft);
+	margin: 0 0 14px;
+}
+.la-dua-foot {
+	display: flex; align-items: center; gap: 8px;
+	padding-top: 10px;
+	border-top: 1px solid var(--la-line);
+	flex-wrap: wrap;
+}
+.la-dua-source {
+	display: inline-flex; align-items: center; gap: 5px;
+	font-size: 11px; font-weight: 700;
+	color: var(--la-ink-soft);
+	margin-right: auto;
+}
+.la-dua-source svg { color: var(--la-primary); opacity: 0.7; }
+.la-dua-actions {
+	display: inline-flex; gap: 6px;
+	flex-wrap: wrap;
+}
+.la-dua-btn {
+	display: inline-flex; align-items: center; gap: 4px;
+	padding: 6px 10px;
+	background: transparent;
+	border: 1px solid var(--la-line);
+	border-radius: 999px;
+	color: var(--la-ink-soft);
+	font-size: 11px; font-weight: 700;
+	cursor: pointer; font-family: inherit;
+	transition: all 0.15s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dua-btn svg { transition: all 0.2s var(--la-easing); }
+.la-dua-btn:active { transform: scale(0.95); }
+.la-dua-btn.is-active {
+	background: rgba(30, 142, 62, 0.12);
+	border-color: rgba(30, 142, 62, 0.40);
+	color: #1e8e3e;
+}
+.la-dua-btn-count {
+	background: rgba(15, 15, 30, 0.06);
+	padding: 1px 6px;
+	border-radius: 999px;
+	font-size: 10px;
+	margin-left: 2px;
+	font-variant-numeric: tabular-nums;
+}
+.la-dua-btn.is-active .la-dua-btn-count {
+	background: rgba(30, 142, 62, 0.18);
+	color: #1e8e3e;
+}
+
+/* Ameen pop */
+@keyframes la-ameen-pop2 {
+	0% { transform: scale(1); }
+	30% { transform: scale(1.5); }
+	60% { transform: scale(0.92); }
+	100% { transform: scale(1); }
+}
+.la-dua-btn.is-popping svg { animation: la-ameen-pop2 0.5s var(--la-spring); }
+
+/* ============================================================
+   OLD DUAS FEED — kept for back-compat, no longer rendered
    ============================================================ */
 .la-app--duas-feed {
 	padding: 0;
