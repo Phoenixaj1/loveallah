@@ -2006,6 +2006,19 @@ button { font-family: inherit; }
 	min-width: 50px;
 	text-align: right;
 }
+/* Breath count — soft tally of breaths done, sits beside the timer.
+   Tasbeeh-tradition without gamifying. No targets, no streaks. */
+.la-dhikr-session-count {
+	display: inline-flex; align-items: center; gap: 4px;
+	font-size: 12px; font-weight: 700;
+	color: rgba(255, 255, 255, 0.50);
+	font-variant-numeric: tabular-nums;
+	padding: 2px 8px;
+	background: rgba(255, 255, 255, 0.06);
+	border-radius: 999px;
+	margin-right: 4px;
+}
+.la-dhikr-session-count svg { opacity: 0.85; }
 
 /* The breath ring — the HEART being polished. Water cascades over it. */
 .la-breath {

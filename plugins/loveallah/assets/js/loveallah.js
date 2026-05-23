@@ -1369,6 +1369,7 @@
 		const breathPhaseEl = root.querySelector('[data-breath-phase]');
 		const breathCue     = root.querySelector('[data-breath-cue]');
 		const breathMeaning = root.querySelector('[data-breath-meaning]');
+		const breathCountEl = root.querySelector('[data-breath-count-num]');
 		const heartPrompt   = root.querySelector('[data-heart-prompt]');
 		const subsEl        = root.querySelector('[data-dhikr-subs]');
 		const breathCircle  = root.querySelector('.la-breath-circle');
@@ -1649,12 +1650,10 @@
 			duration: 7,
 			mode: 'qalbi',
 			scene: 'cosmos',
-			// Chant + Mind defaulted ON — the chant brings the HEART
-			// (qari voice repeating the phrase), Mind brings the BRAIN
-			// (binaural theta entrainment). Together they make the
-			// headphone experience the user asked for. Duff + breath
-			// stay off by default (additive on top).
-			sounds: { chant: true, duff: false, mind: true, breath: false },
+			// Wave 19: silent practice. All audio layers removed; the
+			// `sounds` object is kept as an empty stub for any code still
+			// reading it during the transition (safe to delete later).
+			sounds: {},
 		};
 
 		// Restore persisted scene + sound preferences so each return visit
@@ -1714,42 +1713,8 @@
 			applyScene(selected.scene);
 			persistPrefs();
 		});
-		// Sound layers = multi-select toggles. Also reflects changes
-		// LIVE during an active session (load/unload chant iframe, build/
-		// destroy synth layers) so the user can stack/unstack on the fly.
-		soundList?.addEventListener('click', (e) => {
-			const btn = e.target.closest('[data-sound]');
-			if (!btn) return;
-			const k = btn.getAttribute('data-sound');
-			selected.sounds[k] = !selected.sounds[k];
-			btn.classList.toggle('is-selected', selected.sounds[k]);
-			btn.setAttribute('aria-pressed', selected.sounds[k] ? 'true' : 'false');
-			persistPrefs();
-			if (navigator.vibrate) navigator.vibrate(10);
-
-			// Live update if a session is in progress (body class is the flag)
-			if (document.body.classList.contains('is-dhikr-active')) {
-				if (k === 'chant') {
-					loadChantVideo(selected.sounds.chant ? selected.phrase.chant_video : null);
-				} else if (k === 'breath') {
-					if (selected.sounds.breath && !audioLayers.breath && audioCtx) {
-						audioLayers.breath = buildBreath();
-					} else if (!selected.sounds.breath && audioLayers.breath) {
-						try { audioLayers.breath.off(); audioLayers.breath._destroy?.(); } catch(_){}
-						audioLayers.breath = null;
-					}
-				} else if (k === 'mind') {
-					if (selected.sounds.mind && !audioLayers.mind && audioCtx) {
-						audioLayers.mind = buildMind();
-						audioLayers.mind.on();
-					} else if (!selected.sounds.mind && audioLayers.mind) {
-						try { audioLayers.mind.off(); setTimeout(() => audioLayers.mind?._destroy?.(), 2000); } catch(_){}
-						audioLayers.mind = null;
-					}
-				}
-				// Duff is fired per-inhale in updateBreathPhase; nothing to wire here
-			}
-		});
+		// Sound layer toggles removed Wave 19 — silent practice. No audio
+		// listeners to wire here.
 
 		function applyScene(sceneKey) {
 			['cosmos','desert','forest','ocean','kaaba','none']
@@ -1892,18 +1857,10 @@
 			// bandwidth hit happens once, not on every page view.
 			loadBackgroundVideo(selected.scene);
 
-			// Audio: ensure context is alive (must be on user gesture — Begin click qualifies)
-			ensureAudio();
-			// Tear down + rebuild layers so we always reflect the current toggles
-			destroyAudioLayers();
-			if (audioCtx && selected.sounds.breath) audioLayers.breath = buildBreath();
-			if (audioCtx && selected.sounds.mind)   audioLayers.mind   = buildMind();
-			audioLayers.mind?.on();
-			// Duff fires on each breath beat, see updateBreathPhase
-
-			// CHANT — REAL human voice from YouTube, not synthesised drone.
-			// Loads a phrase-specific qari recording into a hidden iframe.
-			loadChantVideo(selected.sounds.chant ? selected.phrase.chant_video : null);
+			// AUDIO REMOVED in Wave 19 — silent mindful dhikr. The user
+			// leads with their own inner repetition synced to the visual
+			// orb + Inhale/Exhale cues. (See $la_sound_layers comment.)
+			// The scene backdrop YouTube video stays as a MUTED visual.
 
 			// Start at the arc's entry rate (0.5× phrase) — close to resting
 			// breath so the user can follow comfortably from breath 1. The
@@ -1930,6 +1887,7 @@
 			// Breath cycle — toggle inhale/exhale on half-breath cadence
 			breathPhase = 'inhale';
 			breathCycleIndex = 0;
+			if (breathCountEl) breathCountEl.textContent = '0';
 			updateBreathPhase();
 			startBreathInterval();
 
@@ -2186,15 +2144,10 @@
 				breathArabic.style.opacity = '1';  // always full opacity for the active half
 			}
 
-			// Schedule audio events for this phase. Half-duration MATCHES the
-			// asymmetric breath ratio (0.4 in / 0.6 out × breathS).
-			if (audioCtx) {
-				const halfDur = (breathPhase === 'inhale' ? 0.4 : 0.6) * breathS;
-				audioLayers.breath?.on(breathPhase, halfDur);
-				// Duff hits on each inhale (downbeat) — simple, hypnotic
-				if (selected.sounds.duff && breathPhase === 'inhale') {
-					makeDuffHit(audioCtx.currentTime + 0.01);
-				}
+			// (Audio scheduling removed in Wave 19 — silent practice.)
+			// Increment breath count + paint it on each new INHALE.
+			if (breathPhase === 'inhale' && breathCountEl) {
+				breathCountEl.textContent = String(breathCycleIndex);
 			}
 
 			// Splash ring — fires on each inhale, visualising water hitting
@@ -2292,9 +2245,10 @@
 		}
 
 		function stopAudio() {
-			destroyAudioLayers();
-			if (bgYtHost) { bgYtHost.innerHTML = ''; bgYtHost.classList.remove('is-playing'); }
-			if (chantHost) chantHost.innerHTML = '';
+			// Only the scene backdrop iframe to tear down — all other audio
+			// layers were removed in Wave 19.
+			if (bgYtPlayer) { try { bgYtPlayer.destroy(); } catch(_) {} bgYtPlayer = null; }
+			if (bgYtHost)  { bgYtHost.innerHTML = ''; bgYtHost.classList.remove('is-playing'); }
 		}
 
 		function endSession() {

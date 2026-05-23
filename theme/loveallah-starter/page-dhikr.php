@@ -122,21 +122,12 @@ $la_scenes = [
 	[ 'key' => 'none',    'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else',       'video' => '' ],
 ];
 
-// Sound layers — designed for a HEADPHONE experience:
-//   Chant (HEART)  = real qari voice from YouTube, repeating the phrase
-//   Duff           = synthesised frame-drum on each inhale (Sunnah-permitted)
-//   Mind (BRAIN)   = binaural beats at theta frequency (6 Hz phantom from
-//                    110 Hz L / 116 Hz R) — entrains the EEG into the
-//                    meditative band reported by Tibetan monks + Sufis
-//                    in Newberg's neurotheology studies. Requires headphones
-//                    for the binaural effect to work.
-//   Breath         = audible breath pad with formant sweep
-$la_sound_layers = [
-	[ 'key' => 'chant',    'emoji' => '🎙', 'label' => 'Halaqa',  'desc' => 'A dhikr circle drifting in the background — not the lead' ],
-	[ 'key' => 'duff',     'emoji' => '🥁', 'label' => 'Duff',    'desc' => 'Frame-drum on the inhale beat' ],
-	[ 'key' => 'mind',     'emoji' => '🧠', 'label' => 'Mind',    'desc' => '🎧 Binaural theta — flows L↔R through your mind' ],
-	[ 'key' => 'breath',   'emoji' => '🌬', 'label' => 'Breath',  'desc' => 'Audible inhale/exhale cue' ],
-];
+// Audio layers REMOVED in Wave 19 — the synth + halaqa-recording experiment
+// over-engineered the experience. Mindful dhikr is YOU leading, with the
+// visual cues holding the rhythm. Silence is sacred; the user's own inner
+// recitation fills the space. (Combined dhikr+dua audio flows belong in a
+// separate future feature, not bolted onto the breathing meditation.)
+$la_sound_layers = [];
 
 // Wisdom — load + pick three (one for landing, rest rotate during session)
 $la_wisdom = [];
@@ -233,26 +224,8 @@ get_header();
 			</div>
 		</div>
 
-		<!-- Sound layers — optional companion audio. Each is independent +
-		     stackable: a reciter chant can play under a duff drum under
-		     audible breath cues. V1 ships UI + state; audio files drop into
-		     /assets/audio/dhikr-{phrase}-{layer}.mp3 — toggling without
-		     a file is a silent no-op so the UI doesn't break. -->
-		<div class="la-dhikr-section">
-			<h2 class="la-dhikr-section-label">Sound layers <span class="la-dhikr-section-hint">🎧 best with headphones</span></h2>
-			<div class="la-dhikr-sound-list" data-sound-list aria-label="Audio layers">
-				<?php foreach ( $la_sound_layers as $s ) : ?>
-					<button type="button"
-						class="la-dhikr-sound-chip"
-						data-sound="<?php echo esc_attr( $s['key'] ); ?>"
-						aria-pressed="false"
-						title="<?php echo esc_attr( $s['desc'] ); ?>">
-						<span class="la-dhikr-sound-emoji"><?php echo $s['emoji']; ?></span>
-						<span class="la-dhikr-sound-label"><?php echo esc_html( $s['label'] ); ?></span>
-					</button>
-				<?php endforeach; ?>
-			</div>
-		</div>
+		<!-- Sound layers removed in Wave 19. Silence is sacred. -->
+		<?php // Audio chips intentionally hidden — see $la_sound_layers comment ?>
 
 		<button type="button" class="la-dhikr-begin" data-action="begin-dhikr">
 			<span>Begin</span>
@@ -282,22 +255,22 @@ get_header();
 			<div class="la-dhikr-backdrop-psyche" data-dhikr-psyche></div>
 		</div>
 
-		<!-- HIDDEN YouTube CHANT IFRAME — when the Chant sound layer is ON,
-		     JS injects a real qari/reciter recording matching the selected
-		     phrase (Shaykh Hasan Ali, Omar Hisham, Mevlan Kurtishi). Real
-		     human voice repeating the dhikr for an hour — way more
-		     spiritually evocative than synthesised drones. Iframe sits
-		     visually-hidden (1x1px off-screen) but plays audio. Autoplay
-		     with sound is allowed here because the user just clicked Begin
-		     (counts as a user gesture). -->
-		<div class="la-dhikr-chant-host" data-chant-host aria-hidden="true"></div>
+		<?php // Chant iframe removed Wave 19 — silence is the practice ?>
 
-		<!-- Slim header — phrase + countdown -->
+		<!-- Slim header — phrase + countdown + breath count.
+		     The count is the ONE quiet improvement: a soft tally of breaths
+		     done. Connects to the tasbeeh tradition without gamifying —
+		     just shows the user their persistence accumulating. No targets,
+		     no streaks, no notifications. Just a number rising. -->
 		<div class="la-dhikr-session-head">
 			<button type="button" class="la-dhikr-back" data-action="end-session" aria-label="End session">
 				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
 			</button>
 			<div class="la-dhikr-session-phrase" data-active-phrase>—</div>
+			<div class="la-dhikr-session-count" data-breath-count title="Breath cycles" aria-label="Breath cycles">
+				<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="3" r="1.4" fill="currentColor"/><circle cx="12" cy="21" r="1.4" fill="currentColor"/><circle cx="3" cy="12" r="1.4" fill="currentColor"/><circle cx="21" cy="12" r="1.4" fill="currentColor"/></svg>
+				<span data-breath-count-num>0</span>
+			</div>
 			<div class="la-dhikr-session-timer" data-active-timer>—:—</div>
 		</div>
 
