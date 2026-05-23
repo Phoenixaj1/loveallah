@@ -2209,14 +2209,17 @@ button { font-family: inherit; }
 	transition: opacity 0.4s ease;
 }
 
-/* ────────────── BIG SUBTITLE BLOCK — TikTok-caption style ────────────── */
+/* ────────────── SUBTITLE BLOCK — minimal now (orb carries Arabic) ────────────── */
 .la-dhikr-subs {
-	margin: 4vh auto 0;
+	margin: 3vh auto 0;
 	max-width: 22ch;
 	padding: 0 14px;
 	text-align: center;
 	flex-shrink: 0;
 }
+/* The orb already shows the Inhale/Exhale half-Arabic in large type,
+   so the duplicate transliteration line below is just clutter. Hidden. */
+.la-dhikr-subs-cue { display: none; }
 .la-dhikr-subs-cue {
 	font-size: clamp(34px, 8.5vw, 56px);
 	font-weight: 900;
@@ -2260,26 +2263,16 @@ button { font-family: inherit; }
    Allah. Framed as a coach speaking quietly beside you: small label
    pill above ("💧 Heart coach"), italic guidance line below. */
 .la-dhikr-coach {
-	margin-top: 20px;
+	margin-top: 14px;
 	display: flex; flex-direction: column; align-items: center;
-	gap: 8px;
+	gap: 4px;
 	max-width: 28ch;
 	margin-left: auto; margin-right: auto;
 }
-.la-dhikr-coach-label {
-	display: inline-flex; align-items: center; gap: 5px;
-	padding: 3px 10px 3px 8px;
-	background: rgba(180, 220, 255, 0.18);
-	border: 1px solid rgba(180, 220, 255, 0.35);
-	border-radius: 999px;
-	backdrop-filter: blur(6px);
-	-webkit-backdrop-filter: blur(6px);
-	color: rgba(220, 240, 255, 0.92);
-	font-size: 9.5px; font-weight: 800;
-	letter-spacing: 0.14em;
-	text-transform: uppercase;
-}
-.la-dhikr-coach-icon { font-size: 11px; }
+/* Heart Coach pill label hidden — was visual noise. The italic prompt
+   below speaks for itself. */
+.la-dhikr-coach-label { display: none; }
+.la-dhikr-coach-icon { display: none; }
 .la-dhikr-coach-text {
 	font-size: clamp(13px, 3.5vw, 16px);
 	font-style: italic;
@@ -2330,7 +2323,11 @@ button { font-family: inherit; }
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
 	color: rgba(255, 255, 255, 0.5);
+	display: none;  /* hide the 'RHYTHM' header — the number alone is enough */
 }
+/* Also hide the stage label ('settle', 'coherence' etc) — it added noise
+   without adding meaning for the user. Just show the breath rate. */
+.la-dhikr-rhythm-stage { display: none; }
 .la-dhikr-rhythm-value {
 	display: flex; flex-direction: column; align-items: center;
 	color: #fff;

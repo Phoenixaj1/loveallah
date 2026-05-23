@@ -2035,16 +2035,20 @@
 			_ytApiPromise.then(cb);
 		}
 
-		// Scene backdrop uses the YT API so we can catch ENDED and
-		// force-replay, never letting "Up Next" / recommended videos
-		// surface (Rick Astley defense).
+		// Scene backdrop uses the YT API so we can catch ENDED + drift,
+		// force-replay our scene video, never letting recommended videos
+		// (Rick Astley etc) surface for any reason.
 		let bgYtPlayer = null;
+		let bgYtWatchdog = null;
+		let bgYtTargetVideoId = '';
 		function loadBackgroundVideo(sceneKey) {
 			if (!bgYtHost) return;
 			if (bgYtPlayer) { try { bgYtPlayer.destroy(); } catch (_) {} bgYtPlayer = null; }
+			if (bgYtWatchdog) { clearInterval(bgYtWatchdog); bgYtWatchdog = null; }
 			bgYtHost.innerHTML = '';
 			bgYtHost.classList.remove('is-playing');
 			const vid = sceneVideoIds[sceneKey];
+			bgYtTargetVideoId = vid || '';
 			if (!vid) return;
 			const placeholder = document.createElement('div');
 			placeholder.id = 'la-scene-yt-' + Date.now();
@@ -2082,6 +2086,27 @@
 							},
 						},
 					});
+
+					// WATCHDOG — poll every 4s to check if YouTube has drifted
+					// to a different video (auto-advance, "Up Next" sneaking
+					// through despite loop=1, etc.) Force-load our video back
+					// the moment we see a mismatch. This catches Rick Astley
+					// the SECOND he tries to appear, not after the video ends.
+					if (bgYtWatchdog) clearInterval(bgYtWatchdog);
+					bgYtWatchdog = setInterval(() => {
+						if (!bgYtPlayer || !bgYtTargetVideoId) return;
+						try {
+							const data = bgYtPlayer.getVideoData?.();
+							const currentId = data?.video_id;
+							if (currentId && currentId !== bgYtTargetVideoId) {
+								// Drift detected — force back to our scene video
+								bgYtPlayer.loadVideoById({
+									videoId: bgYtTargetVideoId,
+									startSeconds: 0,
+								});
+							}
+						} catch (_) {}
+					}, 4000);
 				} catch (_) {}
 			});
 		}
@@ -2234,7 +2259,8 @@
 		}
 
 		function stopAudio() {
-			// Just the scene backdrop iframe to tear down — it now carries audio too.
+			// Tear down scene-backdrop iframe + the watchdog timer.
+			if (bgYtWatchdog) { clearInterval(bgYtWatchdog); bgYtWatchdog = null; }
 			if (bgYtPlayer) { try { bgYtPlayer.destroy(); } catch(_) {} bgYtPlayer = null; }
 			if (bgYtHost)  { bgYtHost.innerHTML = ''; bgYtHost.classList.remove('is-playing'); }
 		}
