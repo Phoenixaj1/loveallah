@@ -65,7 +65,6 @@ button { font-family: inherit; }
 	box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset;
 	position: sticky; top: 0; z-index: 50;
 }
-/* Tighten the prayer-cell text now that the surrounding tone is darker */
 .la-prayer-cell-name { font-size: 10px; }
 .la-prayer-cell-time { font-size: 14px; }
 .la-prayer-cell-eta  { font-size: 10px; }
@@ -75,16 +74,67 @@ button { font-family: inherit; }
 .la-header-row--main {
 	min-height: 0;
 }
+
+/* ─── MOBILE-FIRST: all 5 prayer cells visible at all sizes ─── */
 @media (max-width: 600px) {
-	.la-header { padding: 3px 6px; }
+	.la-header { padding: 3px 5px; }
 	.la-header-row--main { gap: 4px; }
-	/* Collapse to NEXT prayer only on small screens — everything else hides */
-	.la-prayer-bar-row .la-prayer-cell:not(.is-next) { display: none; }
-	.la-prayer-bar-row { grid-template-columns: 1fr; max-width: 140px; }
-	.la-prayer-cell.is-next { padding: 4px 8px; flex-direction: row; gap: 6px; }
-	.la-prayer-cell.is-next .la-prayer-cell-name,
-	.la-prayer-cell.is-next .la-prayer-cell-time { line-height: 1; }
-	.la-prayer-cell.is-next .la-prayer-cell-eta { margin-left: auto; }
+	/* Brand mark only — hide text. Frees space for the 5 prayer cells. */
+	.la-brand-text { display: none; }
+	.la-prayer-bar-row { gap: 2px; }
+	.la-prayer-cell { padding: 4px 1px; min-width: 0; }
+	.la-prayer-cell-name { font-size: 8px; letter-spacing: 0.06em; }
+	.la-prayer-cell-time { font-size: 11px; }
+	.la-prayer-cell-eta  { display: none; }  /* eta moves to next-prayer-only state below */
+	.la-prayer-cell.is-next .la-prayer-cell-eta { display: block; font-size: 8px; }
+	/* Header actions stay tight */
+	.la-header-actions { gap: 2px; }
+	.la-icon-btn { width: 26px; height: 26px; }
+}
+/* Very narrow (iPhone SE) — shrink more */
+@media (max-width: 380px) {
+	.la-prayer-cell { padding: 3px 0; }
+	.la-prayer-cell-name { font-size: 7px; }
+	.la-prayer-cell-time { font-size: 10px; }
+	.la-hijri-pill { display: none; }  /* free space */
+}
+
+/* ─── Prayed state — green confirm ─── */
+.la-prayer-cell {
+	border: none;
+	font-family: inherit;
+	cursor: pointer;
+	position: relative;
+	-webkit-tap-highlight-color: transparent;
+}
+.la-prayer-cell-check {
+	position: absolute;
+	top: 3px; right: 3px;
+	color: #fff;
+	opacity: 0;
+	transform: scale(0.4);
+	transition: all 0.25s var(--la-spring);
+	pointer-events: none;
+}
+.la-prayer-cell.is-prayed {
+	background: linear-gradient(180deg, #1e8e3e 0%, #2c9e4d 100%);
+	border: 1px solid rgba(255,255,255,0.16);
+	box-shadow: 0 2px 8px rgba(30,142,62,0.45);
+}
+.la-prayer-cell.is-prayed .la-prayer-cell-name,
+.la-prayer-cell.is-prayed .la-prayer-cell-time { color: #fff; }
+.la-prayer-cell.is-prayed .la-prayer-cell-check { opacity: 1; transform: scale(1); }
+.la-prayer-cell.is-prayed .la-prayer-cell-eta { display: none; }
+/* Active state */
+.la-prayer-cell:active { transform: scale(0.94); }
+.la-prayer-cell.is-toggling {
+	animation: la-prayer-toggle 0.5s var(--la-spring);
+}
+@keyframes la-prayer-toggle {
+	0%   { transform: scale(1); }
+	30%  { transform: scale(1.12); }
+	60%  { transform: scale(0.95); }
+	100% { transform: scale(1); }
 }
 .la-brand {
 	display: inline-flex; align-items: center; gap: 7px;

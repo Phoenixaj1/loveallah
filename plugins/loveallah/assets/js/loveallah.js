@@ -845,4 +845,43 @@
 			{ enableHighAccuracy: false, timeout: 8000, maximumAge: 24 * 3600 * 1000 }
 		);
 	});
+
+	// ─── Prayer tracking — tap a prayer cell to mark prayed today ───
+	header.addEventListener('click', async (e) => {
+		const cell = e.target.closest('.la-prayer-cell[data-action="toggle-prayed"]');
+		if (!cell) return;
+		const prayer = cell.getAttribute('data-prayer-name');
+		if (!prayer) return;
+		// Optimistic UI: flip immediately
+		const wasPrayed = cell.classList.contains('is-prayed');
+		cell.classList.toggle('is-prayed', !wasPrayed);
+		cell.setAttribute('aria-pressed', String(!wasPrayed));
+		cell.classList.remove('is-toggling');
+		void cell.offsetWidth;
+		cell.classList.add('is-toggling');
+		// Light haptic on mark, heavier on unmark to differentiate
+		if (navigator.vibrate) navigator.vibrate(wasPrayed ? [12, 30, 12] : 18);
+		try {
+			const res = await fetch(LA.apiRoot + 'prayer-log/toggle', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': LA.nonce },
+				body: JSON.stringify({ prayer }),
+				credentials: 'include',
+			});
+			if (!res.ok) throw new Error('toggle failed');
+			const data = await res.json();
+			// Reconcile in case server thinks otherwise (race)
+			cell.classList.toggle('is-prayed', !!data.prayed);
+			cell.setAttribute('aria-pressed', String(!!data.prayed));
+			// Toast confirmation on mark prayed
+			if (data.prayed && typeof showToast !== 'undefined') {
+				// noop — toast lives in the feed IIFE, only fires inside feed scope
+			}
+		} catch (err) {
+			// Rollback optimistic flip
+			cell.classList.toggle('is-prayed', wasPrayed);
+			cell.setAttribute('aria-pressed', String(wasPrayed));
+			console.warn('[loveallah] prayer-toggle failed', err);
+		}
+	});
 })();

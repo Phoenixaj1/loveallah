@@ -25,6 +25,23 @@ $la_timings = class_exists( 'LA_Prayer_Times' )
 	? LA_Prayer_Times::for_lat_lng( $la_geo_lat, $la_geo_lng, null, $la_tz )
 	: [];
 $la_next   = $la_timings ? LA_Prayer_Times::next_prayer( $la_timings ) : [];
+
+// Which prayers has this visitor already marked prayed today?
+$la_prayed = [];
+if ( class_exists( 'LA_DB' ) && function_exists( 'la_get_or_set_session_id' ) ) {
+	global $wpdb;
+	$t = LA_DB::tables();
+	$_uid = get_current_user_id();
+	$_sid = la_get_or_set_session_id();
+	$identity = $_uid ? ( 'u' . (int) $_uid ) : ( $_sid ? ( 's' . $_sid ) : '' );
+	if ( $identity && ! empty( $t['prayer_log'] ) ) {
+		$la_prayed = $wpdb->get_col( $wpdb->prepare(
+			"SELECT prayer FROM {$t['prayer_log']} WHERE identity = %s AND date = %s",
+			$identity, gmdate( 'Y-m-d' )
+		) );
+	}
+}
+$la_prayed_count = is_array( $la_prayed ) ? count( array_intersect( $la_prayed, [ 'Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha' ] ) ) : 0;
 $la_streak = function_exists( 'la_unlock_state_for_view' ) ? la_unlock_state_for_view()['streak'] : 0;
 
 // Hijri date — uses the modern Islamic calendar bundled in PHP's IntlDateFormatter.
@@ -81,18 +98,25 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 			</a>
 
 			<?php if ( $la_timings ) : ?>
-				<div class="la-prayer-bar-row" data-prayer-bar aria-label="Your prayer times">
+				<div class="la-prayer-bar-row" data-prayer-bar aria-label="Your prayer times — tap to mark prayed">
 					<?php foreach ( [ 'Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha' ] as $name ) :
 						if ( empty( $la_timings[ $name ] ) ) continue;
-						$is_next = ( ! empty( $la_next['name'] ) && $la_next['name'] === $name );
+						$is_next   = ( ! empty( $la_next['name'] ) && $la_next['name'] === $name );
+						$is_prayed = in_array( $name, $la_prayed, true );
 					?>
-						<div class="la-prayer-cell <?php echo $is_next ? 'is-next' : ''; ?>" data-prayer-name="<?php echo esc_attr( $name ); ?>" title="<?php echo esc_attr( $name . ' ' . $la_timings[ $name ] ); ?>">
+						<button type="button"
+							class="la-prayer-cell <?php echo $is_next ? 'is-next' : ''; ?> <?php echo $is_prayed ? 'is-prayed' : ''; ?>"
+							data-prayer-name="<?php echo esc_attr( $name ); ?>"
+							data-action="toggle-prayed"
+							aria-pressed="<?php echo $is_prayed ? 'true' : 'false'; ?>"
+							title="<?php echo esc_attr( $name . ' ' . $la_timings[ $name ] . ' — tap to ' . ( $is_prayed ? 'unmark' : 'mark prayed' ) ); ?>">
 							<span class="la-prayer-cell-name"><?php echo esc_html( $name ); ?></span>
 							<span class="la-prayer-cell-time"><?php echo esc_html( $la_timings[ $name ] ); ?></span>
-							<?php if ( $is_next ) : ?>
+							<?php if ( $is_next && ! $is_prayed ) : ?>
 								<span class="la-prayer-cell-eta" data-countdown>—</span>
 							<?php endif; ?>
-						</div>
+							<svg class="la-prayer-cell-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
+						</button>
 					<?php endforeach; ?>
 				</div>
 			<?php endif; ?>

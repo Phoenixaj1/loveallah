@@ -226,14 +226,54 @@ self.addEventListener('notificationclick', (e) => {
 
 	public static function head_tags() : void {
 		$brand = get_option( 'la_brand_color', '#ED1C6C' );
+		$icons = LA_URL . 'assets/icons/';
+		$splash = LA_URL . 'assets/ios-splash/';
 		?>
 		<link rel="manifest" href="<?php echo esc_url( home_url( '/manifest.json' ) ); ?>">
 		<meta name="theme-color" content="<?php echo esc_attr( $brand ); ?>">
 		<meta name="mobile-web-app-capable" content="yes">
+
+		<!-- ─── iOS / Safari PWA ───
+		     'apple-mobile-web-app-capable' is deprecated but still respected on
+		     iOS 16. 'mobile-web-app-capable' is the modern equivalent (above). -->
 		<meta name="apple-mobile-web-app-capable" content="yes">
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 		<meta name="apple-mobile-web-app-title" content="Love Allah">
-		<link rel="apple-touch-icon" href="<?php echo esc_url( LA_URL . 'assets/icons/icon-192.png' ); ?>">
+		<meta name="format-detection" content="telephone=no">
+
+		<!-- apple-touch-icon — iPhone home-screen icon. 180×180 is the
+		     reference size; older devices fall back to others if 180 missing. -->
+		<link rel="apple-touch-icon" sizes="180x180" href="<?php echo esc_url( $icons . 'icon-192.png' ); ?>">
+		<link rel="apple-touch-icon" sizes="152x152" href="<?php echo esc_url( $icons . 'icon-152.png' ); ?>">
+		<link rel="apple-touch-icon" sizes="144x144" href="<?php echo esc_url( $icons . 'icon-144.png' ); ?>">
+		<link rel="apple-touch-icon" sizes="120x120" href="<?php echo esc_url( $icons . 'icon-128.png' ); ?>">
+		<link rel="apple-touch-icon" href="<?php echo esc_url( $icons . 'icon-192.png' ); ?>">
+		<link rel="mask-icon" href="<?php echo esc_url( $icons . 'icon.svg' ); ?>" color="<?php echo esc_attr( $brand ); ?>">
+
+		<!-- iOS splash screens. Each device size needs its own bitmap to avoid
+		     a white flash on app launch. Generated from icon.svg at build time —
+		     missing ones simply fall back to a white screen (acceptable). -->
+		<?php $ios_splashes = [
+			// [width, height, density, orientation]
+			[ 1290, 2796, 3, 'portrait', 'iphone15promax' ],
+			[ 1179, 2556, 3, 'portrait', 'iphone15pro' ],
+			[ 1170, 2532, 3, 'portrait', 'iphone13pro' ],
+			[ 1284, 2778, 3, 'portrait', 'iphone12promax' ],
+			[ 1125, 2436, 3, 'portrait', 'iphonex' ],
+			[ 828,  1792, 2, 'portrait', 'iphonexr' ],
+			[ 1242, 2208, 3, 'portrait', 'iphone8plus' ],
+			[ 750,  1334, 2, 'portrait', 'iphone8' ],
+			[ 640,  1136, 2, 'portrait', 'iphonese' ],
+		];
+		foreach ( $ios_splashes as $s ) {
+			$file = $splash . 'splash-' . $s[0] . 'x' . $s[1] . '.png';
+			?>
+			<link rel="apple-touch-startup-image"
+				media="screen and (device-width: <?php echo (int) ( $s[0] / $s[2] ); ?>px) and (device-height: <?php echo (int) ( $s[1] / $s[2] ); ?>px) and (-webkit-device-pixel-ratio: <?php echo (int) $s[2]; ?>) and (orientation: portrait)"
+				href="<?php echo esc_url( $file ); ?>">
+			<?php
+		}
+		?>
 		<?php
 	}
 

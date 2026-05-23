@@ -66,6 +66,37 @@ class LA_API {
 			'permission_callback' => [ __CLASS__, 'check_nonce' ],
 		] );
 
+		// Prayer log — tap a prayer cell in header to mark prayed today.
+		register_rest_route( self::NS, '/prayer-log/today', [
+			'methods'  => 'GET',
+			'callback' => [ __CLASS__, 'prayer_log_today' ],
+			'permission_callback' => '__return_true',
+		] );
+		register_rest_route( self::NS, '/prayer-log/toggle', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'prayer_log_toggle' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+			'args' => [
+				'prayer' => [ 'type' => 'string', 'required' => true ],
+			],
+		] );
+
+		// Tasbeeh — interactive counter on /dhikr tab.
+		register_rest_route( self::NS, '/tasbeeh/today', [
+			'methods'  => 'GET',
+			'callback' => [ __CLASS__, 'tasbeeh_today' ],
+			'permission_callback' => '__return_true',
+		] );
+		register_rest_route( self::NS, '/tasbeeh/increment', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'tasbeeh_increment' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+			'args' => [
+				'phrase' => [ 'type' => 'string', 'required' => true ],
+				'count'  => [ 'type' => 'integer', 'required' => true ],
+			],
+		] );
+
 		register_rest_route( self::NS, '/mosques/nearest', [
 			'methods'  => 'GET',
 			'callback' => [ __CLASS__, 'nearest_mosques' ],
@@ -298,6 +329,106 @@ class LA_API {
 				'distance_km' => round( (float) $m->distance_km, 1 ),
 			];
 		}, $rows ) ];
+	}
+
+	// ─── Prayer-log endpoints ───
+
+	/** Returns the list of prayer names this identity has marked prayed today. */
+	public static function prayer_log_today( WP_REST_Request $req ) {
+		$identity = self::identity_str( $req );
+		if ( ! $identity ) return [ 'prayed' => [] ];
+		global $wpdb;
+		$t = LA_DB::tables();
+		$rows = $wpdb->get_col( $wpdb->prepare(
+			"SELECT prayer FROM {$t['prayer_log']} WHERE identity = %s AND date = %s",
+			$identity, gmdate( 'Y-m-d' )
+		) );
+		return [ 'prayed' => array_values( array_map( 'strval', $rows ) ) ];
+	}
+
+	/** Toggles a prayer's prayed state for today. Returns new state. */
+	public static function prayer_log_toggle( WP_REST_Request $req ) {
+		$identity = self::identity_str( $req );
+		if ( ! $identity ) {
+			return new WP_Error( 'no_identity', 'Session required', [ 'status' => 400 ] );
+		}
+		$prayer = sanitize_text_field( (string) $req->get_param( 'prayer' ) );
+		$allowed = [ 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha' ];
+		if ( ! in_array( $prayer, $allowed, true ) ) {
+			return new WP_Error( 'bad_prayer', 'Invalid prayer name', [ 'status' => 400 ] );
+		}
+		global $wpdb;
+		$t = LA_DB::tables();
+		$today = gmdate( 'Y-m-d' );
+
+		$existing = $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM {$t['prayer_log']} WHERE identity = %s AND date = %s AND prayer = %s",
+			$identity, $today, $prayer
+		) );
+		if ( $existing ) {
+			$wpdb->delete( $t['prayer_log'], [ 'id' => (int) $existing ] );
+			$prayed = false;
+		} else {
+			$wpdb->insert( $t['prayer_log'], [
+				'identity' => $identity, 'date' => $today, 'prayer' => $prayer,
+				'prayed_at' => current_time( 'mysql' ),
+			] );
+			$prayed = true;
+		}
+		return [ 'prayer' => $prayer, 'prayed' => $prayed ];
+	}
+
+	// ─── Tasbeeh endpoints ───
+
+	/** Per-phrase counts for today. */
+	public static function tasbeeh_today( WP_REST_Request $req ) {
+		$identity = self::identity_str( $req );
+		if ( ! $identity ) return [ 'counts' => new stdClass() ];
+		global $wpdb;
+		$t = LA_DB::tables();
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT phrase, count FROM {$t['tasbeeh_log']} WHERE identity = %s AND date = %s",
+			$identity, gmdate( 'Y-m-d' )
+		), ARRAY_A );
+		$out = [];
+		foreach ( $rows as $r ) { $out[ $r['phrase'] ] = (int) $r['count']; }
+		return [ 'counts' => $out ?: new stdClass() ];
+	}
+
+	/** Increments a phrase's daily count. Client throttles to ≤5 calls/sec. */
+	public static function tasbeeh_increment( WP_REST_Request $req ) {
+		$identity = self::identity_str( $req );
+		if ( ! $identity ) {
+			return new WP_Error( 'no_identity', 'Session required', [ 'status' => 400 ] );
+		}
+		$phrase = sanitize_text_field( (string) $req->get_param( 'phrase' ) );
+		$count  = max( 1, min( 100, (int) $req->get_param( 'count' ) ) ); // batch up to 100
+		if ( ! in_array( $phrase, [ 'subhanallah', 'alhamdulillah', 'allahuakbar', 'laillaha', 'astaghfirullah' ], true ) ) {
+			return new WP_Error( 'bad_phrase', 'Unknown phrase', [ 'status' => 400 ] );
+		}
+		global $wpdb;
+		$t = LA_DB::tables();
+		$today = gmdate( 'Y-m-d' );
+		// Upsert: try insert, on duplicate update count
+		$wpdb->query( $wpdb->prepare(
+			"INSERT INTO {$t['tasbeeh_log']} (identity, date, phrase, count)
+			 VALUES (%s, %s, %s, %d)
+			 ON DUPLICATE KEY UPDATE count = count + VALUES(count)",
+			$identity, $today, $phrase, $count
+		) );
+		$new = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT count FROM {$t['tasbeeh_log']} WHERE identity = %s AND date = %s AND phrase = %s",
+			$identity, $today, $phrase
+		) );
+		return [ 'phrase' => $phrase, 'count' => $new ];
+	}
+
+	/** Build the string identity used for prayer_log / tasbeeh_log rows. */
+	private static function identity_str( WP_REST_Request $req ) : string {
+		[ $user_id, $session_id ] = self::identity( $req );
+		if ( $user_id )    return 'u' . (int) $user_id;
+		if ( $session_id ) return 's' . $session_id;
+		return '';
 	}
 
 	private static function identity( WP_REST_Request $req ) : array {

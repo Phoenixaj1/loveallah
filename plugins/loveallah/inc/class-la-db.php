@@ -24,6 +24,9 @@ class LA_DB {
 			'emails'            => $wpdb->prefix . 'la_emails',
 			'events'            => $wpdb->prefix . 'la_events',
 			'email_captures'    => $wpdb->prefix . 'la_email_captures',
+			'prayer_log'        => $wpdb->prefix . 'la_prayer_log',
+			'tasbeeh_log'       => $wpdb->prefix . 'la_tasbeeh_log',
+			'duas'              => $wpdb->prefix . 'la_duas',
 		];
 	}
 
@@ -36,9 +39,10 @@ class LA_DB {
 		$current = (int) get_option( 'la_db_version', 0 );
 		if ( $current < LA_DB_VERSION ) {
 			self::create_tables();
-			// Re-seed scholars on every DB version bump (idempotent — updates rows by username).
-			// This keeps the curated scholar list in sync with the codebase as we add channels.
+			// Re-seed scholars + duas on every DB version bump (both idempotent).
+			// Keeps the curated lists in sync with the codebase as we add content.
 			self::seed_scholars();
+			self::seed_duas();
 			update_option( 'la_db_version', LA_DB_VERSION );
 		}
 	}
@@ -244,6 +248,50 @@ class LA_DB {
 			KEY session_id (session_id),
 			KEY user_id (user_id)
 		) $charset_collate;" );
+
+		// Prayer log — each row is a single 'I prayed Fajr today' confirmation.
+		// identity = 'u123' (user_id 123) or 's<session_id>'. Lets us serve
+		// anonymous + logged-in identically and unique by (identity, date, prayer).
+		dbDelta( "CREATE TABLE {$t['prayer_log']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			identity varchar(80) NOT NULL,
+			date date NOT NULL,
+			prayer varchar(20) NOT NULL,
+			prayed_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uniq_identity_date_prayer (identity, date, prayer),
+			KEY identity_date (identity, date)
+		) $charset_collate;" );
+
+		// Tasbeeh log — per-user lifetime + daily tasbeeh counts.
+		// Stores aggregate counters; client persists per-second taps in localStorage.
+		dbDelta( "CREATE TABLE {$t['tasbeeh_log']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			identity varchar(80) NOT NULL,
+			date date NOT NULL,
+			phrase varchar(40) NOT NULL,
+			count int unsigned NOT NULL DEFAULT 0,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uniq_identity_date_phrase (identity, date, phrase)
+		) $charset_collate;" );
+
+		// Duas — curated supplications library.
+		dbDelta( "CREATE TABLE {$t['duas']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			slug varchar(80) NOT NULL,
+			category varchar(40) NOT NULL,
+			title varchar(190) NOT NULL,
+			arabic text NOT NULL,
+			transliteration text DEFAULT NULL,
+			meaning text DEFAULT NULL,
+			source varchar(120) DEFAULT NULL,
+			repeat_count int unsigned NOT NULL DEFAULT 1,
+			sort_order int NOT NULL DEFAULT 0,
+			PRIMARY KEY  (id),
+			UNIQUE KEY slug (slug),
+			KEY category (category)
+		) $charset_collate;" );
 	}
 
 	public static function seed() {
@@ -251,6 +299,40 @@ class LA_DB {
 		self::seed_mosque();
 		self::seed_scholars();
 		self::seed_feed_posts();
+		self::seed_duas();
+	}
+
+	private static function seed_duas() {
+		global $wpdb;
+		$t = self::tables();
+		$path = LA_DIR . 'inc/data/duas-seed.json';
+		if ( ! file_exists( $path ) ) return;
+		$json = file_get_contents( $path );
+		$rows = json_decode( $json, true );
+		if ( ! is_array( $rows ) ) return;
+
+		$order = 0;
+		foreach ( $rows as $r ) {
+			$slug = sanitize_title( $r['slug'] ?? '' );
+			if ( ! $slug ) continue;
+			$data = [
+				'slug'           => $slug,
+				'category'       => sanitize_text_field( $r['category'] ?? 'general' ),
+				'title'          => sanitize_text_field( $r['title'] ?? '' ),
+				'arabic'         => wp_kses_post( $r['arabic'] ?? '' ),
+				'transliteration'=> wp_kses_post( $r['transliteration'] ?? '' ),
+				'meaning'        => wp_kses_post( $r['meaning'] ?? '' ),
+				'source'         => sanitize_text_field( $r['source'] ?? '' ),
+				'repeat_count'   => max( 1, (int) ( $r['repeat'] ?? 1 ) ),
+				'sort_order'     => $order++,
+			];
+			$existing = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$t['duas']} WHERE slug = %s", $slug ) );
+			if ( $existing ) {
+				$wpdb->update( $t['duas'], $data, [ 'id' => $existing ] );
+			} else {
+				$wpdb->insert( $t['duas'], $data );
+			}
+		}
 	}
 
 	private static function seed_dhikr() {
