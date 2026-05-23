@@ -1397,7 +1397,7 @@
 		// inside a domed masjid.
 		const audioCtx = (window.AudioContext || window.webkitAudioContext) ? new (window.AudioContext || window.webkitAudioContext)() : null;
 		let masterGain = null, reverbBus = null, dryBus = null;
-		const audioLayers = { chant: null, duff: null, breath: null };
+		const audioLayers = { chant: null, duff: null, breath: null, mind: null };
 
 		function ensureAudio() {
 			if (!audioCtx) return;
@@ -1530,6 +1530,67 @@
 			src.start(when);
 		}
 
+		// MIND — binaural theta beats. LEFT ear sine 110 Hz, RIGHT ear sine
+		// 116 Hz. The 6 Hz difference is interpreted by the brainstem as a
+		// phantom carrier in the THETA band (4-7 Hz) — the EEG signature
+		// of deep meditation, mystical states, and the experiences Newberg's
+		// neurotheology team measured in Sufi + Tibetan monk practitioners.
+		// Each channel goes to its dedicated output via ChannelMerger — the
+		// binaural illusion only works when the two tones are spatially
+		// separated, i.e. via HEADPHONES. Speakers blur them together.
+		function buildMind() {
+			if (!audioCtx) return null;
+			const merger = audioCtx.createChannelMerger(2);
+			const leftGain = audioCtx.createGain();
+			const rightGain = audioCtx.createGain();
+			leftGain.gain.value = 0;
+			rightGain.gain.value = 0;
+
+			const leftOsc = audioCtx.createOscillator();
+			leftOsc.type = 'sine';
+			leftOsc.frequency.value = 110;   // base carrier
+			const rightOsc = audioCtx.createOscillator();
+			rightOsc.type = 'sine';
+			rightOsc.frequency.value = 116;  // +6 Hz = theta-band phantom
+
+			// Slow LFO modulates volume gently so it doesn't feel mechanical
+			const lfo = audioCtx.createOscillator();
+			lfo.type = 'sine';
+			lfo.frequency.value = 0.10;
+			const lfoGain = audioCtx.createGain();
+			lfoGain.gain.value = 0.015;
+			lfo.connect(lfoGain);
+			lfoGain.connect(leftGain.gain);
+			lfoGain.connect(rightGain.gain);
+
+			leftOsc.connect(leftGain).connect(merger, 0, 0);   // left channel only
+			rightOsc.connect(rightGain).connect(merger, 0, 1); // right channel only
+			merger.connect(masterGain);
+
+			leftOsc.start(); rightOsc.start(); lfo.start();
+
+			return {
+				on() {
+					if (!audioCtx) return;
+					const now = audioCtx.currentTime;
+					leftGain.gain.cancelScheduledValues(now);
+					rightGain.gain.cancelScheduledValues(now);
+					// Bring up slowly so the binaural entrainment builds gently
+					leftGain.gain.linearRampToValueAtTime(0.085, now + 4);
+					rightGain.gain.linearRampToValueAtTime(0.085, now + 4);
+				},
+				off() {
+					if (!audioCtx) return;
+					const now = audioCtx.currentTime;
+					leftGain.gain.cancelScheduledValues(now);
+					rightGain.gain.cancelScheduledValues(now);
+					leftGain.gain.linearRampToValueAtTime(0, now + 1.5);
+					rightGain.gain.linearRampToValueAtTime(0, now + 1.5);
+				},
+				_destroy() { try { leftOsc.stop(); rightOsc.stop(); lfo.stop(); } catch (_) {} },
+			};
+		}
+
 		// BREATH — humanised breath pad. Pink noise through a band-pass
 		// filter that sweeps with the breath phase (low formant on exhale,
 		// higher formant on inhale — mimics opening/closing of the throat).
@@ -1588,10 +1649,12 @@
 			duration: 7,
 			mode: 'qalbi',
 			scene: 'cosmos',
-			// Chant defaulted ON — the spiritual depth comes from the real
-			// qari voice; users shouldn't have to know to toggle it. Duff +
-			// breath stay off by default (additive).
-			sounds: { chant: true, duff: false, breath: false },
+			// Chant + Mind defaulted ON — the chant brings the HEART
+			// (qari voice repeating the phrase), Mind brings the BRAIN
+			// (binaural theta entrainment). Together they make the
+			// headphone experience the user asked for. Duff + breath
+			// stay off by default (additive on top).
+			sounds: { chant: true, duff: false, mind: true, breath: false },
 		};
 
 		// Restore persisted scene + sound preferences so each return visit
@@ -1607,7 +1670,7 @@
 				});
 			}
 			if (saved.sounds) {
-				selected.sounds = { chant: true, duff: false, breath: false, ...saved.sounds };
+				selected.sounds = { chant: true, duff: false, mind: true, breath: false, ...saved.sounds };
 			}
 		} catch (_) {}
 		// Always reflect current selected.sounds on the buttons (covers both
@@ -1674,6 +1737,14 @@
 					} else if (!selected.sounds.breath && audioLayers.breath) {
 						try { audioLayers.breath.off(); audioLayers.breath._destroy?.(); } catch(_){}
 						audioLayers.breath = null;
+					}
+				} else if (k === 'mind') {
+					if (selected.sounds.mind && !audioLayers.mind && audioCtx) {
+						audioLayers.mind = buildMind();
+						audioLayers.mind.on();
+					} else if (!selected.sounds.mind && audioLayers.mind) {
+						try { audioLayers.mind.off(); setTimeout(() => audioLayers.mind?._destroy?.(), 2000); } catch(_){}
+						audioLayers.mind = null;
 					}
 				}
 				// Duff is fired per-inhale in updateBreathPhase; nothing to wire here
@@ -1826,6 +1897,8 @@
 			// Tear down + rebuild layers so we always reflect the current toggles
 			destroyAudioLayers();
 			if (audioCtx && selected.sounds.breath) audioLayers.breath = buildBreath();
+			if (audioCtx && selected.sounds.mind)   audioLayers.mind   = buildMind();
+			audioLayers.mind?.on();
 			// Duff fires on each breath beat, see updateBreathPhase
 
 			// CHANT — REAL human voice from YouTube, not synthesised drone.
@@ -1941,50 +2014,120 @@
 			breathTimer_handle = setTimeout(nextHalf, firstDur);
 		}
 
-		// CHANT — inject a hidden YouTube iframe playing a real qari
-		// recording for the selected phrase. Pass null to unload.
-		// User gesture (Begin click) satisfies autoplay-with-sound policy.
+		// CHANT — inject a hidden YouTube iframe playing a real qari recording.
+		// Uses the YT IFrame API + explicit ENDED-state listener to FORCE
+		// replay the same video instead of letting YouTube drift to its
+		// recommended (which once dropped Rick Astley into a meditation —
+		// not the kind of transcendence we promised).
+		const chantYtPlayers = { chant: null };
 		function loadChantVideo(videoId) {
 			if (!chantHost) return;
+			// Kill any existing player
+			if (chantYtPlayers.chant) {
+				try { chantYtPlayers.chant.destroy(); } catch (_) {}
+				chantYtPlayers.chant = null;
+			}
 			chantHost.innerHTML = '';
 			if (!videoId) return;
-			const iframe = document.createElement('iframe');
-			iframe.allow = 'autoplay; encrypted-media';
-			iframe.allowFullscreen = false;
-			// autoplay=1 + mute=0 = real audio. loop=1 + playlist=ID keeps it
-			// from drifting to recommended (Rick Astley protection).
-			const params = `autoplay=1&mute=0&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0`;
-			iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?${params}`;
-			chantHost.appendChild(iframe);
+			// Create a placeholder div; YT API replaces it with an iframe
+			const placeholder = document.createElement('div');
+			placeholder.id = 'la-chant-yt-' + Date.now();
+			chantHost.appendChild(placeholder);
+			// Ensure YT API is loaded, then build the player
+			ensureYTApi(() => {
+				try {
+					chantYtPlayers.chant = new YT.Player(placeholder.id, {
+						videoId: videoId,
+						host: 'https://www.youtube-nocookie.com',
+						playerVars: {
+							autoplay: 1, mute: 0, loop: 1, playlist: videoId,
+							controls: 0, modestbranding: 1, playsinline: 1, rel: 0,
+							iv_load_policy: 3, cc_load_policy: 0, disablekb: 1, fs: 0,
+						},
+						events: {
+							onReady: (e) => { try { e.target.playVideo(); } catch (_) {} },
+							onStateChange: (e) => {
+								// YT.PlayerState.ENDED === 0
+								// loop=1 should re-trigger, but in practice it occasionally
+								// fails AND shows the dreaded "Up Next" overlay.
+								// Force-replay here so nothing but our video ever plays.
+								if (e.data === 0) {
+									try { e.target.seekTo(0, true); e.target.playVideo(); } catch (_) {}
+								}
+							},
+							onError: (e) => {
+								// Video unavailable / blocked etc — just unload, fall back
+								// to the CSS visual + Web Audio layers.
+								try { e.target.destroy(); } catch (_) {}
+								chantYtPlayers.chant = null;
+							},
+						},
+					});
+				} catch (_) {}
+			});
 		}
 
+		// Lazy-load YT IFrame API exactly once across the page
+		let _ytApiPromise = null;
+		function ensureYTApi(cb) {
+			if (window.YT && window.YT.Player) return cb();
+			if (_ytApiPromise) { _ytApiPromise.then(cb); return; }
+			_ytApiPromise = new Promise(resolve => {
+				const prev = window.onYouTubeIframeAPIReady;
+				window.onYouTubeIframeAPIReady = function () {
+					if (typeof prev === 'function') try { prev(); } catch (_) {}
+					resolve();
+				};
+				const s = document.createElement('script');
+				s.src = 'https://www.youtube.com/iframe_api';
+				s.async = true;
+				document.head.appendChild(s);
+			});
+			_ytApiPromise.then(cb);
+		}
+
+		// Scene backdrop also uses the YT API so we can catch ENDED and
+		// force-replay, never letting "Up Next" / recommended videos
+		// surface (Rick Astley defense).
+		let bgYtPlayer = null;
 		function loadBackgroundVideo(sceneKey) {
 			if (!bgYtHost) return;
+			if (bgYtPlayer) { try { bgYtPlayer.destroy(); } catch (_) {} bgYtPlayer = null; }
 			bgYtHost.innerHTML = '';
 			bgYtHost.classList.remove('is-playing');
 			const vid = sceneVideoIds[sceneKey];
-			if (!vid) return; // 'Stillness' or unknown → keep CSS-only backdrop
-
-			// Verify the video exists via YouTube's public oEmbed endpoint
-			// BEFORE committing it as the backdrop. A 200 = video plays;
-			// anything else (404 = removed, 401 = private) means we abort
-			// and let the CSS backdrop carry the scene. This prevents the
-			// ugly "This video is unavailable" placeholder from showing.
-			fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`, { mode: 'no-cors' })
-				.then(() => {
-					// no-cors gives us an opaque response — we can't read it,
-					// but if the request didn't throw the iframe will work.
-					const iframe = document.createElement('iframe');
-					iframe.allow = 'autoplay; encrypted-media';
-					iframe.allowFullscreen = false;
-					const params = `autoplay=1&mute=1&loop=1&playlist=${vid}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0`;
-					iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?${params}`;
-					iframe.addEventListener('load', () => bgYtHost.classList.add('is-playing'));
-					bgYtHost.appendChild(iframe);
-				})
-				.catch(() => {
-					// Network blocked / offline / etc — fall back to CSS only
-				});
+			if (!vid) return;
+			const placeholder = document.createElement('div');
+			placeholder.id = 'la-scene-yt-' + Date.now();
+			bgYtHost.appendChild(placeholder);
+			ensureYTApi(() => {
+				try {
+					bgYtPlayer = new YT.Player(placeholder.id, {
+						videoId: vid,
+						host: 'https://www.youtube-nocookie.com',
+						playerVars: {
+							autoplay: 1, mute: 1, loop: 1, playlist: vid,
+							controls: 0, modestbranding: 1, playsinline: 1, rel: 0,
+							iv_load_policy: 3, cc_load_policy: 0, disablekb: 1, fs: 0,
+						},
+						events: {
+							onReady: (e) => {
+								try { e.target.mute(); e.target.playVideo(); } catch (_) {}
+								bgYtHost.classList.add('is-playing');
+							},
+							onStateChange: (e) => {
+								if (e.data === 0) {
+									try { e.target.seekTo(0, true); e.target.playVideo(); } catch (_) {}
+								}
+							},
+							onError: (e) => {
+								try { e.target.destroy(); } catch (_) {}
+								bgYtPlayer = null;
+							},
+						},
+					});
+				} catch (_) {}
+			});
 		}
 
 		function updateBreathPhase() {

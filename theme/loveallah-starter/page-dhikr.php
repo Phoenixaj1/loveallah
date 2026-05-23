@@ -118,13 +118,20 @@ $la_scenes = [
 	[ 'key' => 'none',    'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else',       'video' => '' ],
 ];
 
-// Sound layers — optional auxiliary tracks to layer with the breath.
-// V1 ships the UI + state; audio assets land in /assets/audio/ and the
-// player wires them up. Toggling without assets is a silent no-op.
+// Sound layers — designed for a HEADPHONE experience:
+//   Chant (HEART)  = real qari voice from YouTube, repeating the phrase
+//   Duff           = synthesised frame-drum on each inhale (Sunnah-permitted)
+//   Mind (BRAIN)   = binaural beats at theta frequency (6 Hz phantom from
+//                    110 Hz L / 116 Hz R) — entrains the EEG into the
+//                    meditative band reported by Tibetan monks + Sufis
+//                    in Newberg's neurotheology studies. Requires headphones
+//                    for the binaural effect to work.
+//   Breath         = audible breath pad with formant sweep
 $la_sound_layers = [
-	[ 'key' => 'chant',    'emoji' => '🎙', 'label' => 'Chant',  'desc' => 'A reciter holds the phrase under you' ],
-	[ 'key' => 'duff',     'emoji' => '🥁', 'label' => 'Duff',   'desc' => 'Soft frame-drum heartbeat' ],
-	[ 'key' => 'breath',   'emoji' => '🌬', 'label' => 'Breath', 'desc' => 'Audible inhale/exhale cue' ],
+	[ 'key' => 'chant',    'emoji' => '🎙', 'label' => 'Chant',   'desc' => 'A real qari recites the phrase under you' ],
+	[ 'key' => 'duff',     'emoji' => '🥁', 'label' => 'Duff',    'desc' => 'Frame-drum on the inhale beat' ],
+	[ 'key' => 'mind',     'emoji' => '🧠', 'label' => 'Mind',    'desc' => '🎧 Binaural theta — flows L↔R through your mind' ],
+	[ 'key' => 'breath',   'emoji' => '🌬', 'label' => 'Breath',  'desc' => 'Audible inhale/exhale cue' ],
 ];
 
 // Wisdom — load + pick three (one for landing, rest rotate during session)
@@ -228,7 +235,7 @@ get_header();
 		     /assets/audio/dhikr-{phrase}-{layer}.mp3 — toggling without
 		     a file is a silent no-op so the UI doesn't break. -->
 		<div class="la-dhikr-section">
-			<h2 class="la-dhikr-section-label">Sound layers <span class="la-dhikr-section-hint">optional · stackable</span></h2>
+			<h2 class="la-dhikr-section-label">Sound layers <span class="la-dhikr-section-hint">🎧 best with headphones</span></h2>
 			<div class="la-dhikr-sound-list" data-sound-list aria-label="Audio layers">
 				<?php foreach ( $la_sound_layers as $s ) : ?>
 					<button type="button"
