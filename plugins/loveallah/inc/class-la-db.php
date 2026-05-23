@@ -510,12 +510,12 @@ class LA_DB {
 	private static function seed_scholars() {
 		global $wpdb;
 		$t = self::tables();
-		// CURATED ROSTER — globally recognised English-speaking scholars,
-		// qaris of the Haramain (and beyond), and the few nasheed artists
-		// who hold scholarly respect. All entries link to the OFFICIAL
-		// YouTube channel; the yt-dlp ingest pulls their /shorts and /videos
-		// feeds on the la_youtube_sync cron (every 6h). Anything that's
-		// not a recognised scholar/reciter does NOT go in this list.
+		// CURATED ROSTER — only globally recognised English-speaking scholars
+		// (knowledge / du'aat / lecturers) AND qaris of the Haramain
+		// and beyond (recitation). No nasheed artists, no entertainment
+		// channels. The yt-dlp ingest pulls their /shorts and /videos
+		// feeds on the la_youtube_sync cron (every 6h). The purge step at
+		// the end of this seed removes any prior nasheed seeds from the DB.
 		$scholars = [
 			// ─── SCHOLARS / DU'AAT (reminders, lectures) ──────────────────
 			[ 'username' => 'muftimenk',     'display_name' => 'Mufti Menk',
@@ -676,37 +676,10 @@ class LA_DB {
 			  'source_url' => 'https://www.youtube.com/@FarizAsad',
 			  'default_content_type' => 'qirat' ],
 
-			// ─── NASHEED ARTISTS ────────────────────────────────────────────
-			[ 'username' => 'samiyusuf',     'display_name' => 'Sami Yusuf',
-			  'bio' => 'British composer; pioneer of contemporary Islamic spiritual music.',
-			  'account_type' => 'curated',
-			  'source_url' => 'https://www.youtube.com/@samiyusufofficial',
-			  'default_content_type' => 'nasheed' ],
-			[ 'username' => 'maherzain',     'display_name' => 'Maher Zain',
-			  'bio' => 'Swedish-Lebanese nasheed artist — uplifting devotional vocals.',
-			  'account_type' => 'curated',
-			  'source_url' => 'https://www.youtube.com/@maherzainofficial',
-			  'default_content_type' => 'nasheed' ],
-			[ 'username' => 'bukhatir',      'display_name' => 'Ahmed Bukhatir',
-			  'bio' => 'Emirati nasheed pioneer; classical Arabic devotional style.',
-			  'account_type' => 'curated',
-			  'source_url' => 'https://www.youtube.com/@AhmedBukhatir',
-			  'default_content_type' => 'nasheed' ],
-			[ 'username' => 'mesutkurtis',   'display_name' => 'Mesut Kurtis',
-			  'bio' => 'Macedonian-British nasheed artist signed to Awakening Records.',
-			  'account_type' => 'curated',
-			  'source_url' => 'https://www.youtube.com/@mesutkurtis',
-			  'default_content_type' => 'nasheed' ],
-			[ 'username' => 'harrisj',       'display_name' => 'Harris J',
-			  'bio' => 'British nasheed artist popular among younger Muslims.',
-			  'account_type' => 'curated',
-			  'source_url' => 'https://www.youtube.com/@harrisj',
-			  'default_content_type' => 'nasheed' ],
-			[ 'username' => 'yusufislam',    'display_name' => 'Yusuf Islam (Cat Stevens)',
-			  'bio' => 'Legendary British musician and educator; founder of Small Kindness charity.',
-			  'account_type' => 'curated',
-			  'source_url' => 'https://www.youtube.com/@yusufcatstevens',
-			  'default_content_type' => 'nasheed' ],
+			// Nasheed artists intentionally NOT included — by user direction,
+			// the feed surfaces only scholars and qaris (knowledge + recitation).
+			// The cleanup below (purge_nasheed_artists) removes any that were
+			// previously seeded so the feed stays on-mission.
 		];
 		foreach ( $scholars as $row ) {
 			$existing = (int) $wpdb->get_var( $wpdb->prepare(
@@ -720,6 +693,48 @@ class LA_DB {
 				$wpdb->insert( $t['scholars'], $row );
 			}
 		}
+
+		// Purge nasheed artists that were seeded in earlier DB versions.
+		// User direction: feed surfaces ONLY scholars + qaris (knowledge +
+		// recitation). Music/nasheed content does NOT belong on the feed.
+		self::purge_nasheed_artists();
+	}
+
+	/**
+	 * Hard-remove any scholar rows tagged as nasheed artists, plus all
+	 * their feed_posts. Run by seed_scholars() so re-applying the seed
+	 * keeps production aligned with the curated roster.
+	 */
+	private static function purge_nasheed_artists() {
+		global $wpdb;
+		$t = self::tables();
+		$nasheed_usernames = [
+			'samiyusuf', 'maherzain', 'bukhatir',
+			'mesutkurtis', 'harrisj', 'yusufislam',
+		];
+		foreach ( $nasheed_usernames as $u ) {
+			$id = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t['scholars']} WHERE username = %s",
+				$u
+			) );
+			if ( ! $id ) continue;
+			// Drop their feed_posts first (foreign-key-safe)
+			$wpdb->delete( $t['feed_posts'], [ 'scholar_id' => $id ] );
+			// Then the scholar row
+			$wpdb->delete( $t['scholars'], [ 'id' => $id ] );
+		}
+		// Belt-and-braces: also kill any scholar with default_content_type='nasheed'
+		// in case other usernames were added through the admin.
+		$nasheed_ids = $wpdb->get_col( $wpdb->prepare(
+			"SELECT id FROM {$t['scholars']} WHERE default_content_type = %s",
+			'nasheed'
+		) );
+		foreach ( $nasheed_ids as $sid ) {
+			$wpdb->delete( $t['feed_posts'], [ 'scholar_id' => (int) $sid ] );
+			$wpdb->delete( $t['scholars'], [ 'id' => (int) $sid ] );
+		}
+		// Also strip any orphan nasheed-typed feed posts left over
+		$wpdb->delete( $t['feed_posts'], [ 'type' => 'nasheed' ] );
 	}
 
 	private static function seed_feed_posts() {

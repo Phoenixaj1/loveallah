@@ -197,7 +197,8 @@ class LA_Algorithm {
 		$type_where = '';
 		$type_args  = [];
 		if ( ! empty( $type_filter ) ) {
-			$allowed = [ 'short', 'reminder', 'nasheed', 'dhikr', 'mindfulness', 'qirat', 'lecture' ];
+			// 'nasheed' deliberately omitted — feed is scholars + qaris only
+			$allowed = [ 'short', 'reminder', 'dhikr', 'mindfulness', 'qirat', 'lecture' ];
 			if ( in_array( $type_filter, $allowed, true ) ) {
 				$type_where = " AND p.type = %s";
 				$type_args[] = $type_filter;

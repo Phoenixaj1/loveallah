@@ -15,8 +15,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'LA_VERSION',  '0.9.3' );
-define( 'LA_DB_VERSION', 11 );
+define( 'LA_VERSION',  '0.9.4' );
+define( 'LA_DB_VERSION', 12 );
 define( 'LA_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LA_URL', plugin_dir_url( __FILE__ ) );
 define( 'LA_FILE', __FILE__ );
@@ -76,13 +76,15 @@ add_action( 'init', function() {
 	if ( get_option( 'la_pages_created' ) === $expected_version ) return;
 	$pages = [
 		'dhikr'       => 'Dhikr',
-		'nasheed'     => 'Nasheed',
 		'mindfulness' => 'Mindfulness',
 		'connect'     => 'Connect',
 		'masjid'      => 'Masjid',
 		'saved'       => 'Saved',
 		'duas'        => 'Duas',
 		'donate'      => 'Donate',
+		// 'nasheed' deliberately removed — feed is scholars + qaris only.
+		// Existing /nasheed page on production redirects to /feed via
+		// theme/page-nasheed.php for back-compat with shared links.
 	];
 	foreach ( $pages as $slug => $title ) {
 		if ( ! get_page_by_path( $slug ) ) {
