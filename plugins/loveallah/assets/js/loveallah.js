@@ -1689,6 +1689,8 @@
 		bindRadio(phraseList, 'data-phrase-key', (btn) => {
 			try { selected.phrase = JSON.parse(btn.getAttribute('data-phrase')); } catch (_) {}
 			rebuildCountRow();  // different phrases have different Sunnah counts
+			updateHero();        // live preview at top of landing
+			updateBeginMeta();   // sticky CTA shows new count/duration
 		});
 		bindRadio(durationList, 'data-duration', (btn) => {
 			selected.duration = parseInt(btn.getAttribute('data-duration'), 10);
@@ -1713,8 +1715,31 @@
 				b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
 			});
 			selected.count = parseInt(btn.getAttribute('data-count'), 10);
+			updateBeginMeta();
 			if (navigator.vibrate) navigator.vibrate(10);
 		});
+
+		// HERO live-preview — runs on phrase change to mirror selected.phrase
+		const heroArabic   = root.querySelector('[data-hero-arabic]');
+		const heroTranslit = root.querySelector('[data-hero-translit]');
+		const heroMeaning  = root.querySelector('[data-hero-meaning]');
+		const heroNote     = root.querySelector('[data-hero-note]');
+		const beginMeta    = root.querySelector('[data-begin-meta]');
+		function updateHero() {
+			const p = selected.phrase;
+			if (!p) return;
+			if (heroArabic)   heroArabic.textContent   = p.arabic || '';
+			if (heroTranslit) heroTranslit.textContent = p.translit || '';
+			if (heroMeaning)  heroMeaning.textContent  = p.meaning || '';
+			if (heroNote)     heroNote.textContent     = p.note || '';
+		}
+		function updateBeginMeta() {
+			if (!beginMeta || !selected.phrase) return;
+			const mins = Math.max(1, Math.round((selected.count || 33) * (selected.phrase.breath_s || 10) / 60));
+			beginMeta.textContent = (selected.count || 33) + '× · ~' + mins + ' min';
+		}
+		updateHero();
+		updateBeginMeta();
 		bindRadio(modeList, 'data-mode', (btn) => {
 			selected.mode = btn.getAttribute('data-mode');
 		});

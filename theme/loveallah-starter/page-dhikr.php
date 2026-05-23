@@ -170,47 +170,55 @@ get_header();
 ?>
 <main class="la-app la-app--dhikr-meditate" data-dhikr-app>
 
-	<!-- ─── LANDING — choose phrase + duration + mode ─── -->
+	<!-- ─── LANDING — Wave 26 redesign: hero preview + compact selectors + sticky CTA -->
 	<section class="la-dhikr-landing" data-dhikr-scene="landing">
 
-		<!-- Wisdom hero — rotates on each page load -->
-		<div class="la-dhikr-wisdom" data-dhikr-wisdom>
-			<?php if ( $la_wisdom_landing ) : ?>
-				<blockquote class="la-dhikr-wisdom-quote">"<?php echo esc_html( $la_wisdom_landing['quote'] ); ?>"</blockquote>
-				<cite class="la-dhikr-wisdom-cite">— <?php echo esc_html( $la_wisdom_landing['speaker'] ); ?> · <span><?php echo esc_html( $la_wisdom_landing['source'] ); ?></span></cite>
-			<?php endif; ?>
+		<!-- HERO — live preview of the selected phrase. Updates as the user
+		     picks. The whole 'what am I about to do' question is answered
+		     in one glance: big Arabic, transliteration, meaning, source. -->
+		<div class="la-dhikr-hero" data-hero>
+			<?php $p0 = $la_phrases[0]; ?>
+			<div class="la-dhikr-hero-arabic" data-hero-arabic dir="rtl" lang="ar"><?php echo esc_html( $p0['arabic'] ); ?></div>
+			<div class="la-dhikr-hero-translit" data-hero-translit><?php echo esc_html( $p0['translit'] ); ?></div>
+			<div class="la-dhikr-hero-meaning" data-hero-meaning><?php echo esc_html( $p0['meaning'] ); ?></div>
+			<div class="la-dhikr-hero-note" data-hero-note><?php echo esc_html( $p0['note'] ); ?></div>
 		</div>
 
-		<!-- Phrase selector — small horizontal scroll of cards -->
-		<div class="la-dhikr-section">
-			<h2 class="la-dhikr-section-label">Choose your dhikr</h2>
-			<div class="la-dhikr-phrase-list" data-phrase-list role="radiogroup" aria-label="Dhikr phrase">
+		<!-- Wisdom — moved to a slim banner below the hero so it's a quiet
+		     blessing not the loudest thing on the page. -->
+		<?php if ( $la_wisdom_landing ) : ?>
+		<div class="la-dhikr-wisdom-mini">
+			<span class="la-dhikr-wisdom-mark">“</span>
+			<span class="la-dhikr-wisdom-text"><?php echo esc_html( $la_wisdom_landing['quote'] ); ?></span>
+			<span class="la-dhikr-wisdom-attr">— <?php echo esc_html( $la_wisdom_landing['speaker'] ); ?></span>
+		</div>
+		<?php endif; ?>
+
+		<!-- PHRASE PICKER — compact Arabic pill row (was 7 bulky cards).
+		     Tap any to update the hero above. Active one is highlighted. -->
+		<div class="la-dhikr-pickrow">
+			<div class="la-dhikr-pickrow-label">Phrase</div>
+			<div class="la-dhikr-phrase-pills" data-phrase-list role="radiogroup" aria-label="Dhikr phrase">
 				<?php foreach ( $la_phrases as $i => $p ) : ?>
 					<button type="button"
-						class="la-dhikr-phrase-card <?php echo $i === 0 ? 'is-selected' : ''; ?>"
+						class="la-dhikr-phrase-pill <?php echo $i === 0 ? 'is-selected' : ''; ?>"
 						role="radio"
 						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
 						data-phrase-key="<?php echo esc_attr( $p['key'] ); ?>"
-						data-phrase='<?php echo esc_attr( wp_json_encode( $p ) ); ?>'>
-						<span class="la-dhikr-phrase-arabic" dir="rtl" lang="ar"><?php echo esc_html( $p['arabic'] ); ?></span>
-						<span class="la-dhikr-phrase-translit"><?php echo esc_html( $p['translit'] ); ?></span>
-						<span class="la-dhikr-phrase-note"><?php echo esc_html( $p['note'] ); ?></span>
+						data-phrase='<?php echo esc_attr( wp_json_encode( $p ) ); ?>'
+						title="<?php echo esc_attr( $p['translit'] . ' — ' . $p['meaning'] ); ?>">
+						<span class="la-dhikr-phrase-pill-arabic" dir="rtl" lang="ar"><?php echo esc_html( $p['arabic'] ); ?></span>
 					</button>
 				<?php endforeach; ?>
 			</div>
 		</div>
 
-		<!-- Count — Sunnah-prescribed number of repetitions. Replaces the
-		     old minute-based duration. Time is computed from count × the
-		     phrase's breath_s and shown next to each chip. JS rebuilds the
-		     chip row when the user switches phrase (different Sunnah counts). -->
-		<div class="la-dhikr-section">
-			<h2 class="la-dhikr-section-label">Count <span class="la-dhikr-section-hint">based on Sunnah</span></h2>
+		<!-- COUNT — inline label + Sunnah-prescribed pill row -->
+		<div class="la-dhikr-pickrow">
+			<div class="la-dhikr-pickrow-label">Count<span class="la-dhikr-pickrow-hint">Sunnah</span></div>
 			<div class="la-dhikr-count-row" data-count-list role="radiogroup" aria-label="Count">
-				<?php
-				$defaultPhrase = $la_phrases[0];
-				foreach ( $defaultPhrase['counts'] as $i => $c ) :
-					$est_min = (int) max( 1, round( $c * $defaultPhrase['breath_s'] / 60 ) );
+				<?php foreach ( $p0['counts'] as $i => $c ) :
+					$est_min = (int) max( 1, round( $c * $p0['breath_s'] / 60 ) );
 				?>
 					<button type="button"
 						class="la-dhikr-count-pill <?php echo $i === 0 ? 'is-selected' : ''; ?>"
@@ -218,59 +226,59 @@ get_header();
 						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
 						data-count="<?php echo (int) $c; ?>">
 						<strong><?php echo (int) $c; ?>×</strong>
-						<span>~<?php echo $est_min; ?> min</span>
+						<span>~<?php echo $est_min; ?>m</span>
 					</button>
 				<?php endforeach; ?>
 			</div>
 		</div>
 
-		<!-- Mode (station of dhikr) -->
-		<div class="la-dhikr-section">
-			<h2 class="la-dhikr-section-label">Station</h2>
-			<div class="la-dhikr-mode-list" data-mode-list role="radiogroup" aria-label="Mode">
+		<!-- STATION — inline pill row (was bulky 3-card grid) -->
+		<div class="la-dhikr-pickrow">
+			<div class="la-dhikr-pickrow-label">Station</div>
+			<div class="la-dhikr-mode-row" data-mode-list role="radiogroup" aria-label="Mode">
 				<?php foreach ( $la_modes as $i => $m ) : ?>
 					<button type="button"
-						class="la-dhikr-mode-card <?php echo $i === 1 ? 'is-selected' : ''; ?>"
+						class="la-dhikr-mode-pill <?php echo $i === 1 ? 'is-selected' : ''; ?>"
 						role="radio"
 						aria-checked="<?php echo $i === 1 ? 'true' : 'false'; ?>"
-						data-mode="<?php echo esc_attr( $m['key'] ); ?>">
-						<strong><?php echo esc_html( $m['label'] ); ?></strong>
-						<span><?php echo esc_html( $m['desc'] ); ?></span>
+						data-mode="<?php echo esc_attr( $m['key'] ); ?>"
+						title="<?php echo esc_attr( $m['desc'] ); ?>">
+						<?php echo esc_html( $m['label'] ); ?>
 					</button>
 				<?php endforeach; ?>
 			</div>
 		</div>
 
-		<!-- Scene — animated CSS backgrounds set the visual immersion. No
-		     external assets, no autoplay video bandwidth, no copyright issues. -->
-		<div class="la-dhikr-section">
-			<h2 class="la-dhikr-section-label">Scene</h2>
-			<div class="la-dhikr-scene-list" data-scene-list role="radiogroup" aria-label="Visual scene">
+		<!-- SCENE — emoji-only chips, super compact -->
+		<div class="la-dhikr-pickrow">
+			<div class="la-dhikr-pickrow-label">Scene</div>
+			<div class="la-dhikr-scene-row" data-scene-list role="radiogroup" aria-label="Visual scene">
 				<?php foreach ( $la_scenes as $i => $s ) : ?>
 					<button type="button"
-						class="la-dhikr-scene-chip <?php echo $i === 0 ? 'is-selected' : ''; ?>"
+						class="la-dhikr-scene-icon <?php echo $i === 0 ? 'is-selected' : ''; ?>"
 						role="radio"
 						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
 						data-scene="<?php echo esc_attr( $s['key'] ); ?>"
 						data-scene-video="<?php echo esc_attr( $s['video'] ?? '' ); ?>"
-						title="<?php echo esc_attr( $s['desc'] ); ?>">
-						<span class="la-dhikr-scene-emoji"><?php echo $s['emoji']; ?></span>
-						<span class="la-dhikr-scene-label"><?php echo esc_html( $s['label'] ); ?></span>
+						title="<?php echo esc_attr( $s['label'] . ' — ' . $s['desc'] ); ?>">
+						<?php echo $s['emoji']; ?>
 					</button>
 				<?php endforeach; ?>
 			</div>
 		</div>
 
-		<?php // Soundscape picker removed — scene video now carries its own audio ?>
-
-		<button type="button" class="la-dhikr-begin" data-action="begin-dhikr">
-			<span>Begin</span>
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l8 6-8 6V6z" fill="currentColor"/></svg>
-		</button>
-
-		<p class="la-dhikr-landing-footnote">
-			Dhikr is the polish of the heart. Let the breath guide you in.
-		</p>
+		<!-- STICKY BEGIN BAR — anchored to bottom, always reachable.
+		     Shows the live count + duration summary so the user always
+		     knows exactly what they're about to do. -->
+		<div class="la-dhikr-begin-bar">
+			<button type="button" class="la-dhikr-begin" data-action="begin-dhikr">
+				<span class="la-dhikr-begin-icon" aria-hidden="true">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 6l8 6-8 6V6z"/></svg>
+				</span>
+				<span class="la-dhikr-begin-label">Begin</span>
+				<span class="la-dhikr-begin-meta" data-begin-meta>33× · ~6 min</span>
+			</button>
+		</div>
 	</section>
 
 	<!-- ─── ACTIVE SESSION — the heart pulses with the breath ─── -->
