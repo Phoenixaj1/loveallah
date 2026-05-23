@@ -50,6 +50,17 @@ function la_unlock_state_for_view() : array {
 function la_render_feed_main( string $type_filter = '' ) : void {
 	$user_id    = get_current_user_id() ?: null;
 	$session_id = la_get_or_set_session_id();
+
+	// Feed pages personalise on session state (unlock, signups, affinities)
+	// so they must never be served from a shared cache.
+	if ( ! headers_sent() ) {
+		nocache_headers();
+		header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		header( 'X-Breeze-Cache-Bypass: 1' );   // explicit hint for Breeze
+		header( 'X-Cache-Bypass: 1' );           // explicit hint for Varnish
+	}
+	defined( 'DONOTCACHEPAGE' ) || define( 'DONOTCACHEPAGE', true );
+
 	$cards      = LA_Algorithm::for_user( $user_id, $session_id, 20, 0, $type_filter ?: null );
 	$show_chips = ( $type_filter === '' ); // chips only on main Feed
 	?>

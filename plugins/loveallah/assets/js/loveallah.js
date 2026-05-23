@@ -594,8 +594,17 @@
 		const iframe = card.querySelector('.la-snap-iframe');
 		if (!iframe || !iframe.dataset.src) return;
 		const wanted = iframe.dataset.src;
+		// Extract video ID from /embed/XYZ for the loop trick (forces self-replay
+		// instead of YouTube's recommended-video end screen — that's where
+		// non-Islamic suggestions like Rick Astley sneak in).
+		const idMatch = wanted.match(/\/embed\/([\w-]+)/);
+		const vid = idMatch ? idMatch[1] : '';
 		const muteParam = userWantsSound ? 'mute=0' : 'mute=1';
-		const params = `autoplay=1&${muteParam}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&enablejsapi=1`;
+		// loop=1 + playlist=<self> = video restarts on end, never shows YT's "Up next" overlay.
+		// disablekb=1 stops keyboard shortcuts that can open YouTube site.
+		// fs=0 disables fullscreen button (we want them staying in our app).
+		const loopParams = vid ? `&loop=1&playlist=${vid}` : '';
+		const params = `autoplay=1&${muteParam}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1${loopParams}`;
 		const desired = wanted + (wanted.includes('?') ? '&' : '?') + params;
 		if (iframe.src !== desired) iframe.src = desired;
 		if (currentPlaying && currentPlaying !== iframe) {
