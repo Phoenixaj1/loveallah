@@ -1965,12 +1965,17 @@ button { font-family: inherit; }
 }
 
 /* ───── ACTIVE SESSION SCENE ───── */
+.la-dhikr-session[hidden] { display: none !important; }
 .la-dhikr-session {
 	min-height: 100vh; min-height: 100dvh;
 	padding: 14px 22px calc(var(--la-tabbar-h) + 22px);
 	display: flex; flex-direction: column;
 	align-items: center;
 }
+/* Same fix for landing + complete scenes — `display: block` / `display: flex`
+   in CSS class rules will otherwise override the [hidden] attribute. */
+.la-dhikr-landing[hidden],
+.la-dhikr-complete[hidden] { display: none !important; }
 .la-dhikr-session-head {
 	width: 100%;
 	display: flex; align-items: center;
