@@ -93,23 +93,23 @@ class LA_Prayer_Compute {
 			? ( 24 - $sunset_local ) + $sunrise_local
 			: ( 24 - $sunset_local ) + $sunrise_local;
 
-		$fajr_local = self::fix_hour( $fajr_t + $offset_to_local );
-		$isha_local = is_string( $isha_angle ) ? null : self::fix_hour( $isha_t + $offset_to_local );
+		$night_actual = $sunrise_local < $sunset_local
+			? ( 24 - $sunset_local ) + $sunrise_local
+			: $sunrise_local - $sunset_local + 24;
+		// At high latitudes in summer, "night" is < 8 hours and astronomical
+		// twilight angles like 18° aren't reached at all — the sun stays
+		// too close to horizon. Force angle-based proportional rule in that
+		// regime (this matches MCB/UK Islamic Sharia Council guidance).
+		$use_angle_based = ( $night_actual < 9 ) || ( abs( $lat ) > 48 && $night_actual < 11 );
 
-		// If Fajr falls AFTER sunrise or more than 3h before sunrise on
-		// a short summer night, recompute using angle-based proportion.
-		$fajr_distance_from_sunrise = self::fix_hour( $sunrise_local - $fajr_local + 24 );
-		if ( $fajr_distance_from_sunrise > 6 || $fajr_distance_from_sunrise < 0.3 ) {
-			$fajr_local = self::fix_hour( $sunrise_local - ( $fajr_angle / 60.0 ) * $night_hours );
-		}
-		if ( $isha_local !== null ) {
-			$isha_distance_from_maghrib = self::fix_hour( $isha_local - $sunset_local + 24 );
-			$isha_distance_from_maghrib = $isha_distance_from_maghrib > 12 ? ( $isha_distance_from_maghrib - 24 ) : $isha_distance_from_maghrib;
-			if ( $isha_distance_from_maghrib > 6 || $isha_distance_from_maghrib < 0.3 ) {
-				$isha_local = self::fix_hour( $sunset_local + ( (float) $isha_angle / 60.0 ) * $night_hours );
-			}
+		if ( $use_angle_based ) {
+			$fajr_local = self::fix_hour( $sunrise_local - ( $fajr_angle / 60.0 ) * $night_actual );
+			$isha_local = self::fix_hour( $sunset_local  + ( ( is_string( $isha_angle ) ? 17.0 : (float) $isha_angle ) / 60.0 ) * $night_actual );
 		} else {
-			$isha_local = self::fix_hour( $isha_t + $offset_to_local );
+			$fajr_local = self::fix_hour( $fajr_t + $offset_to_local );
+			$isha_local = is_string( $isha_angle )
+				? self::fix_hour( $sunset_local + ( (int) trim( str_replace( 'min', '', $isha_angle ) ) ) / 60.0 )
+				: self::fix_hour( $isha_t + $offset_to_local );
 		}
 
 		return [
