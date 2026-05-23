@@ -127,17 +127,30 @@ class LA_YouTube {
 			) );
 			if ( $exists ) continue;
 
-			// FAST PATH for /shorts: portrait is guaranteed by YouTube's format.
-			// Skip yt-dlp per-video metadata fetch (frequently bot-blocked on cloud IPs)
-			// and use lightweight oEmbed for title verification.
+			// Audio-first types (qirat, dhikr, lecture, mindfulness) don't need
+			// portrait orientation — the content IS the voice, the visual is
+			// static or backdrop. Accept any orientation from /videos for those.
+			$audio_first = in_array( $type, [ 'qirat', 'dhikr', 'lecture', 'mindfulness' ], true );
+
 			if ( $used_tab === 'shorts' ) {
+				// FAST PATH: portrait is guaranteed by YouTube's Shorts format.
+				// Skip yt-dlp per-video metadata fetch (bot-blocked on cloud IPs)
+				// and use lightweight oEmbed for title verification.
+				$oembed = self::oembed( $v['id'] );
+				$title  = $oembed['title'] ?? $v['title'];
+				$caption = '';
+				$duration = 0;
+				$published_at = gmdate( 'Y-m-d H:i:s' );
+			} elseif ( $audio_first ) {
+				// Audio-first /videos: accept without portrait check (since voice
+				// is the content). Use oEmbed instead of bot-blocked single_metadata.
 				$oembed = self::oembed( $v['id'] );
 				$title  = $oembed['title'] ?? $v['title'];
 				$caption = '';
 				$duration = 0;
 				$published_at = gmdate( 'Y-m-d H:i:s' );
 			} else {
-				// /videos tab: orientation unknown — must verify via metadata fetch.
+				// Visual /videos: orientation matters — must verify via metadata fetch.
 				$meta = self::single_metadata( $v['id'] );
 				if ( empty( $meta ) ) continue;
 				if ( ! self::is_portrait( $meta ) ) continue;
