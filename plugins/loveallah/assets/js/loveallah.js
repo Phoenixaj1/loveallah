@@ -846,39 +846,75 @@
 		);
 	});
 
-	// ─── Duas page copy/share buttons ───
+	// ─── Duas snap feed — Ameen / Save / Share ───
 	document.addEventListener('click', async (e) => {
-		const btn = e.target.closest('.la-dua-action');
+		const btn = e.target.closest('.la-dua-snap-action');
 		if (!btn) return;
-		const card = btn.closest('.la-dua-card');
+		const card = btn.closest('.la-dua-snap');
 		if (!card) return;
 		const action = btn.dataset.action;
-		const arabic = card.querySelector('.la-dua-arabic')?.textContent.trim() || '';
-		const translit = card.querySelector('.la-dua-translit')?.textContent.trim() || '';
-		const meaning = card.querySelector('.la-dua-meaning')?.textContent.trim() || '';
-		const source = card.querySelector('.la-dua-source')?.textContent.trim() || '';
-		const title = card.querySelector('.la-dua-card-title')?.textContent.trim() || '';
+		const id = btn.dataset.id;
+		if (!id) return;
+
+		if (action === 'ameen') {
+			// Optimistic flip
+			const was = btn.classList.contains('is-active');
+			btn.classList.toggle('is-active', !was);
+			btn.setAttribute('aria-pressed', String(!was));
+			btn.classList.remove('is-popping');
+			void btn.offsetWidth;
+			btn.classList.add('is-popping');
+			const countEl = btn.querySelector('[data-ameen-count]');
+			if (countEl) {
+				const cur = parseInt(countEl.textContent || '0', 10);
+				countEl.textContent = Math.max(0, cur + (was ? -1 : 1));
+			}
+			if (navigator.vibrate) navigator.vibrate(was ? [12, 30, 12] : [18, 24, 30]);
+			try {
+				const res = await fetch(`${LA.apiRoot}duas/${id}/ameen`, {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': LA.nonce, 'Content-Type': 'application/json' },
+					credentials: 'include',
+				});
+				if (!res.ok) throw new Error('failed');
+				const data = await res.json();
+				btn.classList.toggle('is-active', !!data.ameen);
+				btn.setAttribute('aria-pressed', String(!!data.ameen));
+				if (countEl) countEl.textContent = data.count || 0;
+			} catch (_) {
+				// Rollback
+				btn.classList.toggle('is-active', was);
+				btn.setAttribute('aria-pressed', String(was));
+			}
+			return;
+		}
+
+		// Save + Share use the dua card text
+		const arabic = card.querySelector('.la-dua-snap-arabic')?.textContent.trim() || '';
+		const translit = card.querySelector('.la-dua-snap-translit')?.textContent.trim() || '';
+		const meaning = card.querySelector('.la-dua-snap-meaning')?.textContent.trim() || '';
+		const source = card.querySelector('.la-dua-snap-source')?.textContent.trim() || '';
+		const title = card.querySelector('.la-dua-snap-title')?.textContent.trim() || '';
 		const txt = [title, arabic, translit, meaning, source && '— ' + source].filter(Boolean).join('\n\n');
 
-		if (action === 'copy-dua') {
+		if (action === 'save') {
 			try {
 				await navigator.clipboard.writeText(txt);
-				btn.classList.add('is-done');
-				const lbl = btn.querySelector('span');
+				btn.classList.add('is-active');
+				const lbl = btn.querySelector('.la-dua-snap-action-label');
 				const orig = lbl.textContent;
 				lbl.textContent = 'Copied';
 				if (navigator.vibrate) navigator.vibrate(15);
-				setTimeout(() => { btn.classList.remove('is-done'); lbl.textContent = orig; }, 1500);
+				setTimeout(() => { btn.classList.remove('is-active'); lbl.textContent = orig; }, 1600);
 			} catch (_) {}
-		} else if (action === 'share-dua') {
+		} else if (action === 'share') {
 			if (navigator.share) {
 				try {
 					await navigator.share({ title: 'Love Allah · ' + title, text: txt, url: location.origin + '/duas/' });
 					if (navigator.vibrate) navigator.vibrate(15);
 				} catch (_) {}
 			} else {
-				// Fallback: copy
-				try { await navigator.clipboard.writeText(txt); btn.querySelector('span').textContent = 'Copied'; } catch (_) {}
+				try { await navigator.clipboard.writeText(txt); btn.querySelector('.la-dua-snap-action-label').textContent = 'Copied'; } catch (_) {}
 			}
 		}
 	});
@@ -902,6 +938,9 @@
 		const pills    = root.querySelectorAll('.la-tasbeeh-pill');
 		const resetBtn = root.querySelector('[data-tasbeeh-action="reset"]');
 		const vibBtn   = root.querySelector('[data-tasbeeh-action="vibrate-toggle"]');
+		const soundBtn = root.querySelector('[data-tasbeeh-action="sound-toggle"]');
+		const bgIframe = root.querySelector('[data-tasbeeh-bg-iframe]');
+		let soundOn = false;
 
 		// localStorage daily state keyed by date
 		const todayKey = 'la_tasbeeh_' + new Date().toISOString().slice(0,10);
@@ -914,6 +953,30 @@
 
 		let vibrateEnabled = localStorage.getItem('la_tasbeeh_vibrate') !== '0';
 		if (vibrateEnabled) vibBtn?.classList.add('is-active');
+
+		// Karaoke video — swap embed src when phrase changes.
+		// Builds: youtube.com/embed/<ID>?autoplay=1&mute=1&loop=1&playlist=<ID>&controls=0&modestbranding=1&playsinline=1
+		let currentVideoId = null;
+		function swapKaraokeIfNeeded(phrase) {
+			if (!bgIframe || !phrase.video) return;
+			if (currentVideoId === phrase.video) return;
+			currentVideoId = phrase.video;
+			const muteParam = soundOn ? 'mute=0' : 'mute=1';
+			const params = `autoplay=1&${muteParam}&loop=1&playlist=${phrase.video}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0`;
+			bgIframe.src = `https://www.youtube.com/embed/${phrase.video}?${params}`;
+		}
+
+		// Sound toggle — flips mute on the karaoke iframe by reloading with new param
+		soundBtn?.addEventListener('click', () => {
+			soundOn = !soundOn;
+			soundBtn.setAttribute('data-sound-state', soundOn ? 'on' : 'off');
+			const lbl = soundBtn.querySelector('[data-sound-label]');
+			if (lbl) lbl.textContent = soundOn ? 'Sound on' : 'Sound off';
+			// Force re-load of current video with new mute param
+			currentVideoId = null;
+			swapKaraokeIfNeeded(phrases[state.current]);
+			if (navigator.vibrate) navigator.vibrate(15);
+		});
 
 		// Pending batch to sync to server (avoid one fetch per tap)
 		const pending = {};
@@ -946,6 +1009,8 @@
 			meaningEl.textContent = phrase.meaning;
 			curEl.textContent = cnt;
 			tgtEl.textContent = phrase.target;
+			// Karaoke background swap when phrase changes
+			swapKaraokeIfNeeded(phrase);
 			// Ring progress (circumference 2πr, r=92 → ~578)
 			const circ = 2 * Math.PI * 92;
 			const progress = Math.min(1, cnt / phrase.target);

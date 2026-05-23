@@ -9,7 +9,9 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Tasbeeh phrases — cycles 33 → 33 → 34 (standard post-salah tasbih)
+// Tasbeeh phrases — cycles 33 → 33 → 34 (standard post-salah tasbih).
+// Each has a hand-picked YouTube video that loops the chant — used as a
+// karaoke-style background behind the tasbeeh bead.
 $la_tasbeeh = [
 	[
 		'key' => 'subhanallah',
@@ -18,6 +20,7 @@ $la_tasbeeh = [
 		'meaning' => 'Glory be to Allah',
 		'target' => 33,
 		'color' => '#1e8e3e',
+		'video' => 'MR6q9ztx-Ds', // Subhanallah · Ali Dawud · 2hr loop
 	],
 	[
 		'key' => 'alhamdulillah',
@@ -26,6 +29,7 @@ $la_tasbeeh = [
 		'meaning' => 'All praise is for Allah',
 		'target' => 33,
 		'color' => '#1976d2',
+		'video' => 'jbeb7uNncys', // Alhamdulillah · Mohammad Shariq · 1hr zikr
 	],
 	[
 		'key' => 'allahuakbar',
@@ -34,6 +38,7 @@ $la_tasbeeh = [
 		'meaning' => 'Allah is greatest',
 		'target' => 34,
 		'color' => '#ED1C6C',
+		'video' => 'MpP891hfZUc', // Allahu Akbar takbeer · Mishary Alafasy · 1hr loop
 	],
 ];
 
@@ -43,6 +48,19 @@ get_header();
 
 	<!-- TASBEEH INTERFACE -->
 	<section class="la-tasbeeh" data-tasbeeh aria-label="Tasbeeh counter">
+		<!-- Karaoke background — autoplay muted YouTube of the current phrase chant.
+		     Sound toggle lives on the bead overlay. iframe loops via loop=1+playlist=self. -->
+		<div class="la-tasbeeh-bg" aria-hidden="true">
+			<iframe class="la-tasbeeh-bg-iframe"
+				data-tasbeeh-bg-iframe
+				src="about:blank"
+				data-src="https://www.youtube.com/embed/<?php echo esc_attr( $la_tasbeeh[0]['video'] ); ?>"
+				allow="autoplay; encrypted-media"
+				frameborder="0"
+				loading="lazy"
+				tabindex="-1"></iframe>
+			<div class="la-tasbeeh-bg-vignette"></div>
+		</div>
 		<header class="la-tasbeeh-head">
 			<div class="la-tasbeeh-overline"><?php esc_html_e( "Today's Tasbeeh", 'loveallah' ); ?></div>
 			<div class="la-tasbeeh-stats" data-tasbeeh-stats>
@@ -90,14 +108,18 @@ get_header();
 		<div class="la-tasbeeh-meaning" data-tasbeeh-meaning><?php echo esc_html( $la_tasbeeh[0]['meaning'] ); ?></div>
 
 		<div class="la-tasbeeh-controls">
-			<button type="button" class="la-tasbeeh-control" data-tasbeeh-action="reset" aria-label="<?php esc_attr_e( 'Reset today', 'loveallah' ); ?>" title="<?php esc_attr_e( 'Long-press to reset', 'loveallah' ); ?>">
+			<button type="button" class="la-tasbeeh-control" data-tasbeeh-action="reset" aria-label="<?php esc_attr_e( 'Reset today', 'loveallah' ); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
 				<span><?php esc_html_e( 'Reset', 'loveallah' ); ?></span>
 			</button>
 			<div class="la-tasbeeh-spacer"></div>
-			<button type="button" class="la-tasbeeh-control la-tasbeeh-control--primary" data-tasbeeh-action="vibrate-toggle" aria-label="<?php esc_attr_e( 'Toggle vibration', 'loveallah' ); ?>">
+			<button type="button" class="la-tasbeeh-control" data-tasbeeh-action="sound-toggle" aria-label="<?php esc_attr_e( 'Play chant audio', 'loveallah' ); ?>" data-sound-state="off">
+				<svg class="la-tasbeeh-snd-off" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+				<svg class="la-tasbeeh-snd-on" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+				<span data-sound-label><?php esc_html_e( 'Sound off', 'loveallah' ); ?></span>
+			</button>
+			<button type="button" class="la-tasbeeh-control" data-tasbeeh-action="vibrate-toggle" aria-label="<?php esc_attr_e( 'Toggle vibration', 'loveallah' ); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 8v8M5 6v12M19 6v12M22 8v8M9 4v16M15 4v16"/></svg>
-				<span><?php esc_html_e( 'Vibration', 'loveallah' ); ?></span>
 			</button>
 		</div>
 

@@ -1752,26 +1752,57 @@ button { font-family: inherit; }
 .la-app--dhikr { padding-bottom: 0; min-height: auto; background: var(--la-bg); }
 
 .la-tasbeeh {
+	position: relative;
 	padding: 18px 18px 26px;
-	background:
-		radial-gradient(ellipse at 50% 0%, rgba(237,28,108,0.06) 0%, transparent 60%),
-		#fff;
-	border-bottom: 1px solid var(--la-line);
+	background: #0c0511;  /* fallback deep-night before iframe loads */
+	overflow: hidden;
+	color: #fff;
+	border-bottom: 1px solid rgba(255,255,255,0.04);
+	min-height: 90vh;  /* karaoke surface — fill the viewport for immersion */
 }
+
+/* Karaoke background video — autoplay muted, looping the chant */
+.la-tasbeeh-bg {
+	position: absolute; inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+.la-tasbeeh-bg-iframe {
+	position: absolute;
+	top: 50%; left: 50%;
+	width: 100vw;
+	height: 56.25vw;  /* maintain 16:9 */
+	min-height: 100%;
+	min-width: 177.77vh;
+	transform: translate(-50%, -50%);
+	border: 0;
+	opacity: 0.65;
+	pointer-events: none;
+}
+.la-tasbeeh-bg-vignette {
+	position: absolute; inset: 0;
+	background:
+		radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 65%, rgba(0,0,0,0.92) 100%),
+		linear-gradient(180deg, rgba(12,5,17,0.4) 0%, transparent 30%, rgba(12,5,17,0.7) 100%);
+	pointer-events: none;
+}
+
+.la-tasbeeh > * { position: relative; z-index: 1; }
 .la-tasbeeh-head {
 	display: flex; align-items: flex-end; justify-content: space-between;
 	margin-bottom: 14px;
 }
 .la-tasbeeh-overline {
 	font-size: 10px; font-weight: 800; letter-spacing: 0.16em;
-	text-transform: uppercase; color: var(--la-primary);
+	text-transform: uppercase; color: rgba(255, 200, 220, 0.85);
 }
 .la-tasbeeh-stats {
 	display: flex; align-items: baseline; gap: 6px;
-	font-size: 12px; color: var(--la-ink-soft);
+	font-size: 12px; color: rgba(255, 255, 255, 0.65);
 }
 .la-tasbeeh-stats [data-stat-total] {
-	font-weight: 900; font-size: 18px; color: var(--la-ink-dark);
+	font-weight: 900; font-size: 18px; color: #fff;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -1783,30 +1814,32 @@ button { font-family: inherit; }
 .la-tasbeeh-pill {
 	display: flex; flex-direction: column; align-items: center; gap: 2px;
 	padding: 8px 4px;
-	background: rgba(15, 15, 30, 0.04);
-	border: 1.5px solid transparent;
+	background: rgba(255, 255, 255, 0.08);
+	border: 1.5px solid rgba(255, 255, 255, 0.12);
 	border-radius: 12px;
 	font-family: inherit; cursor: pointer;
 	transition: all 0.2s var(--la-easing);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
 	-webkit-tap-highlight-color: transparent;
 }
 .la-tasbeeh-pill-name {
-	font-size: 11px; font-weight: 700; color: var(--la-ink-dark);
+	font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, 0.85);
 }
 .la-tasbeeh-pill-count {
-	font-size: 10px; font-weight: 600; color: var(--la-ink-soft);
+	font-size: 10px; font-weight: 600; color: rgba(255, 255, 255, 0.55);
 	font-variant-numeric: tabular-nums;
 }
 .la-tasbeeh-pill.is-active {
-	background: rgba(237, 28, 108, 0.08);
-	border-color: rgba(237, 28, 108, 0.35);
+	background: rgba(255, 255, 255, 0.18);
+	border-color: rgba(255, 255, 255, 0.4);
 }
-.la-tasbeeh-pill.is-active .la-tasbeeh-pill-name { color: var(--la-primary); }
+.la-tasbeeh-pill.is-active .la-tasbeeh-pill-name { color: #fff; }
 .la-tasbeeh-pill.is-complete {
-	background: rgba(30, 142, 62, 0.10);
-	border-color: rgba(30, 142, 62, 0.30);
+	background: rgba(30, 142, 62, 0.30);
+	border-color: rgba(76, 175, 80, 0.6);
 }
-.la-tasbeeh-pill.is-complete .la-tasbeeh-pill-name { color: #1e8e3e; }
+.la-tasbeeh-pill.is-complete .la-tasbeeh-pill-name { color: #b4f0c6; }
 
 /* The big bead — circular tap target */
 .la-tasbeeh-stage {
@@ -1815,20 +1848,22 @@ button { font-family: inherit; }
 }
 .la-tasbeeh-bead {
 	position: relative;
-	width: min(78vw, 320px);
-	height: min(78vw, 320px);
-	max-height: 56vh;
+	width: min(72vw, 300px);
+	height: min(72vw, 300px);
+	max-height: 50vh;
 	border-radius: 50%;
 	background:
-		radial-gradient(circle at 35% 30%, rgba(255,255,255,0.95) 0%, rgba(255,235,245,0.85) 50%, rgba(237,28,108,0.06) 100%);
-	border: none;
+		radial-gradient(circle at 35% 30%, rgba(255,255,255,0.85) 0%, rgba(255,220,235,0.65) 60%, rgba(255,255,255,0.35) 100%);
+	border: 1px solid rgba(255, 255, 255, 0.18);
 	cursor: pointer;
 	font-family: inherit;
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
 	box-shadow:
-		0 1px 0 rgba(255,255,255,0.9) inset,
-		0 -2px 8px rgba(237,28,108,0.08) inset,
-		0 14px 36px rgba(15,15,30,0.10),
-		0 4px 12px rgba(237,28,108,0.18);
+		0 2px 1px rgba(255,255,255,0.5) inset,
+		0 -6px 18px rgba(237,28,108,0.20) inset,
+		0 20px 60px rgba(0,0,0,0.6),
+		0 8px 24px rgba(237,28,108,0.35);
 	-webkit-tap-highlight-color: transparent;
 	user-select: none;
 	transition: transform 0.18s var(--la-spring), box-shadow 0.18s var(--la-easing);
@@ -1920,35 +1955,44 @@ button { font-family: inherit; }
 .la-tasbeeh-meaning {
 	text-align: center;
 	font-size: 13px; font-style: italic;
-	color: var(--la-ink-soft);
+	color: rgba(255, 255, 255, 0.75);
 	margin: 4px 0 20px;
 	min-height: 18px;
+	text-shadow: 0 1px 4px rgba(0,0,0,0.45);
 }
 
 .la-tasbeeh-controls {
-	display: flex; align-items: center; gap: 10px;
+	display: flex; align-items: center; gap: 8px;
 	max-width: 360px; margin: 0 auto;
 }
 .la-tasbeeh-spacer { flex: 1; }
 .la-tasbeeh-control {
 	display: inline-flex; align-items: center; gap: 6px;
 	padding: 8px 14px;
-	background: transparent;
-	border: 1px solid var(--la-line);
+	background: rgba(255, 255, 255, 0.10);
+	border: 1px solid rgba(255, 255, 255, 0.14);
 	border-radius: 999px;
 	font-size: 12px; font-weight: 700;
-	color: var(--la-ink-soft);
+	color: rgba(255, 255, 255, 0.85);
 	font-family: inherit; cursor: pointer;
 	transition: all 0.15s var(--la-easing);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
 }
 .la-tasbeeh-control:active { transform: scale(0.95); }
+.la-tasbeeh-control[data-sound-state="on"],
 .la-tasbeeh-control.is-active {
-	background: rgba(237,28,108,0.10);
-	border-color: rgba(237,28,108,0.30);
-	color: var(--la-primary-dark);
+	background: rgba(237,28,108,0.30);
+	border-color: rgba(237,28,108,0.6);
+	color: #fff;
 }
+.la-tasbeeh-control[data-sound-state="on"] .la-tasbeeh-snd-off { display: none; }
+.la-tasbeeh-control[data-sound-state="on"] .la-tasbeeh-snd-on  { display: inline !important; }
 
-/* Divider above the dhikr video feed */
+/* Tweaks for tasbeeh content over dark background */
+.la-tasbeeh-bead-inner { color: #0F0F1E; }  /* keep bead inner text dark on its light pearl */
+
+/* Divider above the dhikr video feed (sits on bg below karaoke surface) */
 .la-tasbeeh-divider {
 	display: flex; align-items: center; justify-content: center;
 	padding: 14px 18px 18px;
@@ -1971,7 +2015,176 @@ button { font-family: inherit; }
 .la-tasbeeh-divider span::after  { left: 100%; }
 
 /* ============================================================
-   DUAS PAGE
+   DUAS FEED — full-screen vertical snap scroll, one dua per card
+   ============================================================ */
+.la-app--duas-feed {
+	padding: 0;
+	background: #0c0511;
+	min-height: 100vh;
+}
+.la-duas-snap {
+	height: calc(100dvh - var(--la-tabbar-h));
+	overflow-y: auto;
+	scroll-snap-type: y mandatory;
+	-webkit-overflow-scrolling: touch;
+}
+.la-dua-snap {
+	position: relative;
+	height: calc(100dvh - var(--la-tabbar-h));
+	scroll-snap-align: start;
+	display: flex; flex-direction: column;
+	padding: 28px 22px;
+	color: #fff;
+	overflow: hidden;
+	isolation: isolate;
+}
+.la-dua-snap-bg {
+	position: absolute; inset: 0;
+	background:
+		radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--dua-tint, #ED1C6C) 32%, transparent) 0%, transparent 60%),
+		radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--dua-tint, #ED1C6C) 20%, transparent) 0%, transparent 50%),
+		linear-gradient(180deg, #18091F 0%, #0a0410 60%, #050208 100%);
+	z-index: -1;
+}
+/* Fallback for browsers without color-mix */
+@supports not (background: color-mix(in srgb, red 30%, transparent)) {
+	.la-dua-snap-bg {
+		background:
+			radial-gradient(ellipse at 50% 0%, rgba(237,28,108,0.30) 0%, transparent 60%),
+			linear-gradient(180deg, #18091F 0%, #0a0410 60%, #050208 100%);
+	}
+}
+
+.la-dua-snap-cat {
+	display: inline-flex; align-items: center; gap: 8px;
+	padding: 6px 12px 6px 8px;
+	background: rgba(255, 255, 255, 0.10);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 999px;
+	backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+	align-self: flex-start;
+	margin-bottom: 14px;
+}
+.la-dua-snap-cat-icon { font-size: 14px; }
+.la-dua-snap-cat-label {
+	font-size: 11px; font-weight: 700;
+	color: rgba(255, 255, 255, 0.85);
+	letter-spacing: 0.04em;
+}
+
+.la-dua-snap-head {
+	display: flex; align-items: center; gap: 10px;
+	margin-bottom: 24px;
+}
+.la-dua-snap-title {
+	font-size: 16px; font-weight: 700;
+	color: #fff; opacity: 0.92;
+	margin: 0;
+	letter-spacing: -0.01em;
+}
+.la-dua-snap-repeat {
+	flex-shrink: 0;
+	padding: 3px 10px;
+	background: var(--dua-tint, #ED1C6C);
+	color: #fff;
+	border-radius: 999px;
+	font-size: 11px; font-weight: 800;
+}
+
+.la-dua-snap-arabic {
+	font-family: var(--la-font-arabic);
+	font-size: clamp(28px, 6.5vw, 40px);
+	font-weight: 400;
+	line-height: 1.95;
+	letter-spacing: 0.005em;
+	color: #fff;
+	flex: 1;
+	display: flex; align-items: center; justify-content: center;
+	text-align: center;
+	max-width: calc(100% - 64px);  /* keep clear of action rail */
+	overflow-y: auto;
+	scrollbar-width: none;
+	padding: 8px 0;
+}
+.la-dua-snap-arabic::-webkit-scrollbar { display: none; }
+
+.la-dua-snap-translit {
+	font-size: 13px; font-weight: 500;
+	font-style: italic;
+	color: rgba(255, 255, 255, 0.62);
+	text-align: center;
+	margin: 16px 0 12px;
+	max-width: calc(100% - 64px);
+	line-height: 1.55;
+}
+.la-dua-snap-meaning {
+	font-size: 13px; line-height: 1.6;
+	color: rgba(255, 255, 255, 0.85);
+	margin: 0 0 16px;
+	max-width: calc(100% - 64px);
+}
+.la-dua-snap-source {
+	display: inline-flex; align-items: center; gap: 6px;
+	font-size: 11px; font-weight: 700;
+	color: rgba(255, 255, 255, 0.5);
+	margin-bottom: 4px;
+}
+
+/* Right-rail action stack */
+.la-dua-snap-actions {
+	position: absolute;
+	right: 14px;
+	bottom: calc(24px + var(--la-safe-bottom));
+	display: flex; flex-direction: column; gap: 18px;
+	z-index: 3;
+}
+.la-dua-snap-action {
+	display: flex; flex-direction: column; align-items: center;
+	gap: 4px;
+	background: transparent;
+	border: none;
+	color: #fff;
+	padding: 0;
+	font-family: inherit; cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	transition: transform 0.15s var(--la-spring);
+}
+.la-dua-snap-action:active { transform: scale(0.92); }
+.la-dua-snap-action svg {
+	filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+	transition: all 0.2s var(--la-easing);
+}
+.la-dua-snap-action.is-active svg {
+	color: #2c9e4d;  /* Ameen = green confirmation */
+	transform: scale(1.05);
+	filter: drop-shadow(0 2px 12px rgba(44,158,77,0.7));
+}
+.la-dua-snap-action-label {
+	font-size: 10px; font-weight: 700;
+	color: rgba(255,255,255,0.85);
+	text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+.la-dua-snap-action-count {
+	font-size: 11px; font-weight: 800;
+	color: #fff;
+	font-variant-numeric: tabular-nums;
+	min-height: 14px;
+}
+.la-dua-snap-action.is-active .la-dua-snap-action-count {
+	color: #b4f0c6;
+}
+
+/* Pop on Ameen */
+@keyframes la-ameen-pop {
+	0% { transform: scale(1); }
+	30% { transform: scale(1.5); }
+	60% { transform: scale(0.92); }
+	100% { transform: scale(1.05); }
+}
+.la-dua-snap-action.is-popping svg { animation: la-ameen-pop 0.5s var(--la-spring); }
+
+/* ============================================================
+   DUAS PAGE — legacy card grid (kept for backward refs)
    ============================================================ */
 .la-app--duas {
 	padding-bottom: calc(var(--la-tabbar-h) + 32px);

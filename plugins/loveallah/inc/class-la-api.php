@@ -107,6 +107,13 @@ class LA_API {
 			],
 		] );
 
+		// Ameen reaction — tap to second a supplication
+		register_rest_route( self::NS, '/duas/(?P<id>\d+)/ameen', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'dua_ameen' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+		] );
+
 		register_rest_route( self::NS, '/mosques/nearest', [
 			'methods'  => 'GET',
 			'callback' => [ __CLASS__, 'nearest_mosques' ],
@@ -446,7 +453,50 @@ class LA_API {
 		} else {
 			$rows = $wpdb->get_results( "SELECT * FROM {$t['duas']} ORDER BY sort_order, id" );
 		}
+		// Annotate with this identity's Ameen state
+		$identity = self::identity_str( $req );
+		if ( $identity && $rows ) {
+			$ids = array_map( fn($r) => (int) $r->id, $rows );
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$mine = $wpdb->get_col( $wpdb->prepare(
+				"SELECT dua_id FROM {$t['dua_ameen']} WHERE identity = %s AND dua_id IN ($placeholders)",
+				array_merge( [ $identity ], $ids )
+			) );
+			$mine_set = array_flip( array_map( 'intval', $mine ) );
+			foreach ( $rows as $r ) {
+				$r->ameen_by_me = isset( $mine_set[ (int) $r->id ] );
+			}
+		}
 		return [ 'duas' => $rows ];
+	}
+
+	/** Toggle a dua's Ameen for this identity. Returns new state + count. */
+	public static function dua_ameen( WP_REST_Request $req ) {
+		$identity = self::identity_str( $req );
+		if ( ! $identity ) {
+			return new WP_Error( 'no_identity', 'Session required', [ 'status' => 400 ] );
+		}
+		$dua_id = (int) $req['id'];
+		global $wpdb;
+		$t = LA_DB::tables();
+		$exists = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM {$t['dua_ameen']} WHERE dua_id = %d AND identity = %s",
+			$dua_id, $identity
+		) );
+		if ( $exists ) {
+			$wpdb->delete( $t['dua_ameen'], [ 'id' => $exists ] );
+			$wpdb->query( $wpdb->prepare( "UPDATE {$t['duas']} SET ameen_count = GREATEST(0, ameen_count - 1) WHERE id = %d", $dua_id ) );
+			$ameen = false;
+		} else {
+			$wpdb->insert( $t['dua_ameen'], [
+				'dua_id' => $dua_id, 'identity' => $identity,
+				'created_at' => current_time( 'mysql' ),
+			] );
+			$wpdb->query( $wpdb->prepare( "UPDATE {$t['duas']} SET ameen_count = ameen_count + 1 WHERE id = %d", $dua_id ) );
+			$ameen = true;
+		}
+		$count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT ameen_count FROM {$t['duas']} WHERE id = %d", $dua_id ) );
+		return [ 'dua_id' => $dua_id, 'ameen' => $ameen, 'count' => $count ];
 	}
 
 	/** Build the string identity used for prayer_log / tasbeeh_log rows. */

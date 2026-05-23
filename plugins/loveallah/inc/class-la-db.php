@@ -27,6 +27,7 @@ class LA_DB {
 			'prayer_log'        => $wpdb->prefix . 'la_prayer_log',
 			'tasbeeh_log'       => $wpdb->prefix . 'la_tasbeeh_log',
 			'duas'              => $wpdb->prefix . 'la_duas',
+			'dua_ameen'         => $wpdb->prefix . 'la_dua_ameen',
 		];
 	}
 
@@ -287,10 +288,21 @@ class LA_DB {
 			meaning text DEFAULT NULL,
 			source varchar(120) DEFAULT NULL,
 			repeat_count int unsigned NOT NULL DEFAULT 1,
+			ameen_count int unsigned NOT NULL DEFAULT 0,
 			sort_order int NOT NULL DEFAULT 0,
 			PRIMARY KEY  (id),
 			UNIQUE KEY slug (slug),
 			KEY category (category)
+		) $charset_collate;" );
+
+		// Per-identity Ameen log so we can show toggled state + prevent dupes.
+		dbDelta( "CREATE TABLE {$t['dua_ameen']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			dua_id bigint(20) unsigned NOT NULL,
+			identity varchar(80) NOT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uniq_dua_identity (dua_id, identity)
 		) $charset_collate;" );
 	}
 
