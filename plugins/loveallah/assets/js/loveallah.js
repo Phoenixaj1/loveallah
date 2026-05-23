@@ -846,6 +846,43 @@
 		);
 	});
 
+	// ─── Duas page copy/share buttons ───
+	document.addEventListener('click', async (e) => {
+		const btn = e.target.closest('.la-dua-action');
+		if (!btn) return;
+		const card = btn.closest('.la-dua-card');
+		if (!card) return;
+		const action = btn.dataset.action;
+		const arabic = card.querySelector('.la-dua-arabic')?.textContent.trim() || '';
+		const translit = card.querySelector('.la-dua-translit')?.textContent.trim() || '';
+		const meaning = card.querySelector('.la-dua-meaning')?.textContent.trim() || '';
+		const source = card.querySelector('.la-dua-source')?.textContent.trim() || '';
+		const title = card.querySelector('.la-dua-card-title')?.textContent.trim() || '';
+		const txt = [title, arabic, translit, meaning, source && '— ' + source].filter(Boolean).join('\n\n');
+
+		if (action === 'copy-dua') {
+			try {
+				await navigator.clipboard.writeText(txt);
+				btn.classList.add('is-done');
+				const lbl = btn.querySelector('span');
+				const orig = lbl.textContent;
+				lbl.textContent = 'Copied';
+				if (navigator.vibrate) navigator.vibrate(15);
+				setTimeout(() => { btn.classList.remove('is-done'); lbl.textContent = orig; }, 1500);
+			} catch (_) {}
+		} else if (action === 'share-dua') {
+			if (navigator.share) {
+				try {
+					await navigator.share({ title: 'Love Allah · ' + title, text: txt, url: location.origin + '/duas/' });
+					if (navigator.vibrate) navigator.vibrate(15);
+				} catch (_) {}
+			} else {
+				// Fallback: copy
+				try { await navigator.clipboard.writeText(txt); btn.querySelector('span').textContent = 'Copied'; } catch (_) {}
+			}
+		}
+	});
+
 	// ─── Tasbeeh counter (only on /dhikr) ───
 	function initTasbeeh(root) {
 		const cfgEl = root.querySelector('#la-tasbeeh-config');

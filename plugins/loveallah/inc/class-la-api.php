@@ -97,6 +97,16 @@ class LA_API {
 			],
 		] );
 
+		// Duas — read-only public library
+		register_rest_route( self::NS, '/duas', [
+			'methods'  => 'GET',
+			'callback' => [ __CLASS__, 'duas_list' ],
+			'permission_callback' => '__return_true',
+			'args' => [
+				'category' => [ 'type' => 'string', 'default' => '' ],
+			],
+		] );
+
 		register_rest_route( self::NS, '/mosques/nearest', [
 			'methods'  => 'GET',
 			'callback' => [ __CLASS__, 'nearest_mosques' ],
@@ -421,6 +431,22 @@ class LA_API {
 			$identity, $today, $phrase
 		) );
 		return [ 'phrase' => $phrase, 'count' => $new ];
+	}
+
+	/** List duas, optionally filtered by category. */
+	public static function duas_list( WP_REST_Request $req ) {
+		global $wpdb;
+		$t = LA_DB::tables();
+		$cat = sanitize_text_field( (string) $req->get_param( 'category' ) );
+		if ( $cat ) {
+			$rows = $wpdb->get_results( $wpdb->prepare(
+				"SELECT * FROM {$t['duas']} WHERE category = %s ORDER BY sort_order, id",
+				$cat
+			) );
+		} else {
+			$rows = $wpdb->get_results( "SELECT * FROM {$t['duas']} ORDER BY sort_order, id" );
+		}
+		return [ 'duas' => $rows ];
 	}
 
 	/** Build the string identity used for prayer_log / tasbeeh_log rows. */
