@@ -35,7 +35,11 @@ $la_phrases = [
 	  'meaning' => 'There is no god but Allah',
 	  'inhale' => 'Lā ilāha',    'exhale' => 'illa-llāh',
 	  'arabic_inhale' => 'لَا إِلَهَ', 'arabic_exhale' => 'إِلَّا ٱللَّٰه',
-	  'chant_video' => 'psN1gCbTgLc',  // Shaykh Hasan Ali — Heart Soothing Dhikr 1hr (Alfalaah)
+	  // Group halaqa chant — Sheikh Eshref Efendi + Sufi Centre Rabbaniyya.
+	  // Multiple voices = communal feel, like sitting in the circle. Used to
+	  // be a single-voice recording which felt isolated; this is the dhikr
+	  // gathering you're standing inside.
+	  'chant_video' => 'YVpdl2xfKss',
 	  'note' => 'The kalimah — the testimony and the highest dhikr', 'breath_s' => 10 ],
 	// "Yā Allāh" — the established Sufi formula for the dhikr-of-the-Name
 	// (used across Qadiri, Chishti, Shadhili, Naqshbandi orders). Splits
@@ -128,7 +132,7 @@ $la_scenes = [
 //                    for the binaural effect to work.
 //   Breath         = audible breath pad with formant sweep
 $la_sound_layers = [
-	[ 'key' => 'chant',    'emoji' => '🎙', 'label' => 'Chant',   'desc' => 'A real qari recites the phrase under you' ],
+	[ 'key' => 'chant',    'emoji' => '🎙', 'label' => 'Halaqa',  'desc' => 'A dhikr circle drifting in the background — not the lead' ],
 	[ 'key' => 'duff',     'emoji' => '🥁', 'label' => 'Duff',    'desc' => 'Frame-drum on the inhale beat' ],
 	[ 'key' => 'mind',     'emoji' => '🧠', 'label' => 'Mind',    'desc' => '🎧 Binaural theta — flows L↔R through your mind' ],
 	[ 'key' => 'breath',   'emoji' => '🌬', 'label' => 'Breath',  'desc' => 'Audible inhale/exhale cue' ],

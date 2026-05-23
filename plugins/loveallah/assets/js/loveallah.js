@@ -2045,7 +2045,16 @@
 							iv_load_policy: 3, cc_load_policy: 0, disablekb: 1, fs: 0,
 						},
 						events: {
-							onReady: (e) => { try { e.target.playVideo(); } catch (_) {} },
+							onReady: (e) => {
+								try {
+									// Chant is BACKGROUND — user's own dhikr (visual cues
+									// driving silent inner repetition) is the focus. Set
+									// the YT volume to ~28% so the qari/halaqa feels
+									// like it's drifting from the next room, not leading.
+									e.target.setVolume(28);
+									e.target.playVideo();
+								} catch (_) {}
+							},
 							onStateChange: (e) => {
 								// YT.PlayerState.ENDED === 0
 								// loop=1 should re-trigger, but in practice it occasionally
