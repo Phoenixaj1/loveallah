@@ -1667,4 +1667,56 @@
 			console.warn('[loveallah] prayer-toggle failed', err);
 		}
 	});
+
+	// ─── Masjid event RSVP / favourite toggles ───
+	// Delegated handler — works for all event posters in the rail.
+	document.addEventListener('click', async (e) => {
+		const btn = e.target.closest('[data-action="event-rsvp"], [data-action="event-fav"]');
+		if (!btn) return;
+		const id = btn.dataset.id;
+		const status = btn.dataset.action === 'event-rsvp' ? 'rsvp' : 'fav';
+		if (!id) return;
+
+		// Optimistic flip
+		const wasActive = btn.classList.contains('is-active');
+		btn.classList.toggle('is-active', !wasActive);
+		btn.setAttribute('aria-pressed', String(!wasActive));
+		if (status === 'fav') {
+			btn.classList.remove('is-pop'); void btn.offsetWidth; btn.classList.add('is-pop');
+			// Toggle SVG fill on the heart
+			const path = btn.querySelector('svg path');
+			if (path) path.setAttribute('fill', !wasActive ? 'currentColor' : 'none');
+		}
+		if (status === 'rsvp') {
+			const lbl = btn.querySelector('.la-event-rsvp-on');
+			if (lbl) lbl.textContent = !wasActive ? '✓ Going' : 'RSVP';
+		}
+		if (navigator.vibrate) navigator.vibrate(status === 'rsvp' ? [15, 30, 25] : 12);
+
+		try {
+			const r = await fetch(`${LA.apiRoot}events/${id}/${status}`, {
+				method: 'POST',
+				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+			});
+			const data = await r.json();
+			if (typeof data.active === 'boolean') {
+				btn.classList.toggle('is-active', data.active);
+				btn.setAttribute('aria-pressed', String(data.active));
+				if (status === 'rsvp') {
+					const lbl = btn.querySelector('.la-event-rsvp-on');
+					if (lbl) lbl.textContent = data.active ? '✓ Going' : 'RSVP';
+					const count = btn.querySelector('[data-rsvp-count]');
+					if (count && typeof data.count === 'number') count.textContent = data.count;
+				}
+				if (status === 'fav') {
+					const path = btn.querySelector('svg path');
+					if (path) path.setAttribute('fill', data.active ? 'currentColor' : 'none');
+				}
+			}
+		} catch (_) {
+			// Rollback
+			btn.classList.toggle('is-active', wasActive);
+			btn.setAttribute('aria-pressed', String(wasActive));
+		}
+	});
 })();

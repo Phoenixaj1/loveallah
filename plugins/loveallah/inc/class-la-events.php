@@ -55,32 +55,60 @@ class LA_Events {
 			[
 				'title'       => 'Jumu\'ah Khutbah',
 				'description' => 'Shaykh Yousaf delivers this week\'s khutbah, followed by Jumu\'ah salah. Doors open 12:45.',
-				'starts_at'   => $next_dow( 5, 13, 15 ), // Friday 13:15
+				'starts_at'   => $next_dow( 5, 13, 15 ),
 				'location'    => 'Main hall',
 				'tag'         => 'jumuah',
+				'poster_gradient' => 'linear-gradient(160deg, #2C1338 0%, #6B1846 50%, #ED1C6C 100%)',
 			],
 			[
 				'title'       => 'Tafsir Halaqah — Surah Ya-Sin',
 				'description' => 'Weekly tafsir class. Bring a Qur\'an. Sisters welcome (upstairs).',
-				'starts_at'   => $next_dow( 2, 19, 30 ), // Tuesday 19:30
+				'starts_at'   => $next_dow( 2, 19, 30 ),
 				'location'    => 'Library room',
 				'tag'         => 'class',
+				'poster_gradient' => 'linear-gradient(160deg, #1a3a5c 0%, #2d6ca2 60%, #4FC3F7 100%)',
 			],
 			[
 				'title'       => 'Qur\'an Class for Kids',
 				'description' => 'Ages 6-12. New term starting — limited spaces. Register with Sister Aisha.',
-				'starts_at'   => $next_dow( 6, 10, 30 ), // Saturday 10:30
+				'starts_at'   => $next_dow( 6, 10, 30 ),
 				'location'    => 'Madrasah block',
 				'cta_label'   => 'Register',
 				'cta_url'     => '#register',
 				'tag'         => 'class',
+				'poster_gradient' => 'linear-gradient(160deg, #4a3300 0%, #b8860b 60%, #ffd700 100%)',
 			],
 			[
 				'title'       => 'Community Iftar',
 				'description' => 'Open iftar this weekend. Please bring a dish to share. All welcome — neighbours encouraged.',
-				'starts_at'   => $next_dow( 0, 20, 30 ), // Sunday 20:30
+				'starts_at'   => $next_dow( 0, 20, 30 ),
 				'location'    => 'Community hall',
 				'tag'         => 'community',
+				'poster_gradient' => 'linear-gradient(160deg, #1a0033 0%, #4b0082 50%, #ffd700 100%)',
+			],
+			[
+				'title'       => 'Sisters\' Halaqah',
+				'description' => 'Monthly sisters-only circle. Topic: "The hereafter and the soul" — Ustadha Rabia leading.',
+				'starts_at'   => $next_dow( 6, 14, 0 ),
+				'location'    => 'Upstairs hall',
+				'tag'         => 'sisters',
+				'poster_gradient' => 'linear-gradient(160deg, #5a1845 0%, #c2185b 60%, #ff8a80 100%)',
+			],
+			[
+				'title'       => 'Reverts Meet & Greet',
+				'description' => 'For new Muslims and those exploring Islam. Tea, biscuits and Q&A with Imam Yousaf.',
+				'starts_at'   => $next_dow( 3, 18, 0 ),
+				'location'    => 'Community room',
+				'tag'         => 'reverts',
+				'poster_gradient' => 'linear-gradient(160deg, #0f5132 0%, #198754 60%, #75d39e 100%)',
+			],
+			[
+				'title'       => 'Janazah Prayer Services',
+				'description' => 'Janazah prayers are held after each obligatory prayer when needed. Contact the masjid office to arrange ghusl + burial.',
+				'starts_at'   => $next_dow( 1, 12, 0 ),
+				'location'    => 'Main hall',
+				'tag'         => 'service',
+				'poster_gradient' => 'linear-gradient(160deg, #1c1c1c 0%, #424242 60%, #757575 100%)',
 			],
 		];
 

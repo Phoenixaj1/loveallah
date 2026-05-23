@@ -114,6 +114,13 @@ class LA_API {
 			'permission_callback' => [ __CLASS__, 'check_nonce' ],
 		] );
 
+		// Masjid event RSVP / favourite — toggleable, per identity
+		register_rest_route( self::NS, '/events/(?P<id>\d+)/(?P<status>rsvp|fav)', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'event_toggle' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+		] );
+
 		register_rest_route( self::NS, '/mosques/nearest', [
 			'methods'  => 'GET',
 			'callback' => [ __CLASS__, 'nearest_mosques' ],
@@ -515,6 +522,54 @@ class LA_API {
 		}
 		$count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT ameen_count FROM {$t['duas']} WHERE id = %d", $dua_id ) );
 		return [ 'dua_id' => $dua_id, 'ameen' => $ameen, 'count' => $count ];
+	}
+
+	/**
+	 * Toggle an RSVP or favourite on a masjid event.
+	 * Returns the new active state + the live count for that status.
+	 */
+	public static function event_toggle( WP_REST_Request $req ) {
+		$identity = self::identity_str( $req );
+		if ( ! $identity ) {
+			return new WP_Error( 'no_identity', 'Session required', [ 'status' => 400 ] );
+		}
+		$event_id = (int) $req['id'];
+		$status   = sanitize_key( (string) $req['status'] );
+		if ( ! in_array( $status, [ 'rsvp', 'fav' ], true ) ) {
+			return new WP_Error( 'bad_status', 'status must be rsvp or fav', [ 'status' => 400 ] );
+		}
+
+		global $wpdb;
+		$t = LA_DB::tables();
+		$count_col = $status === 'rsvp' ? 'rsvp_count' : 'fav_count';
+
+		$exists = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM {$t['event_rsvps']}
+			 WHERE event_id = %d AND identity = %s AND status = %s",
+			$event_id, $identity, $status
+		) );
+		if ( $exists ) {
+			$wpdb->delete( $t['event_rsvps'], [ 'id' => $exists ] );
+			$wpdb->query( $wpdb->prepare(
+				"UPDATE {$t['events']} SET {$count_col} = GREATEST(0, {$count_col} - 1) WHERE id = %d",
+				$event_id
+			) );
+			$active = false;
+		} else {
+			$wpdb->insert( $t['event_rsvps'], [
+				'event_id' => $event_id, 'identity' => $identity, 'status' => $status,
+			] );
+			$wpdb->query( $wpdb->prepare(
+				"UPDATE {$t['events']} SET {$count_col} = {$count_col} + 1 WHERE id = %d",
+				$event_id
+			) );
+			$active = true;
+		}
+		$count = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT {$count_col} FROM {$t['events']} WHERE id = %d",
+			$event_id
+		) );
+		return [ 'event_id' => $event_id, 'status' => $status, 'active' => $active, 'count' => $count ];
 	}
 
 	/** Build the string identity used for prayer_log / tasbeeh_log rows. */

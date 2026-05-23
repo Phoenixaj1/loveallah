@@ -1,7 +1,13 @@
 <?php
 /**
- * Masjid page — the user's local masjid hub.
- * Events, prayer times, services, announcements.
+ * Masjid page — local masjid hub.
+ *
+ * Top to bottom on mobile:
+ *   1. Hero (masjid name + address)
+ *   2. Prayer times — single horizontal row
+ *   3. Jumuah block — large card with khutbah time (highlighted Fridays)
+ *   4. Events — movie-poster horizontal slider with RSVP / fav buttons
+ *   5. Services & announcements
  *
  * @package LoveAllah
  */
@@ -9,15 +15,53 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 $la_mosque  = la_chosen_mosque();
 $la_tz_msj  = wp_timezone_string() ?: 'Europe/London';
+if ( $la_tz_msj && ( $la_tz_msj[0] === '+' || $la_tz_msj[0] === '-' ) ) $la_tz_msj = 'UTC';
 $la_timings = $la_mosque
 	? LA_Prayer_Times::for_lat_lng( (float) $la_mosque->latitude, (float) $la_mosque->longitude, (int) $la_mosque->id, $la_tz_msj )
 	: [];
 $la_next    = $la_timings ? LA_Prayer_Times::next_prayer( $la_timings ) : [];
-$la_events  = $la_mosque ? LA_Events::upcoming( (int) $la_mosque->id, 6 ) : [];
+$la_events  = $la_mosque ? LA_Events::upcoming( (int) $la_mosque->id, 12 ) : [];
+
+// Jumuah time — masjid-managed if set, otherwise default to Dhuhr time.
+$la_jumuah_time = $la_mosque->jumuah_time ?? '';
+if ( ! $la_jumuah_time && ! empty( $la_timings['Dhuhr'] ) ) {
+	$la_jumuah_time = $la_timings['Dhuhr'];
+}
+$la_jumuah_lang = $la_mosque->jumuah_khutbah_lang ?? '';
+
+// Is today Friday? Highlight the Jumuah block.
+try {
+	$tz_obj = new DateTimeZone( $la_tz_msj );
+	$la_is_friday = ( (int) ( new DateTime( 'now', $tz_obj ) )->format( 'N' ) === 5 );
+} catch ( Throwable $e ) { $la_is_friday = false; }
+
+// RSVP / favourite state — read once for all visible events
+$la_user_id    = get_current_user_id() ?: null;
+$la_session_id = function_exists( 'la_get_or_set_session_id' ) ? la_get_or_set_session_id() : null;
+$la_identity   = $la_user_id ? ( 'u' . (int) $la_user_id ) : ( $la_session_id ? ( 's' . $la_session_id ) : '' );
+$la_my_rsvps = [];
+$la_my_favs  = [];
+if ( $la_identity && $la_events ) {
+	global $wpdb;
+	$t  = LA_DB::tables();
+	$ids = array_map( fn( $e ) => (int) $e->id, $la_events );
+	if ( $ids ) {
+		$ph = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT event_id, status FROM {$t['event_rsvps']}
+			 WHERE identity = %s AND event_id IN ( $ph )",
+			array_merge( [ $la_identity ], $ids )
+		) );
+		foreach ( $rows as $r ) {
+			if ( $r->status === 'rsvp' ) $la_my_rsvps[ (int) $r->event_id ] = true;
+			if ( $r->status === 'fav' )  $la_my_favs[ (int) $r->event_id ] = true;
+		}
+	}
+}
 
 get_header();
 ?>
-<main class="la-app la-app--page">
+<main class="la-app la-app--page la-app--masjid">
 
 	<?php if ( ! $la_mosque ) : ?>
 		<section class="la-page-empty">
@@ -36,69 +80,123 @@ get_header();
 			</p>
 		</header>
 
-		<!-- PRAYER TIMES -->
-		<section class="la-msection">
-			<header class="la-msection-head">
-				<h2>Prayer times</h2>
+		<!-- PRAYER TIMES — single horizontal row -->
+		<?php if ( $la_timings ) : ?>
+			<section class="la-msection la-msection--prayers">
 				<?php if ( ! empty( $la_next['name'] ) ) : ?>
-					<span class="la-mnext" data-next-time="<?php echo esc_attr( $la_next['time'] ); ?>">
-						<?php echo esc_html( $la_next['name'] ); ?> · <span data-countdown>—</span>
-					</span>
+					<div class="la-mprayer-next" data-next-time="<?php echo esc_attr( $la_next['time'] ); ?>">
+						<span class="la-mprayer-next-label">Next prayer</span>
+						<span class="la-mprayer-next-name"><?php echo esc_html( $la_next['name'] ); ?></span>
+						<span class="la-mprayer-next-eta" data-countdown>—</span>
+					</div>
 				<?php endif; ?>
-			</header>
-			<?php if ( $la_timings ) : ?>
-				<div class="la-mprayer-grid">
+				<div class="la-mprayer-row">
 					<?php foreach ( [ 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha' ] as $name ) :
 						if ( empty( $la_timings[ $name ] ) ) continue;
 						$is_next = ( ! empty( $la_next['name'] ) && $la_next['name'] === $name );
 					?>
-						<div class="la-mprayer <?php echo $is_next ? 'is-next' : ''; ?>">
-							<span class="la-mprayer-name"><?php echo esc_html( $name ); ?></span>
-							<span class="la-mprayer-time"><?php echo esc_html( $la_timings[ $name ] ); ?></span>
+						<div class="la-mprayer-cell <?php echo $is_next ? 'is-next' : ''; ?>">
+							<span class="la-mprayer-cell-name"><?php echo esc_html( $name ); ?></span>
+							<span class="la-mprayer-cell-time"><?php echo esc_html( $la_timings[ $name ] ); ?></span>
 						</div>
 					<?php endforeach; ?>
 				</div>
-			<?php endif; ?>
-		</section>
+			</section>
+		<?php endif; ?>
 
-		<!-- EVENTS -->
-		<section class="la-msection">
+		<!-- JUMUAH — prominent block, highlighted on Fridays -->
+		<?php if ( $la_jumuah_time ) : ?>
+			<section class="la-mjumuah <?php echo $la_is_friday ? 'is-today' : ''; ?>">
+				<div class="la-mjumuah-inner">
+					<div class="la-mjumuah-icon" aria-hidden="true">🕌</div>
+					<div class="la-mjumuah-body">
+						<div class="la-mjumuah-label">
+							<?php echo $la_is_friday ? esc_html__( 'Today · Jumuah', 'loveallah' ) : esc_html__( 'This Friday · Jumuah', 'loveallah' ); ?>
+						</div>
+						<div class="la-mjumuah-time"><?php echo esc_html( $la_jumuah_time ); ?></div>
+						<?php if ( $la_jumuah_lang ) : ?>
+							<div class="la-mjumuah-lang"><?php echo esc_html( sprintf( __( 'Khutbah in %s', 'loveallah' ), $la_jumuah_lang ) ); ?></div>
+						<?php endif; ?>
+					</div>
+					<?php if ( ! empty( $la_mosque->second_jumuah_time ) ) : ?>
+						<div class="la-mjumuah-second">
+							<div class="la-mjumuah-second-label"><?php esc_html_e( '2nd jamaah', 'loveallah' ); ?></div>
+							<div class="la-mjumuah-second-time"><?php echo esc_html( $la_mosque->second_jumuah_time ); ?></div>
+						</div>
+					<?php endif; ?>
+				</div>
+			</section>
+		<?php endif; ?>
+
+		<!-- EVENTS — movie-poster horizontal slider -->
+		<section class="la-msection la-msection--events">
 			<header class="la-msection-head">
-				<h2>Upcoming events</h2>
+				<h2><?php esc_html_e( 'Upcoming events', 'loveallah' ); ?></h2>
 				<?php if ( count( $la_events ) > 0 ) : ?>
 					<span class="la-msection-count"><?php echo count( $la_events ); ?></span>
 				<?php endif; ?>
 			</header>
 			<?php if ( empty( $la_events ) ) : ?>
-				<p class="la-mempty">No events scheduled yet.</p>
+				<p class="la-mempty"><?php esc_html_e( 'No events scheduled yet.', 'loveallah' ); ?></p>
 			<?php else : ?>
-				<div class="la-mevents">
+				<div class="la-event-rail" data-event-rail>
 					<?php foreach ( $la_events as $e ) :
 						$dt = strtotime( $e->starts_at );
 						$day = gmdate( 'd', $dt );
-						$month = gmdate( 'M', $dt );
+						$month = strtoupper( gmdate( 'M', $dt ) );
 						$weekday = gmdate( 'D', $dt );
 						$time = gmdate( 'H:i', $dt );
+						$is_rsvp = isset( $la_my_rsvps[ (int) $e->id ] );
+						$is_fav  = isset( $la_my_favs[ (int) $e->id ] );
+						$bg_style = '';
+						if ( ! empty( $e->image_url ) ) {
+							$bg_style = 'background-image:url(' . esc_url( $e->image_url ) . ');background-size:cover;background-position:center;';
+						} elseif ( ! empty( $e->poster_gradient ) ) {
+							$bg_style = 'background:' . esc_attr( $e->poster_gradient ) . ';';
+						} else {
+							$bg_style = 'background:linear-gradient(160deg, #2C1338, #6B1846, #ED1C6C);';
+						}
 					?>
-						<article class="la-event">
-							<div class="la-event-date">
-								<div class="la-event-day"><?php echo esc_html( $day ); ?></div>
-								<div class="la-event-month"><?php echo esc_html( $month ); ?></div>
-							</div>
-							<div class="la-event-body">
+						<article class="la-event-poster" data-event-id="<?php echo (int) $e->id; ?>" style="<?php echo $bg_style; ?>">
+							<!-- Top row: tag chip + favourite heart -->
+							<div class="la-event-poster-top">
 								<?php if ( ! empty( $e->tag ) ) : ?>
-									<span class="la-event-tag"><?php echo esc_html( $e->tag ); ?></span>
+									<span class="la-event-poster-tag"><?php echo esc_html( ucfirst( $e->tag ) ); ?></span>
 								<?php endif; ?>
-								<h3 class="la-event-title"><?php echo esc_html( $e->title ); ?></h3>
-								<div class="la-event-meta">
-									<span>🕒 <?php echo esc_html( $weekday . ' · ' . $time ); ?></span>
+								<button type="button"
+									class="la-event-fav <?php echo $is_fav ? 'is-active' : ''; ?>"
+									data-action="event-fav"
+									data-id="<?php echo (int) $e->id; ?>"
+									aria-pressed="<?php echo $is_fav ? 'true' : 'false'; ?>"
+									aria-label="Favourite">
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="<?php echo $is_fav ? 'currentColor' : 'none'; ?>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+								</button>
+							</div>
+
+							<!-- Spacer pushes content to bottom -->
+							<div class="la-event-poster-fill"></div>
+
+							<!-- Bottom: date pill + title + meta + RSVP -->
+							<div class="la-event-poster-meta">
+								<div class="la-event-poster-date">
+									<span class="la-event-poster-day"><?php echo esc_html( $day ); ?></span>
+									<span class="la-event-poster-month"><?php echo esc_html( $month ); ?></span>
+								</div>
+								<h3 class="la-event-poster-title"><?php echo esc_html( $e->title ); ?></h3>
+								<div class="la-event-poster-when">
+									<?php echo esc_html( $weekday . ' · ' . $time ); ?>
 									<?php if ( ! empty( $e->location ) ) : ?>
-										<span>📍 <?php echo esc_html( $e->location ); ?></span>
+										<span> · <?php echo esc_html( $e->location ); ?></span>
 									<?php endif; ?>
 								</div>
-								<?php if ( ! empty( $e->description ) ) : ?>
-									<p class="la-event-desc"><?php echo esc_html( $e->description ); ?></p>
-								<?php endif; ?>
+								<button type="button"
+									class="la-event-rsvp <?php echo $is_rsvp ? 'is-active' : ''; ?>"
+									data-action="event-rsvp"
+									data-id="<?php echo (int) $e->id; ?>"
+									aria-pressed="<?php echo $is_rsvp ? 'true' : 'false'; ?>">
+									<span class="la-event-rsvp-on"><?php echo $is_rsvp ? '✓ Going' : 'RSVP'; ?></span>
+									<span class="la-event-rsvp-count" data-rsvp-count><?php echo (int) ( $e->rsvp_count ?? 0 ); ?></span>
+								</button>
 							</div>
 						</article>
 					<?php endforeach; ?>

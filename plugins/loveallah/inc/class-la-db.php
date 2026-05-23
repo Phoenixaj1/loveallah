@@ -28,6 +28,7 @@ class LA_DB {
 			'tasbeeh_log'       => $wpdb->prefix . 'la_tasbeeh_log',
 			'duas'              => $wpdb->prefix . 'la_duas',
 			'dua_ameen'         => $wpdb->prefix . 'la_dua_ameen',
+			'event_rsvps'       => $wpdb->prefix . 'la_event_rsvps',
 		];
 	}
 
@@ -66,6 +67,9 @@ class LA_DB {
 			branding_logo varchar(500) DEFAULT NULL,
 			branding_color_primary varchar(20) DEFAULT NULL,
 			branding_banner varchar(500) DEFAULT NULL,
+			jumuah_time time DEFAULT NULL,
+			jumuah_khutbah_lang varchar(40) DEFAULT NULL,
+			second_jumuah_time time DEFAULT NULL,
 			claimed_user_id bigint(20) unsigned DEFAULT NULL,
 			claimed_at datetime DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -226,13 +230,29 @@ class LA_DB {
 			ends_at datetime DEFAULT NULL,
 			location varchar(255) DEFAULT NULL,
 			image_url varchar(500) DEFAULT NULL,
+			poster_gradient varchar(120) DEFAULT NULL,
 			cta_label varchar(80) DEFAULT NULL,
 			cta_url varchar(500) DEFAULT NULL,
 			tag varchar(40) DEFAULT NULL,
+			rsvp_count int unsigned NOT NULL DEFAULT 0,
+			fav_count  int unsigned NOT NULL DEFAULT 0,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY mosque_id (mosque_id),
 			KEY starts_at (starts_at)
+		) $charset_collate;" );
+
+		// RSVP / favourite log for events. status enum: 'rsvp' | 'fav'.
+		// Unique key prevents duplicate rows so the toggle stays clean.
+		dbDelta( "CREATE TABLE {$t['event_rsvps']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			event_id bigint(20) unsigned NOT NULL,
+			identity varchar(80) NOT NULL,
+			status varchar(20) NOT NULL DEFAULT 'rsvp',
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY ev_identity_status (event_id, identity, status),
+			KEY identity (identity)
 		) $charset_collate;" );
 
 		dbDelta( "CREATE TABLE {$t['email_captures']} (
