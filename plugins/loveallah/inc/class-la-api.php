@@ -266,7 +266,10 @@ class LA_API {
 	private static function identity( WP_REST_Request $req ) : array {
 		$user_id = get_current_user_id() ?: null;
 		$session_id = sanitize_key( (string) $req->get_header( 'x-la-session' ) );
-		if ( ! $session_id && isset( $_COOKIE['la_session'] ) ) {
+		if ( ! $session_id && isset( $_COOKIE['wordpress_la_session'] ) ) {
+			$session_id = sanitize_key( $_COOKIE['wordpress_la_session'] );
+		} elseif ( ! $session_id && isset( $_COOKIE['la_session'] ) ) {
+			// Legacy cookie name — keep for one release while clients migrate
 			$session_id = sanitize_key( $_COOKIE['la_session'] );
 		}
 		return [ $user_id, $session_id ?: null ];

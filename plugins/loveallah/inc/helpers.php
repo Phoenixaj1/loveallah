@@ -8,13 +8,13 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 function la_get_or_set_session_id() : string {
-	if ( ! empty( $_COOKIE['la_session'] ) ) {
-		return sanitize_key( $_COOKIE['la_session'] );
+	if ( ! empty( $_COOKIE['wordpress_la_session'] ) ) {
+		return sanitize_key( $_COOKIE['wordpress_la_session'] );
 	}
 	$sid = wp_generate_password( 32, false, false );
 	if ( ! headers_sent() ) {
 		setcookie(
-			'la_session',
+			'wordpress_la_session',
 			$sid,
 			[
 				'expires'  => time() + ( 30 * DAY_IN_SECONDS ),
@@ -26,12 +26,12 @@ function la_get_or_set_session_id() : string {
 			]
 		);
 	}
-	$_COOKIE['la_session'] = $sid;
+	$_COOKIE['wordpress_la_session'] = $sid;
 	return $sid;
 }
 
 /**
- * Set the la_session cookie early on every request, before any output.
+ * Set the wordpress_la_session cookie early on every request, before any output.
  * Without this, get_header() flushes output before la_render_feed_main()
  * runs — so setcookie() silently fails (headers already sent) and every
  * page load creates a brand-new session, wiping the user's unlock state.
@@ -40,7 +40,7 @@ add_action( 'send_headers', 'la_seed_session_cookie_early', 1 );
 function la_seed_session_cookie_early() : void {
 	if ( is_admin() ) return;
 	if ( headers_sent() ) return;
-	if ( ! empty( $_COOKIE['la_session'] ) ) return;
+	if ( ! empty( $_COOKIE['wordpress_la_session'] ) ) return;
 	la_get_or_set_session_id();
 }
 
