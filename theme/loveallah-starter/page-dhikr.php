@@ -49,15 +49,20 @@ get_header();
 	<!-- TASBEEH INTERFACE -->
 	<section class="la-tasbeeh" data-tasbeeh aria-label="Tasbeeh counter">
 		<!-- Karaoke background — autoplay muted YouTube of the current phrase chant.
-		     Sound toggle lives on the bead overlay. iframe loops via loop=1+playlist=self. -->
+		     Render the iframe with the full URL on initial server-render so the
+		     browser counts the autoplay-muted as legitimate (changing src via JS
+		     later loses that trust and the video stays paused/black). -->
+		<?php
+		$la_init_vid = $la_tasbeeh[0]['video'];
+		$la_init_url = "https://www.youtube.com/embed/{$la_init_vid}?autoplay=1&mute=1&loop=1&playlist={$la_init_vid}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1";
+		?>
 		<div class="la-tasbeeh-bg" aria-hidden="true">
 			<iframe class="la-tasbeeh-bg-iframe"
 				data-tasbeeh-bg-iframe
-				src="about:blank"
-				data-src="https://www.youtube.com/embed/<?php echo esc_attr( $la_tasbeeh[0]['video'] ); ?>"
-				allow="autoplay; encrypted-media"
+				src="<?php echo esc_url( $la_init_url ); ?>"
+				allow="autoplay; encrypted-media; picture-in-picture"
+				allowfullscreen
 				frameborder="0"
-				loading="lazy"
 				tabindex="-1"></iframe>
 			<div class="la-tasbeeh-bg-vignette"></div>
 		</div>

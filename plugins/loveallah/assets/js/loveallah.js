@@ -955,14 +955,17 @@
 		if (vibrateEnabled) vibBtn?.classList.add('is-active');
 
 		// Karaoke video — swap embed src when phrase changes.
-		// Builds: youtube.com/embed/<ID>?autoplay=1&mute=1&loop=1&playlist=<ID>&controls=0&modestbranding=1&playsinline=1
-		let currentVideoId = null;
+		// Initial src is rendered server-side (page-dhikr.php) so the very first
+		// load benefits from autoplay-muted being a 'page-initiated' load.
+		// We seed currentVideoId from the rendered iframe so we don't re-swap
+		// to the same video and lose its play state.
+		let currentVideoId = phrases[state.current]?.video || null;
 		function swapKaraokeIfNeeded(phrase) {
 			if (!bgIframe || !phrase.video) return;
 			if (currentVideoId === phrase.video) return;
 			currentVideoId = phrase.video;
 			const muteParam = soundOn ? 'mute=0' : 'mute=1';
-			const params = `autoplay=1&${muteParam}&loop=1&playlist=${phrase.video}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0`;
+			const params = `autoplay=1&${muteParam}&loop=1&playlist=${phrase.video}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1`;
 			bgIframe.src = `https://www.youtube.com/embed/${phrase.video}?${params}`;
 		}
 
