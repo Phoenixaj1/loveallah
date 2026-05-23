@@ -105,39 +105,44 @@ get_header();
 			<?php foreach ( $active_cats as $key => $meta ) : ?>
 				<section class="la-duas-list <?php echo $key === $first_cat ? 'is-active' : ''; ?>" data-cat-section="<?php echo esc_attr( $key ); ?>">
 
-					<?php foreach ( $by_cat[ $key ] as $d ) :
+					<?php $dua_idx = 0; $cat_total = count( $by_cat[ $key ] ); foreach ( $by_cat[ $key ] as $d ) :
 						$is_amened = isset( $my_ameen[ (int) $d->id ] );
+						$dua_idx++;
 					?>
-						<article class="la-dua" data-dua-id="<?php echo (int) $d->id; ?>" data-cat="<?php echo esc_attr( $key ); ?>">
-							<!-- Per-day tick button — large tappable area at the top-right of each card -->
-							<button type="button" class="la-dua-tick"
-								data-action="tick-day"
-								data-id="<?php echo (int) $d->id; ?>"
-								data-cat="<?php echo esc_attr( $key ); ?>"
-								aria-label="Mark as read today"
-								title="Mark as read today">
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
-							</button>
+						<article class="la-dua" data-dua-id="<?php echo (int) $d->id; ?>" data-cat="<?php echo esc_attr( $key ); ?>" data-idx="<?php echo $dua_idx; ?>" data-total="<?php echo $cat_total; ?>">
+							<!-- Step counter — 'Dua 3 of 8' so the user knows where they are -->
+							<div class="la-dua-step">
+								<span class="la-dua-step-num"><?php echo $dua_idx; ?></span>
+								<span class="la-dua-step-of">of <?php echo $cat_total; ?></span>
+							</div>
+
+							<!-- Header — title + repeat-count chip -->
 							<header class="la-dua-head">
 								<h2 class="la-dua-title"><?php echo esc_html( $d->title ); ?></h2>
 								<?php if ( (int) $d->repeat_count > 1 ) : ?>
 									<span class="la-dua-repeat" title="Recite this many times"><?php echo (int) $d->repeat_count; ?>×</span>
 								<?php endif; ?>
 							</header>
-							<div class="la-dua-arabic" dir="rtl" lang="ar"><?php echo esc_html( $d->arabic ); ?></div>
-							<?php if ( ! empty( $d->transliteration ) ) : ?>
-								<div class="la-dua-translit"><?php echo esc_html( $d->transliteration ); ?></div>
-							<?php endif; ?>
-							<?php if ( ! empty( $d->meaning ) ) : ?>
-								<p class="la-dua-meaning"><?php echo esc_html( $d->meaning ); ?></p>
-							<?php endif; ?>
-							<footer class="la-dua-foot">
+
+							<!-- Body — Arabic + translit + meaning, centred for a meditative read -->
+							<div class="la-dua-body">
+								<div class="la-dua-arabic" dir="rtl" lang="ar"><?php echo esc_html( $d->arabic ); ?></div>
+								<?php if ( ! empty( $d->transliteration ) ) : ?>
+									<div class="la-dua-translit"><?php echo esc_html( $d->transliteration ); ?></div>
+								<?php endif; ?>
+								<?php if ( ! empty( $d->meaning ) ) : ?>
+									<p class="la-dua-meaning"><?php echo esc_html( $d->meaning ); ?></p>
+								<?php endif; ?>
 								<?php if ( ! empty( $d->source ) ) : ?>
-									<span class="la-dua-source">
+									<div class="la-dua-source">
 										<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
 										<?php echo esc_html( $d->source ); ?>
-									</span>
+									</div>
 								<?php endif; ?>
+							</div>
+
+							<!-- Footer — small Ameen/Copy/Share + LARGE 'Mark as read' CTA -->
+							<footer class="la-dua-foot">
 								<div class="la-dua-actions">
 									<button type="button"
 										class="la-dua-btn <?php echo $is_amened ? 'is-active' : ''; ?>"
@@ -158,9 +163,21 @@ get_header();
 										<span>Share</span>
 									</button>
 								</div>
+
+								<!-- Prominent 'Mark as read today' CTA. Tap → tick + auto-advance to next card. -->
+								<button type="button" class="la-dua-complete"
+									data-action="tick-day"
+									data-id="<?php echo (int) $d->id; ?>"
+									data-cat="<?php echo esc_attr( $key ); ?>"
+									aria-label="Mark as read today">
+									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
+									<span class="la-dua-complete-label">Mark as read today</span>
+									<span class="la-dua-complete-done">Read · next →</span>
+								</button>
 							</footer>
 						</article>
 					<?php endforeach; ?>
+
 
 				</section>
 			<?php endforeach; ?>

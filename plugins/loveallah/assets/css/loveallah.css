@@ -3542,9 +3542,24 @@ body.is-dhikr-active .la-header {
 	color: #fff;
 }
 
-/* Dua card list — only active section visible */
+/* Dua card list — Wave 27: vertical snap feed (one dua per screen).
+   Only the active category's section scrolls; the others stay hidden. */
 .la-duas-list { display: none; }
-.la-duas-list.is-active { display: block; animation: la-cat-fade 0.3s ease; }
+.la-duas-list.is-active {
+	display: block;
+	animation: la-cat-fade 0.3s ease;
+	height: calc(100vh - var(--la-tabbar-h) - 220px);  /* head + progress bar above */
+	height: calc(100dvh - var(--la-tabbar-h) - 220px);
+	overflow-y: auto;
+	scroll-snap-type: y mandatory;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: none;
+	overscroll-behavior: contain;
+	scroll-behavior: smooth;
+	margin: 0 -8px;
+	padding: 0 8px;
+}
+.la-duas-list.is-active::-webkit-scrollbar { display: none; }
 @keyframes la-cat-fade {
 	from { opacity: 0; transform: translateY(8px); }
 	to   { opacity: 1; transform: translateY(0); }
@@ -3552,13 +3567,51 @@ body.is-dhikr-active .la-header {
 
 .la-dua {
 	position: relative;
+	scroll-snap-align: start;
+	scroll-snap-stop: always;
 	background: #fff;
 	border: 1px solid var(--la-line);
-	border-radius: 16px;
-	padding: 16px;
-	margin-bottom: 12px;
-	box-shadow: 0 1px 0 rgba(15,15,30,0.02);
+	border-radius: 20px;
+	padding: 22px 18px 18px;
+	margin-bottom: 14px;
+	box-shadow: 0 4px 18px rgba(15,15,30,0.06);
 	transition: background 0.25s var(--la-easing), border-color 0.25s var(--la-easing);
+	/* Each card fills the snap viewport — one dua at a time */
+	min-height: calc(100vh - var(--la-tabbar-h) - 240px);
+	min-height: calc(100dvh - var(--la-tabbar-h) - 240px);
+	display: flex; flex-direction: column;
+}
+
+/* Step counter — small chip top-right of each card */
+.la-dua-step {
+	position: absolute;
+	top: 14px; right: 16px;
+	display: inline-flex; align-items: baseline; gap: 3px;
+	padding: 4px 10px;
+	background: rgba(15, 15, 30, 0.06);
+	border-radius: 999px;
+	font-size: 10px; font-weight: 800;
+	color: var(--la-ink-soft);
+	letter-spacing: 0.04em;
+}
+.la-dua-step-num {
+	font-size: 12px; font-weight: 900;
+	color: var(--la-primary);
+	font-variant-numeric: tabular-nums;
+}
+.la-dua-step-of {
+	font-size: 10px;
+	color: var(--la-ink-faint);
+	font-weight: 700;
+}
+
+/* Body grows to push the footer down */
+.la-dua-body {
+	flex: 1;
+	display: flex; flex-direction: column; justify-content: center;
+	gap: 12px;
+	margin-top: 10px;
+	text-align: center;
 }
 .la-dua.is-ticked {
 	background: linear-gradient(180deg, #f1f9f3 0%, #fff 60%);
@@ -3568,8 +3621,9 @@ body.is-dhikr-active .la-header {
 	color: #1e8e3e;
 }
 
-/* Per-day tick button — large round check at top-right of every card */
-.la-dua-tick {
+/* Old top-right round tick — replaced in Wave 27 by the big bottom CTA */
+.la-dua-tick { display: none; }
+.la-dua-tick-legacy-hidden {
 	position: absolute;
 	top: 14px; right: 14px;
 	width: 30px; height: 30px;
@@ -3623,42 +3677,76 @@ body.is-dhikr-active .la-header {
 }
 .la-dua-arabic {
 	font-family: var(--la-font-arabic);
-	font-size: clamp(20px, 5vw, 24px);
+	font-size: clamp(24px, 6vw, 32px);
 	font-weight: 400;
 	color: #0F0F1E;
 	line-height: 1.95;
 	letter-spacing: 0.005em;
-	margin-bottom: 10px;
+	margin: 0;
 }
 .la-dua-translit {
-	font-size: 13px; font-weight: 500;
+	font-size: clamp(13px, 3.4vw, 15px);
+	font-weight: 600;
 	color: #6B6B7E;
 	line-height: 1.55;
 	font-style: italic;
-	margin-bottom: 8px;
+	margin: 0;
 }
 .la-dua-meaning {
-	font-size: 13px; line-height: 1.6;
-	color: var(--la-ink-soft);
-	margin: 0 0 14px;
+	font-size: clamp(14px, 3.6vw, 15.5px);
+	line-height: 1.55;
+	color: var(--la-ink-dark);
+	margin: 0;
+	font-weight: 500;
 }
 .la-dua-foot {
-	display: flex; align-items: center; gap: 8px;
-	padding-top: 10px;
+	display: flex; flex-direction: column; gap: 10px;
+	padding-top: 14px;
 	border-top: 1px solid var(--la-line);
-	flex-wrap: wrap;
+	margin-top: 12px;
 }
 .la-dua-source {
 	display: inline-flex; align-items: center; gap: 5px;
 	font-size: 11px; font-weight: 700;
-	color: var(--la-ink-soft);
-	margin-right: auto;
+	color: var(--la-ink-faint);
+	letter-spacing: 0.02em;
+	justify-content: center;
 }
 .la-dua-source svg { color: var(--la-primary); opacity: 0.7; }
 .la-dua-actions {
 	display: inline-flex; gap: 6px;
 	flex-wrap: wrap;
+	justify-content: center;
 }
+
+/* Big 'Mark as read today' CTA at the bottom of each snap card. Tap →
+   tick + auto-advance to the next dua. */
+.la-dua-complete {
+	display: flex; align-items: center; justify-content: center; gap: 8px;
+	width: 100%;
+	padding: 14px 16px;
+	background: linear-gradient(180deg, #1e8e3e 0%, #167a32 100%);
+	border: none;
+	border-radius: 14px;
+	color: #fff;
+	font-family: inherit;
+	font-size: 14px; font-weight: 800;
+	letter-spacing: 0.04em;
+	cursor: pointer;
+	box-shadow: 0 6px 18px rgba(30, 142, 62, 0.35);
+	transition: transform 0.18s var(--la-spring);
+	-webkit-tap-highlight-color: transparent;
+	text-transform: uppercase;
+}
+.la-dua-complete:active { transform: scale(0.97); }
+.la-dua-complete-done { display: none; }
+/* When card is ticked, swap the label to the "Read · next" state */
+.la-dua.is-ticked .la-dua-complete {
+	background: linear-gradient(180deg, var(--la-primary) 0%, var(--la-primary-dark) 100%);
+	box-shadow: 0 6px 18px rgba(237, 28, 108, 0.40);
+}
+.la-dua.is-ticked .la-dua-complete-label { display: none; }
+.la-dua.is-ticked .la-dua-complete-done { display: inline; }
 .la-dua-btn {
 	display: inline-flex; align-items: center; gap: 4px;
 	padding: 6px 10px;

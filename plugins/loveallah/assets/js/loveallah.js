@@ -957,7 +957,9 @@
 		const firstActive = duasApp.querySelector('.la-duas-rail-btn.is-active');
 		if (firstActive) paintProgress(firstActive.dataset.cat);
 
-		// Tick button per card — toggles today's "read" state
+		// Tick button per card — toggles today's "read" state.
+		// On tick (not untick), AUTO-ADVANCE to the next dua so the snap
+		// feed feels like a Duolingo lesson: complete this one → next.
 		duasApp.addEventListener('click', (e) => {
 			const tickBtn = e.target.closest('[data-action="tick-day"]');
 			if (tickBtn) {
@@ -966,7 +968,8 @@
 				const id = String(tickBtn.dataset.id);
 				const cat = tickBtn.dataset.cat;
 				const t = loadTicks();
-				if (t.has(id)) {
+				const wasTicked = t.has(id);
+				if (wasTicked) {
 					t.delete(id);
 					card?.classList.remove('is-ticked');
 				} else {
@@ -979,6 +982,18 @@
 				saveTicks(t);
 				paintProgress(cat);
 				if (navigator.vibrate) navigator.vibrate(12);
+
+				// AUTO-ADVANCE — only on fresh tick (not on untick)
+				if (!wasTicked && card) {
+					const nextCard = card.nextElementSibling;
+					if (nextCard && nextCard.classList.contains('la-dua')) {
+						// Brief pause so the user sees the green "Read · next →"
+						// flash before the next card snaps in
+						setTimeout(() => {
+							nextCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+						}, 600);
+					}
+				}
 				return;
 			}
 
