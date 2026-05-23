@@ -5,7 +5,7 @@
 # then flushes WP + Varnish + Cloudflare caches.
 #
 # Required GitHub Secrets (Settings > Secrets and variables > Actions):
-#   SSH_PRIVATE_KEY  — base64-encoded private SSH key (cat key | base64 -w0)
+#   SSH_PRIVATE_KEY  — raw OpenSSH private key (paste full -----BEGIN...END----- block)
 #   SSH_HOST         — Cloudways server host or IP
 #   SSH_USER         — SSH username (Cloudways "Master Credentials")
 #   SSH_PORT         — SSH port (usually 22)
@@ -42,7 +42,7 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
