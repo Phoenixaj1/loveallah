@@ -284,27 +284,56 @@ get_header();
 			<div class="la-dhikr-session-timer" data-active-timer>—:—</div>
 		</div>
 
-		<!-- The breath orb — smaller, pulsing core (visual anchor only) -->
+		<!-- The breath orb — the HEART being polished. Water cascades over
+		     it (the dhikr is the polish of the heart, Bayhaqi). The droplet
+		     elements + sheet are pure CSS animations; no asset downloads. -->
 		<div class="la-breath" data-breath-ring>
 			<div class="la-breath-glow"></div>
+			<!-- Water cascade — 12 droplets at different speeds/positions -->
+			<div class="la-breath-rain" aria-hidden="true">
+				<span class="la-breath-drop" style="--x: 18%; --d: 0.0s; --dur: 2.4s;"></span>
+				<span class="la-breath-drop" style="--x: 32%; --d: 0.8s; --dur: 2.9s;"></span>
+				<span class="la-breath-drop" style="--x: 48%; --d: 1.4s; --dur: 2.6s;"></span>
+				<span class="la-breath-drop" style="--x: 62%; --d: 0.4s; --dur: 3.1s;"></span>
+				<span class="la-breath-drop" style="--x: 78%; --d: 1.1s; --dur: 2.7s;"></span>
+				<span class="la-breath-drop" style="--x: 8%;  --d: 1.9s; --dur: 3.0s;"></span>
+				<span class="la-breath-drop" style="--x: 88%; --d: 0.2s; --dur: 2.8s;"></span>
+				<span class="la-breath-drop" style="--x: 26%; --d: 2.3s; --dur: 2.5s;"></span>
+				<span class="la-breath-drop" style="--x: 55%; --d: 2.0s; --dur: 2.9s;"></span>
+				<span class="la-breath-drop" style="--x: 70%; --d: 1.6s; --dur: 3.2s;"></span>
+				<span class="la-breath-drop" style="--x: 40%; --d: 0.7s; --dur: 2.6s;"></span>
+				<span class="la-breath-drop" style="--x: 14%; --d: 2.5s; --dur: 2.8s;"></span>
+			</div>
 			<div class="la-breath-circle">
+				<!-- Wet sheet — semi-transparent water flowing over the orb's surface -->
+				<div class="la-breath-sheet" aria-hidden="true"></div>
+				<!-- Shimmer highlights — like wet skin in lamplight -->
+				<div class="la-breath-shimmer" aria-hidden="true"></div>
 				<div class="la-breath-inner">
 					<div class="la-breath-arabic" data-breath-arabic dir="rtl" lang="ar">—</div>
 				</div>
 			</div>
+			<!-- Splash ring — triggered on each inhale via JS toggle of .is-splashing -->
+			<div class="la-breath-splash" aria-hidden="true"></div>
 		</div>
 
 		<!-- BIG SUBTITLE BLOCK — TikTok-style auto-captions, three lines:
 		     1. CUE: current breath half ("Lā ilāha" / "illa-llāh") — biggest
 		     2. MEANING: literal translation — different colour for readability
-		     3. HEART PROMPT: a rotating Sufi-style psychological prompt that
-		        draws the heart closer — NOT the translation, these are
-		        contemplations like "He is closer to you than your jugular".
-		        Rotates every ~15s so the reader gets several across a session. -->
+		     3. HEART COACH: rotating Sufi-style coaching that guides the
+		        heart closer to Allah. Framed as a coach speaking quietly
+		        beside you — small "💧 Heart coach" label above each prompt
+		        so the user reads it as guidance, not random text. -->
 		<div class="la-dhikr-subs" data-dhikr-subs>
 			<div class="la-dhikr-subs-cue" data-breath-cue>Settle</div>
 			<div class="la-dhikr-subs-meaning" data-breath-meaning>—</div>
-			<div class="la-dhikr-subs-heart" data-heart-prompt>—</div>
+			<div class="la-dhikr-coach" data-heart-coach>
+				<div class="la-dhikr-coach-label">
+					<span class="la-dhikr-coach-icon" aria-hidden="true">💧</span>
+					<span>Heart coach</span>
+				</div>
+				<div class="la-dhikr-coach-text" data-heart-prompt>—</div>
+			</div>
 		</div>
 
 		<!-- Rhythm slider — adjust breath cycle speed in real time. -->

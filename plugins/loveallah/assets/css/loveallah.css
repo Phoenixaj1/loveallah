@@ -2007,7 +2007,7 @@ button { font-family: inherit; }
 	text-align: right;
 }
 
-/* The breath ring — smaller orb, the BIG subtitle is the focus now */
+/* The breath ring — the HEART being polished. Water cascades over it. */
 .la-breath {
 	position: relative;
 	width: min(58vw, 260px);
@@ -2016,6 +2016,101 @@ button { font-family: inherit; }
 	margin: 3vh 0 0;
 	flex-shrink: 0;
 }
+
+/* ─── WATER CASCADE — droplets fall continuously over the orb ─── */
+.la-breath-rain {
+	position: absolute;
+	left: -10%; right: -10%;
+	top: -25%; bottom: -10%;
+	pointer-events: none;
+	z-index: 2;
+	overflow: visible;
+}
+.la-breath-drop {
+	position: absolute;
+	left: var(--x, 50%);
+	top: 0;
+	width: 2.5px;
+	height: 18px;
+	background: linear-gradient(180deg,
+		rgba(180, 220, 255, 0) 0%,
+		rgba(200, 230, 255, 0.85) 60%,
+		rgba(255, 255, 255, 0.95) 100%);
+	border-radius: 0 0 50% 50%;
+	box-shadow: 0 0 4px rgba(180, 220, 255, 0.6);
+	transform: translateY(-30px);
+	opacity: 0;
+	animation: la-water-drop var(--dur, 2.6s) linear infinite;
+	animation-delay: var(--d, 0s);
+	filter: drop-shadow(0 0 2px rgba(120, 200, 255, 0.55));
+}
+@keyframes la-water-drop {
+	0%   { transform: translateY(-30px) scaleY(0.5); opacity: 0; }
+	8%   { opacity: 0.85; }
+	75%  { transform: translateY(115%) scaleY(1.4); opacity: 0.9; }
+	88%  { transform: translateY(118%) scaleY(0.3); opacity: 0.7; }
+	100% { transform: translateY(120%) scaleY(0); opacity: 0; }
+}
+
+/* ─── WATER SHEET — translucent wash flowing down the orb's face ─── */
+.la-breath-sheet {
+	position: absolute; inset: 0;
+	border-radius: 50%;
+	background: linear-gradient(180deg,
+		rgba(220, 240, 255, 0.40) 0%,
+		rgba(220, 240, 255, 0.15) 30%,
+		rgba(255, 255, 255, 0.05) 60%,
+		transparent 100%);
+	mix-blend-mode: screen;
+	animation: la-water-sheet 4.2s ease-in-out infinite;
+	pointer-events: none;
+	z-index: 1;
+}
+@keyframes la-water-sheet {
+	0%, 100% { transform: translateY(-6%); opacity: 0.85; }
+	50%      { transform: translateY(2%);  opacity: 1; }
+}
+
+/* ─── SHIMMER — wet-skin highlights catching the light ─── */
+.la-breath-shimmer {
+	position: absolute; inset: 0;
+	border-radius: 50%;
+	background:
+		radial-gradient(ellipse 35% 25% at 30% 20%, rgba(255, 255, 255, 0.55) 0%, transparent 60%),
+		radial-gradient(ellipse 18% 35% at 75% 45%, rgba(255, 255, 255, 0.32) 0%, transparent 60%);
+	mix-blend-mode: screen;
+	animation: la-shimmer 5.5s ease-in-out infinite;
+	pointer-events: none;
+	z-index: 1;
+}
+@keyframes la-shimmer {
+	0%, 100% { opacity: 0.65; transform: translate(0, 0); }
+	33%      { opacity: 0.9;  transform: translate(-2%, 1%); }
+	66%      { opacity: 0.75; transform: translate(1%, -1%); }
+}
+
+/* ─── SPLASH RING — concentric pulse on every inhale ─── */
+.la-breath-splash {
+	position: absolute;
+	width: 100%; height: 100%;
+	border-radius: 50%;
+	pointer-events: none;
+	z-index: 0;
+	opacity: 0;
+	border: 2px solid rgba(180, 220, 255, 0.55);
+	box-shadow: 0 0 30px rgba(180, 220, 255, 0.30);
+}
+.la-breath-splash.is-splashing {
+	animation: la-splash-ring 1.5s ease-out;
+}
+@keyframes la-splash-ring {
+	0%   { opacity: 0; transform: scale(1); border-width: 3px; }
+	30%  { opacity: 0.85; }
+	100% { opacity: 0; transform: scale(1.55); border-width: 1px; }
+}
+
+/* Ensure the inner Arabic sits ABOVE the water layers */
+.la-breath-inner { position: relative; z-index: 3; }
 .la-breath-glow {
 	position: absolute; inset: -28px;
 	border-radius: 50%;
@@ -2109,24 +2204,42 @@ button { font-family: inherit; }
 	text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 14px rgba(255, 217, 102, 0.42);
 }
 
-/* Heart-drawing prompt — Sufi contemplations that pull the heart toward
-   Allah. Softer style than the dhikr cue (italic, smaller, lower opacity)
-   so the eye reads it as supporting voice, not competing with the dhikr. */
-.la-dhikr-subs-heart {
-	margin-top: 18px;
+/* Heart Coach panel — Sufi-grounded coaching that pulls the heart toward
+   Allah. Framed as a coach speaking quietly beside you: small label
+   pill above ("💧 Heart coach"), italic guidance line below. */
+.la-dhikr-coach {
+	margin-top: 20px;
+	display: flex; flex-direction: column; align-items: center;
+	gap: 8px;
+	max-width: 28ch;
+	margin-left: auto; margin-right: auto;
+}
+.la-dhikr-coach-label {
+	display: inline-flex; align-items: center; gap: 5px;
+	padding: 3px 10px 3px 8px;
+	background: rgba(180, 220, 255, 0.18);
+	border: 1px solid rgba(180, 220, 255, 0.35);
+	border-radius: 999px;
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	color: rgba(220, 240, 255, 0.92);
+	font-size: 9.5px; font-weight: 800;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+.la-dhikr-coach-icon { font-size: 11px; }
+.la-dhikr-coach-text {
 	font-size: clamp(13px, 3.5vw, 16px);
 	font-style: italic;
 	font-weight: 500;
-	color: rgba(255, 255, 255, 0.78);
+	color: rgba(255, 255, 255, 0.86);
 	line-height: 1.55;
-	max-width: 28ch;
-	margin-left: auto; margin-right: auto;
-	text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+	text-align: center;
+	text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
 	transition: opacity 0.7s ease;
 	min-height: 3em;
 }
-/* Crossfade swap when prompt rotates */
-.la-dhikr-subs-heart.is-fading { opacity: 0; }
+.la-dhikr-coach-text.is-fading { opacity: 0; }
 
 /* ────────────── RHYTHM SLIDER (in-session) ────────────── */
 .la-dhikr-rhythm {

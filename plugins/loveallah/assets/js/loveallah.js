@@ -1371,6 +1371,7 @@
 		const heartPrompt   = root.querySelector('[data-heart-prompt]');
 		const subsEl        = root.querySelector('[data-dhikr-subs]');
 		const breathCircle  = root.querySelector('.la-breath-circle');
+		const breathSplash  = root.querySelector('.la-breath-splash');
 		const breathGlow    = root.querySelector('.la-breath-glow');
 		const bgYtHost      = root.querySelector('[data-bg-yt]');
 		const psycheEl      = root.querySelector('[data-dhikr-psyche]');
@@ -1774,6 +1775,14 @@
 				if (selected.sounds.duff && breathPhase === 'inhale') {
 					makeDuffHit(audioCtx.currentTime + 0.01);
 				}
+			}
+
+			// Splash ring — fires on each inhale, visualising water hitting
+			// the heart-orb. The dhikr is the polish of the heart (Bayhaqi).
+			if (breathPhase === 'inhale' && breathSplash) {
+				breathSplash.classList.remove('is-splashing');
+				void breathSplash.offsetWidth;  // restart animation
+				breathSplash.classList.add('is-splashing');
 			}
 		}
 
