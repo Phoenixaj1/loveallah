@@ -115,7 +115,7 @@ $la_scenes = [
 	// drifting dunes, the fajr-light aesthetic we want.
 	[ 'key' => 'desert',  'emoji' => '🌅', 'label' => 'Sahara',   'desc' => 'Drifting dunes at first light', 'video' => 'gFmDx9oj3DU' ],
 	[ 'key' => 'forest',  'emoji' => '🌿', 'label' => 'Forest',   'desc' => 'Green canopy at dawn',          'video' => 'BHACKCNDMW8' ],
-	[ 'key' => 'ocean',   'emoji' => '🌊', 'label' => 'Ocean',    'desc' => 'Slow tide',                     'video' => 'V-_O7nl0Ii0' ],
+	[ 'key' => 'ocean',   'emoji' => '🌊', 'label' => 'Ocean',    'desc' => '10hr peaceful ocean ambience', 'video' => 'NJXzcQJi_A8' ],
 	// "Makkah Live HD" by Muhammad Ali — community re-broadcast of the
 	// official Saudi Quran TV Haram feed.
 	[ 'key' => 'kaaba',   'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The tawaf, live from Makkah',   'video' => 'bNY8a2BB5Gc' ],

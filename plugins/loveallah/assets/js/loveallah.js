@@ -2041,6 +2041,10 @@
 		let bgYtPlayer = null;
 		let bgYtWatchdog = null;
 		let bgYtTargetVideoId = '';
+		// SCENE_START_SECONDS — skip past each video's intro/title card.
+		// 30 seconds works for most ambient videos; tune per video later
+		// if any specific one needs more.
+		const SCENE_START_SECONDS = 30;
 		function loadBackgroundVideo(sceneKey) {
 			if (!bgYtHost) return;
 			if (bgYtPlayer) { try { bgYtPlayer.destroy(); } catch (_) {} bgYtPlayer = null; }
@@ -2059,25 +2063,30 @@
 						videoId: vid,
 						host: 'https://www.youtube-nocookie.com',
 						playerVars: {
-							// Wave 21: the scene's own audio is now the soundscape.
-							// Cosmos has cosmic ambient, ocean has waves, forest
-							// has birds. Coherent visual+audio pairing in one pick.
+							// Wave 21: scene's own audio is the soundscape.
+							// Wave 24: `start` skips the title-card/intro frames
+							// so the video opens already inside the ambient.
 							autoplay: 1, mute: 0, loop: 1, playlist: vid,
 							controls: 0, modestbranding: 1, playsinline: 1, rel: 0,
 							iv_load_policy: 3, cc_load_policy: 0, disablekb: 1, fs: 0,
+							start: SCENE_START_SECONDS,
 						},
 						events: {
 							onReady: (e) => {
 								try {
 									// Background ambient — never leading. 30% volume.
 									e.target.setVolume(30);
+									e.target.seekTo(SCENE_START_SECONDS, true);
 									e.target.playVideo();
 								} catch (_) {}
 								bgYtHost.classList.add('is-playing');
 							},
 							onStateChange: (e) => {
 								if (e.data === 0) {
-									try { e.target.seekTo(0, true); e.target.playVideo(); } catch (_) {}
+									try {
+										e.target.seekTo(SCENE_START_SECONDS, true);
+										e.target.playVideo();
+									} catch (_) {}
 								}
 							},
 							onError: (e) => {
@@ -2087,11 +2096,10 @@
 						},
 					});
 
-					// WATCHDOG — poll every 4s to check if YouTube has drifted
-					// to a different video (auto-advance, "Up Next" sneaking
-					// through despite loop=1, etc.) Force-load our video back
-					// the moment we see a mismatch. This catches Rick Astley
-					// the SECOND he tries to appear, not after the video ends.
+					// WATCHDOG — poll EVERY 1.5s now (was 4s — Rick still snuck
+					// in within that window on the Ocean video). Faster cadence
+					// catches drift before the user even notices something
+					// off-screen happened.
 					if (bgYtWatchdog) clearInterval(bgYtWatchdog);
 					bgYtWatchdog = setInterval(() => {
 						if (!bgYtPlayer || !bgYtTargetVideoId) return;
@@ -2099,14 +2107,15 @@
 							const data = bgYtPlayer.getVideoData?.();
 							const currentId = data?.video_id;
 							if (currentId && currentId !== bgYtTargetVideoId) {
-								// Drift detected — force back to our scene video
+								// Drift detected — force back to our scene video,
+								// skipping past any intro frames.
 								bgYtPlayer.loadVideoById({
 									videoId: bgYtTargetVideoId,
-									startSeconds: 0,
+									startSeconds: SCENE_START_SECONDS,
 								});
 							}
 						} catch (_) {}
-					}, 4000);
+					}, 1500);
 				} catch (_) {}
 			});
 		}
