@@ -627,3 +627,110 @@
 		if (r.top >= fr.top && r.bottom <= fr.bottom + 50) playVideoIn(firstContent);
 	}
 })();
+
+/* =========================================================
+   Geo prayer-times strip — runs on EVERY page (header is sticky)
+   ========================================================= */
+(function() {
+	'use strict';
+	if (typeof LA === 'undefined') return;
+
+	const header   = document.querySelector('.la-header');
+	if (!header) return;
+	const prayerBar = header.querySelector('[data-prayer-bar]');
+	const geoBtn   = header.querySelector('[data-action="use-geo"]');
+
+	// Countdown timer for the active prayer
+	function startCountdown() {
+		const nextTime = header.getAttribute('data-next-time');
+		const nextName = header.getAttribute('data-next-name');
+		if (!nextTime) return;
+		const etaEl = header.querySelector('[data-countdown]');
+		if (!etaEl) return;
+
+		function tick() {
+			const now = new Date();
+			const [hh, mm] = nextTime.split(':').map(n => parseInt(n, 10));
+			const target = new Date(now); target.setHours(hh, mm, 0, 0);
+			if (target < now) target.setDate(target.getDate() + 1);
+			const diffMs = target - now;
+			const totalMin = Math.floor(diffMs / 60000);
+			const h = Math.floor(totalMin / 60);
+			const m = totalMin % 60;
+			etaEl.textContent = h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
+		}
+		tick();
+		setInterval(tick, 30000);
+	}
+	startCountdown();
+
+	// Re-render the prayer bar with new times from server
+	async function fetchAndRender(lat, lng, label) {
+		try {
+			const url = new URL(LA.apiRoot + 'prayer-times');
+			url.searchParams.set('lat', lat);
+			url.searchParams.set('lng', lng);
+			url.searchParams.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+			const res = await fetch(url, { headers: { 'X-WP-Nonce': LA.nonce } });
+			if (!res.ok) throw new Error('fetch failed');
+			const data = await res.json();
+			if (!data.timings) throw new Error('no timings');
+
+			// Update each cell + the next-prayer state
+			const cells = prayerBar?.querySelectorAll('.la-prayer-cell') || [];
+			cells.forEach(cell => {
+				const name = cell.getAttribute('data-prayer-name');
+				const t = data.timings[name];
+				if (t) cell.querySelector('.la-prayer-cell-time').textContent = t;
+				cell.classList.toggle('is-next', name === data.next.name);
+			});
+			header.setAttribute('data-next-time', data.next.time);
+			header.setAttribute('data-next-name', data.next.name);
+
+			// Update tooltip label
+			if (geoBtn && label) geoBtn.title = label + ' · prayer times set';
+			// Restart countdown with new target
+			startCountdown();
+		} catch (err) {
+			console.warn('[loveallah] prayer-times fetch failed', err);
+		}
+	}
+
+	// On geo button tap → request precise location, persist, refresh times.
+	geoBtn?.addEventListener('click', async () => {
+		if (!('geolocation' in navigator)) {
+			alert('Your browser does not support location. Prayer times remain set to the default.');
+			return;
+		}
+		geoBtn.classList.add('is-loading');
+		navigator.geolocation.getCurrentPosition(
+			async (pos) => {
+				const lat = pos.coords.latitude;
+				const lng = pos.coords.longitude;
+				// Try to reverse-geocode the city label via free service.
+				// Falls back to "your location" if it fails.
+				let label = 'Your location';
+				try {
+					const geo = await fetch(`https://geocode.maps.co/reverse?lat=${lat}&lon=${lng}&format=json`, { cache: 'force-cache' });
+					if (geo.ok) {
+						const j = await geo.json();
+						label = j.address?.city || j.address?.town || j.address?.village || j.address?.county || label;
+					}
+				} catch (_) {}
+				// 30-day cookie — wordpress_* prefix ensures Varnish doesn't strip it.
+				const cookieVal = `${lat.toFixed(4)}|${lng.toFixed(4)}|${encodeURIComponent(label)}`;
+				const exp = new Date(Date.now() + 30 * 86400000).toUTCString();
+				document.cookie = `wordpress_la_geo=${cookieVal}; expires=${exp}; path=/; SameSite=Lax`;
+				header.setAttribute('data-geo-lat', lat);
+				header.setAttribute('data-geo-lng', lng);
+				geoBtn.classList.remove('is-loading');
+				await fetchAndRender(lat, lng, label);
+			},
+			(err) => {
+				geoBtn.classList.remove('is-loading');
+				console.warn('[loveallah] geolocation denied', err);
+			},
+			{ enableHighAccuracy: false, timeout: 8000, maximumAge: 24 * 3600 * 1000 }
+		);
+	});
+})();

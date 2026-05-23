@@ -56,21 +56,27 @@ button { font-family: inherit; }
    ============================================================ */
 .la-header {
 	display: flex; flex-direction: column;
-	gap: 6px;
-	padding: 6px 12px 8px;
+	padding: 4px 10px;
 	background: var(--la-primary);
 	border-bottom: 1px solid var(--la-primary-dark);
 	position: sticky; top: 0; z-index: 50;
 }
 .la-header-row {
-	display: flex; align-items: center; gap: 10px;
+	display: flex; align-items: center; gap: 8px;
 }
-.la-header-row--top {
-	justify-content: space-between;
+.la-header-row--main {
 	min-height: 0;
 }
-.la-header-row--bottom {
-	gap: 10px;
+@media (max-width: 600px) {
+	.la-header { padding: 3px 6px; }
+	.la-header-row--main { gap: 4px; }
+	/* Collapse to NEXT prayer only on small screens — everything else hides */
+	.la-prayer-bar-row .la-prayer-cell:not(.is-next) { display: none; }
+	.la-prayer-bar-row { grid-template-columns: 1fr; max-width: 140px; }
+	.la-prayer-cell.is-next { padding: 4px 8px; flex-direction: row; gap: 6px; }
+	.la-prayer-cell.is-next .la-prayer-cell-name,
+	.la-prayer-cell.is-next .la-prayer-cell-time { line-height: 1; }
+	.la-prayer-cell.is-next .la-prayer-cell-eta { margin-left: auto; }
 }
 .la-brand {
 	display: inline-flex; align-items: center; gap: 7px;

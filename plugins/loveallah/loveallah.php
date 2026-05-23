@@ -25,6 +25,7 @@ define( 'LA_FILE', __FILE__ );
 require_once LA_DIR . 'inc/class-la-db.php';
 require_once LA_DIR . 'inc/class-la-caps.php';
 require_once LA_DIR . 'inc/class-la-mosques.php';
+require_once LA_DIR . 'inc/class-la-prayer-compute.php';
 require_once LA_DIR . 'inc/class-la-prayer-times.php';
 require_once LA_DIR . 'inc/class-la-content.php';
 require_once LA_DIR . 'inc/class-la-scholars.php';

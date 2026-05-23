@@ -71,6 +71,43 @@ class LA_API {
 			'callback' => [ __CLASS__, 'nearest_mosques' ],
 			'permission_callback' => '__return_true',
 		] );
+
+		// Geo prayer times — visitor's own location, computed locally
+		// (Aladhan is firewalled from Cloudways).
+		register_rest_route( self::NS, '/prayer-times', [
+			'methods'  => 'GET',
+			'callback' => [ __CLASS__, 'prayer_times_for_geo' ],
+			'permission_callback' => '__return_true',
+			'args' => [
+				'lat'    => [ 'type' => 'number', 'required' => true ],
+				'lng'    => [ 'type' => 'number', 'required' => true ],
+				'method' => [ 'type' => 'string', 'default' => 'ISNA' ],
+				'tz'     => [ 'type' => 'string', 'default' => '' ],
+			],
+		] );
+	}
+
+	public static function prayer_times_for_geo( WP_REST_Request $req ) {
+		$lat = (float) $req->get_param( 'lat' );
+		$lng = (float) $req->get_param( 'lng' );
+		$tz  = (string) $req->get_param( 'tz' );
+		$method = (string) $req->get_param( 'method' );
+
+		// Sanity bounds
+		if ( $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180 ) {
+			return new WP_Error( 'bad_geo', 'Invalid coordinates', [ 'status' => 400 ] );
+		}
+
+		$timings = LA_Prayer_Compute::times_for( $lat, $lng, $tz ?: '', in_array( $method, array_keys( LA_Prayer_Compute::METHODS ), true ) ? $method : 'ISNA' );
+		$next    = LA_Prayer_Times::next_prayer( $timings );
+		return [
+			'lat'     => $lat,
+			'lng'     => $lng,
+			'method'  => $method,
+			'tz'      => $tz,
+			'timings' => $timings,
+			'next'    => $next,
+		];
 	}
 
 	public static function check_nonce( WP_REST_Request $req ) {

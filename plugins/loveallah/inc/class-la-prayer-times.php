@@ -13,20 +13,35 @@ class LA_Prayer_Times {
 		if ( ! $mosque || empty( $mosque->latitude ) || empty( $mosque->longitude ) ) {
 			return [];
 		}
+		return self::for_lat_lng( (float) $mosque->latitude, (float) $mosque->longitude, (int) $mosque->id );
+	}
 
-		$lat = (float) $mosque->latitude;
-		$lng = (float) $mosque->longitude;
+	/**
+	 * Compute prayer times for any lat/lng — used by the global geo strip
+	 * (visitor's own location) and for_mosque() (a specific masjid's GPS).
+	 */
+	public static function for_lat_lng( float $lat, float $lng, ?int $mosque_id = null ) : array {
 		$today = gmdate( 'd-m-Y' );
-
-		$cache_key = 'la_aladhan_' . md5( $lat . $lng . $today );
+		$cache_key = 'la_prayer_' . md5( $lat . '|' . $lng . '|' . $today );
 		$cached = get_transient( $cache_key );
 		if ( false !== $cached && is_array( $cached ) ) {
 			return $cached;
 		}
 
+		// PRIMARY: local astronomical computation (no network, always works).
+		if ( class_exists( 'LA_Prayer_Compute' ) ) {
+			$timings = LA_Prayer_Compute::times_for( $lat, $lng );
+			if ( ! empty( $timings['Dhuhr'] ) ) {
+				set_transient( $cache_key, $timings, 12 * HOUR_IN_SECONDS );
+				return $timings;
+			}
+		}
+
+		// LEGACY: try Aladhan API as a sanity-check / mosque-imam-corrected
+		// fallback (firewalled on Cloudways, so usually skipped).
 		$fail_key = $cache_key . '_fail';
 		if ( get_transient( $fail_key ) ) {
-			return self::db_fallback( (int) $mosque->id );
+			return $mosque_id ? self::db_fallback( $mosque_id ) : [];
 		}
 
 		$url = sprintf(
@@ -37,13 +52,13 @@ class LA_Prayer_Times {
 
 		if ( is_wp_error( $response ) ) {
 			set_transient( $fail_key, 1, HOUR_IN_SECONDS );
-			return self::db_fallback( (int) $mosque->id );
+			return $mosque_id ? self::db_fallback( $mosque_id ) : [];
 		}
 
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( empty( $body['data']['timings'] ) ) {
 			set_transient( $fail_key, 1, HOUR_IN_SECONDS );
-			return self::db_fallback( (int) $mosque->id );
+			return $mosque_id ? self::db_fallback( $mosque_id ) : [];
 		}
 
 		$timings = [
