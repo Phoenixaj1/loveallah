@@ -41,11 +41,17 @@ class LA_Prayer_Compute {
 	 * @return array Map of prayer name => 'HH:MM' string.
 	 */
 	public static function times_for( float $lat, float $lng, string $timezone = '', string $method = 'ISNA', int $asr_juristic = 1 ) : array {
-		$tz = $timezone ?: ( get_option( 'timezone_string' ) ?: 'UTC' );
+		$tz = $timezone ?: ( get_option( 'timezone_string' ) ?: '' );
+		// Reject UTC-offset strings ('+00:00', '+05:30'): they're valid PHP
+		// timezones but they short-circuit the location's actual offset
+		// (BST etc) so we get wrong times. Force a real IANA region name.
+		if ( ! $tz || preg_match( '/^[+\-]?\d{1,2}:?\d{0,2}$/', $tz ) ) {
+			$tz = self::guess_tz_from_lng( $lng );
+		}
 		try {
 			$tz_obj = new DateTimeZone( $tz );
 		} catch ( Exception $e ) {
-			$tz_obj = new DateTimeZone( 'UTC' );
+			$tz_obj = new DateTimeZone( 'Europe/London' );
 		}
 
 		$now = new DateTime( 'now', $tz_obj );
@@ -125,6 +131,29 @@ class LA_Prayer_Compute {
 	// ────────────────────────────────────────────────────────────────────
 	// Astronomical helpers (ported from praytimes.org JS reference impl)
 	// ────────────────────────────────────────────────────────────────────
+
+	/**
+	 * Rough longitude→IANA-timezone fallback when the WP setting is junk.
+	 * Covers the major Muslim population centres; defaults Europe/London.
+	 */
+	private static function guess_tz_from_lng( float $lng ) : string {
+		// India/Pakistan/Bangladesh band
+		if ( $lng >= 67  && $lng <= 95 )  return 'Asia/Karachi';
+		// Gulf
+		if ( $lng >= 35  && $lng <= 60 )  return 'Asia/Riyadh';
+		// SE Asia
+		if ( $lng >= 95  && $lng <= 120 ) return 'Asia/Jakarta';
+		// East Asia
+		if ( $lng > 120 )                 return 'Asia/Singapore';
+		// North Africa / Levant
+		if ( $lng >= 20  && $lng <  35 )  return 'Africa/Cairo';
+		// Western Europe + West Africa
+		if ( $lng >= -10 && $lng <  20 )  return 'Europe/London';
+		// Americas
+		if ( $lng >= -85 && $lng < -10 )  return 'America/New_York';
+		if ( $lng <  -85 )                return 'America/Los_Angeles';
+		return 'Europe/London';
+	}
 
 	private static function julian_date( int $year, int $month, int $day ) : float {
 		if ( $month <= 2 ) { $year -= 1; $month += 12; }
