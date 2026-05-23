@@ -1368,6 +1368,7 @@
 		const breathArabic  = root.querySelector('[data-breath-arabic]');
 		const breathCue     = root.querySelector('[data-breath-cue]');
 		const breathMeaning = root.querySelector('[data-breath-meaning]');
+		const heartPrompt   = root.querySelector('[data-heart-prompt]');
 		const subsEl        = root.querySelector('[data-dhikr-subs]');
 		const breathCircle  = root.querySelector('.la-breath-circle');
 		const breathGlow    = root.querySelector('.la-breath-glow');
@@ -1585,9 +1586,38 @@
 		// Session state
 		let sessionTimer_handle = null;
 		let breathTimer_handle = null;
+		let heartPromptTimer_handle = null;
 		let endsAt = 0;
 		let breathPhase = 'inhale'; // inhale | exhale
 		let breathCycleIndex = 0;
+
+		// HEART-DRAWING PROMPTS — Sufi-style psychological reminders that
+		// pull the heart closer to Allah. NOT the dhikr translation;
+		// these are additional contemplations rotating during a session.
+		// Mixes original Sufi-tradition prompts + verified quotes from
+		// Quran/Hadith/Hikam/Mathnawi (also injected via the wisdom JSON).
+		const heartPrompts = [
+			"Bring your attention to the heart, two fingers beneath the centre of your chest. Let the Name descend there.",
+			"Let the breath be slow. The dhikr enters with the inhale, the world leaves with the exhale.",
+			"Do not chase the count. The Beloved sees the heart, not the tongue.",
+			"Notice the stillness between breaths. Allah is there.",
+			"When the mind wanders, return without scolding. The return itself is the dhikr.",
+			"Imagine the Name descending into the heart with each breath, like rain into dry earth.",
+			"The polish needs no force. Only persistence.",
+			"You are not calling Him from afar. He is closer to you than your jugular vein. (Qur'an 50:16)",
+			"He is the First — before this breath. He is the Last — after this breath. (Qur'an 57:3)",
+			"Every breath that leaves the body without remembrance is a death. Every breath drawn in His presence is a life. — Shaykh Ahmad al-Sirhindi",
+			"You think you are the one calling Allah, but His call is in your call. — Rumi",
+			"Persist in remembrance until the tongue is silent and the heart speaks. — Imam al-Ghazali",
+			"For everything there is a polish, and the polish of the heart is the remembrance of Allah. — The Prophet ﷺ",
+			"He is with you wherever you are. (Qur'an 57:4) — feel it now, in this breath.",
+			"Whoever loves a thing remembers it often. Let this be your love. — Imam al-Junayd",
+			"The heart rusts like iron. Its polish is His Name. — Ibn al-Qayyim",
+			"If you knew the reward of dhikr, you would not let your tongue rest from it for a single breath. — Ibn al-Qayyim",
+			"Sincere dhikr is when the one remembering forgets themselves in the remembrance. — Imam al-Junayd",
+			"Do not abandon the remembrance because you do not feel His presence. Your heedlessness OF His remembrance is worse than your heedlessness WITHIN it. — Ibn Ata'illah",
+			"Remember Me, I will remember you. (Qur'an 2:152)",
+		];
 
 		function showScene(name) {
 			Object.entries(scenes).forEach(([k, el]) => {
@@ -1641,8 +1671,37 @@
 			updateBreathPhase();
 			startBreathInterval();
 
+			// Heart-drawing prompts — rotate every ~15s. Sirri (Secret) mode
+			// skips them: that station IS pure presence, no words.
+			if (selected.mode !== 'sirri') {
+				rotateHeartPrompt();
+				heartPromptTimer_handle = setInterval(rotateHeartPrompt, 15000);
+			} else if (heartPrompt) {
+				heartPrompt.textContent = '';
+			}
+
 			// Soft start haptic
 			if (navigator.vibrate) navigator.vibrate([20, 60, 30, 60, 20]);
+		}
+
+		let heartIdx = 0;
+		function rotateHeartPrompt() {
+			if (!heartPrompt || selected.mode === 'sirri') return;
+			heartPrompt.classList.add('is-fading');
+			setTimeout(() => {
+				// Alternate between Sufi prompts and the wisdom-quotes JSON
+				// (Ghazali, Ibn Ata'illah, Rumi etc) so the variety is real.
+				let text;
+				if (heartIdx % 3 === 2 && wisdom.length) {
+					const w = wisdom[Math.floor(Math.random() * wisdom.length)];
+					text = '"' + w.quote + '" — ' + w.speaker;
+				} else {
+					text = heartPrompts[heartIdx % heartPrompts.length];
+				}
+				heartPrompt.textContent = text;
+				heartPrompt.classList.remove('is-fading');
+				heartIdx++;
+			}, 700);
 		}
 
 		function applyBreathAnimDuration() {
@@ -1762,7 +1821,8 @@
 		function clearTimers() {
 			clearInterval(sessionTimer_handle);
 			clearInterval(breathTimer_handle);
-			sessionTimer_handle = breathTimer_handle = null;
+			clearInterval(heartPromptTimer_handle);
+			sessionTimer_handle = breathTimer_handle = heartPromptTimer_handle = null;
 		}
 
 		function stopAudio() {

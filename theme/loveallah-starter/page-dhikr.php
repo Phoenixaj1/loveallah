@@ -106,22 +106,20 @@ $la_modes = [
 //   verify with `curl -s -o /dev/null -w "%{http_code}" \
 //   "https://www.youtube.com/oembed?url=...&format=json"` returns 200.
 $la_scenes = [
-	// NASA Live — Earth-from-ISS + cosmos footage, official NASA channel,
-	// permanent live stream.
-	[ 'key' => 'cosmos',  'emoji' => '✨', 'label' => 'Cosmos',   'desc' => 'NASA live cosmos + Earth',     'video' => '21X5lGlDOfg' ],
-	// Tropical beach ambience — warm sand + ocean (closest to "dunes at fajr"
-	// we found in long-form ambient content). Swap for a Sahara loop if you
-	// have one.
-	[ 'key' => 'desert',  'emoji' => '🌅', 'label' => 'Sunset',   'desc' => 'Warm sand + sea at sunset',    'video' => 'DGIXT7ce3vQ' ],
-	// "3 Hours of Amazing Nature Scenery" by Cat Trumpet — established
-	// ambient channel, very stable.
-	[ 'key' => 'forest',  'emoji' => '🌿', 'label' => 'Forest',   'desc' => 'Green canopy at dawn',        'video' => 'BHACKCNDMW8' ],
-	[ 'key' => 'ocean',   'emoji' => '🌊', 'label' => 'Ocean',    'desc' => 'Slow tide',                   'video' => 'V-_O7nl0Ii0' ],
-	// No reliable Kaaba-only live stream found — leave empty so the
-	// psychedelic CSS backdrop carries the visual. Drop in a verified
-	// Makkah live stream ID here when one is curated.
-	[ 'key' => 'kaaba',   'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The unseen tawaf',            'video' => '' ],
-	[ 'key' => 'none',    'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else',     'video' => '' ],
+	// "COSMIC RELAXATION: 8 HOURS of 4K Deep Space NASA Footage" by Nature
+	// Relaxation Films — actual cosmos / nebula footage from Hubble, not
+	// the NASA TV news stream. Re-verified after the previous ID showed
+	// "video unavailable" + the live stream cycled to talking-head content.
+	[ 'key' => 'cosmos',  'emoji' => '✨', 'label' => 'Cosmos',   'desc' => 'Deep space — Hubble + nebulae', 'video' => 'Y_plhk1FUQA' ],
+	// "Sahara Desert 4K - Scenic Relaxation Film" by Scenic Relaxation —
+	// drifting dunes, the fajr-light aesthetic we want.
+	[ 'key' => 'desert',  'emoji' => '🌅', 'label' => 'Sahara',   'desc' => 'Drifting dunes at first light', 'video' => 'gFmDx9oj3DU' ],
+	[ 'key' => 'forest',  'emoji' => '🌿', 'label' => 'Forest',   'desc' => 'Green canopy at dawn',          'video' => 'BHACKCNDMW8' ],
+	[ 'key' => 'ocean',   'emoji' => '🌊', 'label' => 'Ocean',    'desc' => 'Slow tide',                     'video' => 'V-_O7nl0Ii0' ],
+	// "Makkah Live HD" by Muhammad Ali — community re-broadcast of the
+	// official Saudi Quran TV Haram feed.
+	[ 'key' => 'kaaba',   'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The tawaf, live from Makkah',   'video' => 'bNY8a2BB5Gc' ],
+	[ 'key' => 'none',    'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else',       'video' => '' ],
 ];
 
 // Sound layers — optional auxiliary tracks to layer with the breath.
@@ -296,13 +294,17 @@ get_header();
 			</div>
 		</div>
 
-		<!-- BIG SUBTITLE BLOCK — TikTok-style auto-captions, two lines.
-		     Top line = current breath cue (Inhale "Lā ilāha" / Exhale "illa-llāh"),
-		     Bottom line = translation, in a different colour so the eye reads
-		     it as a secondary line. Both pop with each breath. -->
+		<!-- BIG SUBTITLE BLOCK — TikTok-style auto-captions, three lines:
+		     1. CUE: current breath half ("Lā ilāha" / "illa-llāh") — biggest
+		     2. MEANING: literal translation — different colour for readability
+		     3. HEART PROMPT: a rotating Sufi-style psychological prompt that
+		        draws the heart closer — NOT the translation, these are
+		        contemplations like "He is closer to you than your jugular".
+		        Rotates every ~15s so the reader gets several across a session. -->
 		<div class="la-dhikr-subs" data-dhikr-subs>
 			<div class="la-dhikr-subs-cue" data-breath-cue>Settle</div>
 			<div class="la-dhikr-subs-meaning" data-breath-meaning>—</div>
+			<div class="la-dhikr-subs-heart" data-heart-prompt>—</div>
 		</div>
 
 		<!-- Rhythm slider — adjust breath cycle speed in real time. -->
