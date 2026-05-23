@@ -2115,7 +2115,10 @@ button { font-family: inherit; }
 	position: absolute; inset: -28px;
 	border-radius: 50%;
 	background: radial-gradient(circle, rgba(237,28,108,0.32) 0%, transparent 70%);
-	animation: la-breath-glow 8s ease-in-out infinite;
+	/* Glow follows the same scale curve as the orb — also JS-driven so the
+	   halo expands on inhale + contracts on exhale in lockstep. */
+	transform: scale(0.95);
+	opacity: 0.55;
 	z-index: 0;
 }
 .la-breath-circle {
@@ -2130,7 +2133,12 @@ button { font-family: inherit; }
 		0 -8px 24px rgba(237,28,108,0.30) inset,
 		0 24px 80px rgba(237,28,108,0.36),
 		0 0 0 1px rgba(255,255,255,0.10);
-	animation: la-breath-pulse 8s ease-in-out infinite;
+	/* Scale is driven directly by JS each phase — see updateBreathPhase().
+	   Default scale 0.92; JS pushes to 1.08 on inhale start, back to 0.92
+	   on exhale start, with transition duration matching the actual phase
+	   length (40%/60% of breathS). This guarantees the orb size MATCHES
+	   the Inhale/Exhale text in real time. */
+	transform: scale(0.92);
 	z-index: 1;
 }
 .la-breath-inner {
@@ -2332,16 +2340,11 @@ button { font-family: inherit; }
 	text-shadow: 0 0 8px rgba(255, 217, 102, 0.55);
 }
 
-/* Pulse animation — drives the circle to expand on inhale, contract on exhale.
-   The duration is overridden inline via --breath-s by JS based on phrase. */
-@keyframes la-breath-pulse {
-	0%, 100% { transform: scale(0.92); }
-	50%      { transform: scale(1.08); }
-}
-@keyframes la-breath-glow {
-	0%, 100% { opacity: 0.55; transform: scale(0.95); }
-	50%      { opacity: 0.95; transform: scale(1.10); }
-}
+/* Pulse no longer keyframe-driven — JS sets transform on each phase
+   boundary, with transition timing that exactly matches the actual
+   inhale/exhale durations (40%/60% of breathS). Removed the symmetric
+   8s keyframe — it was the bug that made the orb still expand when
+   the label said "exhale". */
 
 /* Soul mode hides Arabic — pure presence */
 .la-app--dhikr-meditate.is-sirri .la-breath-arabic { opacity: 0; }

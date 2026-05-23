@@ -1891,9 +1891,10 @@
 		}
 
 		function applyBreathAnimDuration() {
-			if (breathCircle) breathCircle.style.animationDuration = breathS + 's';
-			if (breathGlow)   breathGlow.style.animationDuration   = breathS + 's';
-			if (psycheEl)     psycheEl.style.animationDuration     = (breathS * 1.75) + 's';
+			// Orb scale is now JS-driven per-phase (in updateBreathPhase) —
+			// no CSS animation duration to set. Psyche backdrop keeps its
+			// keyframe-driven hue drift but tempo locks to breathS.
+			if (psycheEl) psycheEl.style.animationDuration = (breathS * 1.75) + 's';
 		}
 
 		// Asymmetric breath cadence — 40% inhale / 60% exhale.
@@ -1969,6 +1970,22 @@
 			// Drive subtitle colour shift
 			subsEl?.classList.toggle('is-inhale', breathPhase === 'inhale');
 			subsEl?.classList.toggle('is-exhale', breathPhase === 'exhale');
+
+			// DRIVE THE ORB SCALE FROM JS — guarantees the size matches
+			// the Inhale/Exhale text in real time. The transition duration
+			// EXACTLY equals this phase's actual duration (40% inhale or
+			// 60% exhale of breathS), so the orb finishes expanding right
+			// at the moment the label flips to Exhale.
+			const halfDurSec = (breathPhase === 'inhale' ? 0.4 : 0.6) * breathS;
+			if (breathCircle) {
+				breathCircle.style.transition = 'transform ' + halfDurSec + 's ' + (breathPhase === 'inhale' ? 'ease-out' : 'ease-in');
+				breathCircle.style.transform = 'scale(' + (breathPhase === 'inhale' ? 1.08 : 0.92) + ')';
+			}
+			if (breathGlow) {
+				breathGlow.style.transition = 'transform ' + halfDurSec + 's ease-in-out, opacity ' + halfDurSec + 's ease-in-out';
+				breathGlow.style.transform = 'scale(' + (breathPhase === 'inhale' ? 1.10 : 0.95) + ')';
+				breathGlow.style.opacity   = breathPhase === 'inhale' ? '0.95' : '0.55';
+			}
 
 			// Sirri (Secret) mode hides Arabic + the orb phase label
 			if (selected.mode !== 'sirri') {
