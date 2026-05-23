@@ -21,9 +21,34 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class LA_YouTube {
 
-	const YTDLP        = '/usr/local/bin/yt-dlp';
 	const MAX_PER_SYNC = 15;          // Items to consider per scholar per run
 	const TIMEOUT_SEC  = 30;
+
+	/**
+	 * Locate yt-dlp binary. Cloudways installs it under ~/bin, others under /usr/local/bin.
+	 * Cache once per request.
+	 */
+	private static $ytdlp_path = null;
+	private static function ytdlp() : string {
+		if ( self::$ytdlp_path !== null ) return self::$ytdlp_path;
+		$candidates = [
+			get_option( 'la_ytdlp_path' ),                  // admin override
+			getenv( 'HOME' ) . '/bin/yt-dlp',               // Cloudways default (~/bin)
+			'/home/master/bin/yt-dlp',                      // Cloudways absolute
+			'/usr/local/bin/yt-dlp',                        // Linux default
+			'/opt/homebrew/bin/yt-dlp',                     // macOS arm64
+			'/usr/bin/yt-dlp',                              // system pkg
+		];
+		foreach ( $candidates as $p ) {
+			if ( $p && is_executable( $p ) ) {
+				self::$ytdlp_path = $p;
+				return $p;
+			}
+		}
+		// Last-ditch: trust PATH
+		self::$ytdlp_path = 'yt-dlp';
+		return self::$ytdlp_path;
+	}
 
 	/** Max duration per content type — shorts are short, nasheeds longer, lectures unbounded */
 	private static function max_duration_for( string $type ) : int {
@@ -139,7 +164,7 @@ class LA_YouTube {
 	private static function flat_list( string $shorts_url, int $limit ) : array {
 		$cmd = sprintf(
 			'%s --flat-playlist --no-warnings --no-cache-dir --playlist-end %d --print "%%(id)s|||%%(title)s|||%%(view_count)s" %s 2>&1',
-			escapeshellcmd( self::YTDLP ),
+			escapeshellcmd( self::ytdlp() ),
 			(int) $limit,
 			escapeshellarg( $shorts_url )
 		);
@@ -168,7 +193,7 @@ class LA_YouTube {
 		$url = "https://www.youtube.com/watch?v={$video_id}";
 		$cmd = sprintf(
 			'%s --no-warnings --no-cache-dir --skip-download --print "%%(duration)s|||%%(upload_date)s|||%%(description).400s|||%%(view_count)s|||%%(width)s|||%%(height)s" %s 2>&1',
-			escapeshellcmd( self::YTDLP ),
+			escapeshellcmd( self::ytdlp() ),
 			escapeshellarg( $url )
 		);
 		$output = trim( self::run( $cmd ) );

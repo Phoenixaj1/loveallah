@@ -36,6 +36,9 @@ class LA_DB {
 		$current = (int) get_option( 'la_db_version', 0 );
 		if ( $current < LA_DB_VERSION ) {
 			self::create_tables();
+			// Re-seed scholars on every DB version bump (idempotent — updates rows by username).
+			// This keeps the curated scholar list in sync with the codebase as we add channels.
+			self::seed_scholars();
 			update_option( 'la_db_version', LA_DB_VERSION );
 		}
 	}
@@ -335,34 +338,80 @@ class LA_DB {
 		global $wpdb;
 		$t = self::tables();
 		$scholars = [
+			// REMINDERS — short bite-size shorts that work via /shorts tab
 			[
 				'username' => 'muftimenk',
 				'display_name' => 'Mufti Menk',
-				'avatar' => '',
 				'bio' => 'Dr Mufti Ismail Menk — globally renowned Islamic scholar from Zimbabwe.',
 				'account_type' => 'verified',
 				'source_url' => 'https://www.youtube.com/@muftimenk',
+				'default_content_type' => 'reminder',
 				'associated_charity' => 'ArRahma',
 			],
 			[
-				'username' => 'omarsuleiman',
-				'display_name' => 'Dr Omar Suleiman',
-				'avatar' => '',
-				'bio' => 'President of Yaqeen Institute for Islamic Research. Imam, professor, author.',
+				'username' => 'yaqeen',
+				'display_name' => 'Yaqeen Institute',
+				'bio' => 'Yaqeen Institute for Islamic Research — Imam Omar Suleiman & team.',
 				'account_type' => 'curated',
-				'source_url' => 'https://www.youtube.com/@OmarSuleimanOfficial',
+				'source_url' => 'https://www.youtube.com/@yaqeeninstitute',
+				'default_content_type' => 'reminder',
 			],
 			[
-				'username' => 'bilalassad',
-				'display_name' => 'Sheikh Bilal Assad',
-				'avatar' => '',
-				'bio' => 'Australian Islamic scholar, lecturer and educator.',
+				'username' => 'yasirqadhi',
+				'display_name' => 'Shaykh Yasir Qadhi',
+				'bio' => 'American Muslim scholar — Dean of the Islamic Seminary of America.',
 				'account_type' => 'curated',
-				'source_url' => 'https://www.youtube.com/@BilalAssadOfficial',
+				'source_url' => 'https://www.youtube.com/@yasirqadhi',
+				'default_content_type' => 'reminder',
+			],
+
+			// NASHEEDS — vocal music, falls back to /videos tab for longer-form
+			[
+				'username' => 'samiyusuf',
+				'display_name' => 'Sami Yusuf',
+				'bio' => 'British-Azerbaijani composer and artist — pioneering nasheed and Islamic spiritual music.',
+				'account_type' => 'curated',
+				'source_url' => 'https://www.youtube.com/@samiyusufofficial',
+				'default_content_type' => 'nasheed',
+			],
+			[
+				'username' => 'maherzain',
+				'display_name' => 'Maher Zain',
+				'bio' => 'Swedish-Lebanese R&B / nasheed artist — uplifting Islamic music for the world.',
+				'account_type' => 'curated',
+				'source_url' => 'https://www.youtube.com/@maherzainofficial',
+				'default_content_type' => 'nasheed',
+			],
+
+			// DHIKR / QIRAA — Quran reciters with calming voices
+			[
+				'username' => 'misharyalafasy',
+				'display_name' => 'Mishary Rashed Alafasy',
+				'bio' => 'Kuwaiti Imam and renowned Qur\'an reciter — voice of Masjid al-Kabeer.',
+				'account_type' => 'curated',
+				'source_url' => 'https://www.youtube.com/@AlafasyChannel',
+				'default_content_type' => 'qirat',
+			],
+			[
+				'username' => 'bukhatir',
+				'display_name' => 'Ahmed Bukhatir',
+				'bio' => 'Emirati nasheed singer and businessman — pioneer of contemporary Islamic vocal music.',
+				'account_type' => 'curated',
+				'source_url' => 'https://www.youtube.com/@AhmedBukhatir',
+				'default_content_type' => 'dhikr',
 			],
 		];
 		foreach ( $scholars as $row ) {
-			$wpdb->insert( $t['scholars'], $row );
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t['scholars']} WHERE username = %s",
+				$row['username']
+			) );
+			if ( $existing ) {
+				// Update to keep production in sync with seed if we add/change channel URLs
+				$wpdb->update( $t['scholars'], $row, [ 'id' => $existing ] );
+			} else {
+				$wpdb->insert( $t['scholars'], $row );
+			}
 		}
 	}
 
