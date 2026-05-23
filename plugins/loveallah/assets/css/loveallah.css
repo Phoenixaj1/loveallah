@@ -2499,6 +2499,21 @@ body.is-dhikr-active .la-header {
 	50%      { transform: translate3d(0, -3%, 0) scale(1.05); opacity: 1; }
 }
 
+/* Hidden YouTube chant iframe — visually invisible, audio only.
+   1x1px in the corner with opacity 0; iframe still produces audio. */
+.la-dhikr-chant-host {
+	position: absolute;
+	width: 1px; height: 1px;
+	overflow: hidden;
+	opacity: 0;
+	pointer-events: none;
+	left: 0; top: 0;
+}
+.la-dhikr-chant-host iframe {
+	width: 1px; height: 1px;
+	border: 0;
+}
+
 /* Cosmos — deep purple/black field with twinkling stars (CSS box-shadow trick) */
 .la-app--dhikr-meditate.scene-cosmos {
 	background: radial-gradient(ellipse at 50% 0%, #2a0e35 0%, #100517 55%, #050208 100%);

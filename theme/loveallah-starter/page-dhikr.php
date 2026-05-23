@@ -35,6 +35,7 @@ $la_phrases = [
 	  'meaning' => 'There is no god but Allah',
 	  'inhale' => 'Lā ilāha',    'exhale' => 'illa-llāh',
 	  'arabic_inhale' => 'لَا إِلَهَ', 'arabic_exhale' => 'إِلَّا ٱللَّٰه',
+	  'chant_video' => 'psN1gCbTgLc',  // Shaykh Hasan Ali — Heart Soothing Dhikr 1hr (Alfalaah)
 	  'note' => 'The kalimah — the testimony and the highest dhikr', 'breath_s' => 10 ],
 	// "Yā Allāh" — the established Sufi formula for the dhikr-of-the-Name
 	// (used across Qadiri, Chishti, Shadhili, Naqshbandi orders). Splits
@@ -44,26 +45,31 @@ $la_phrases = [
 	  'meaning' => 'O Allah — calling on the Divine Name',
 	  'inhale' => 'Yā',          'exhale' => 'Allāh',
 	  'arabic_inhale' => 'يَا', 'arabic_exhale' => 'ٱللَّٰه',
+	  'chant_video' => 'CHnuKaZcMjI',  // Islamic Sukoon — YA ALLAHu YA ALLAH continuous
 	  'note' => 'The singular Name — calling, then descent into the heart', 'breath_s' => 10 ],
 	[ 'key' => 'subhanallah',    'arabic' => 'سُبْحَانَ ٱللَّٰه',                   'translit' => 'Subḥān Allāh',
 	  'meaning' => 'Glory be to Allah',
 	  'inhale' => 'Subḥān',      'exhale' => 'Allāh',
 	  'arabic_inhale' => 'سُبْحَانَ', 'arabic_exhale' => 'ٱللَّٰه',
+	  'chant_video' => 'aeeVsvAa0H8',  // Omar Hisham — SUBHANALLAH WA BIHAMDIH 1hr
 	  'note' => 'Glorification — the dhikr that frees Allah from imperfection', 'breath_s' => 10 ],
 	[ 'key' => 'alhamdulillah',  'arabic' => 'ٱلْحَمْدُ لِلَّٰه',                   'translit' => 'Alḥamdulillāh',
 	  'meaning' => 'All praise is for Allah',
 	  'inhale' => 'Alḥamdu',     'exhale' => 'lillāh',
 	  'arabic_inhale' => 'ٱلْحَمْدُ', 'arabic_exhale' => 'لِلَّٰه',
+	  'chant_video' => 'q-TtS8LRIkU',  // 5 HOURS RELAXING DHIKR (SubhanAllah/Alhamdu/Akbar)
 	  'note' => 'Gratitude — the dhikr that fills the scales', 'breath_s' => 10 ],
 	[ 'key' => 'allahuakbar',    'arabic' => 'ٱللَّٰهُ أَكْبَر',                     'translit' => 'Allāhu akbar',
 	  'meaning' => 'Allah is greater',
 	  'inhale' => 'Allāhu',      'exhale' => 'akbar',
 	  'arabic_inhale' => 'ٱللَّٰهُ', 'arabic_exhale' => 'أَكْبَر',
+	  'chant_video' => 'n9oLl0HjV3Y',  // Adam Islamic Animation — Allahu Akbar 1hr Takbir
 	  'note' => 'Magnification — the dhikr that puts every concern in its place', 'breath_s' => 10 ],
 	[ 'key' => 'astaghfirullah', 'arabic' => 'أَسْتَغْفِرُ ٱللَّٰه',                 'translit' => 'Astaghfirullāh',
 	  'meaning' => 'I seek forgiveness of Allah',
 	  'inhale' => 'Astaghfiru',  'exhale' => 'Allāh',
 	  'arabic_inhale' => 'أَسْتَغْفِرُ', 'arabic_exhale' => 'ٱللَّٰه',
+	  'chant_video' => 'r4YrbaVbqPk',  // Mevlan Kurtishi — Astaghfirullah Dhikr 2025
 	  'note' => 'The polish — the Prophet ﷺ sought forgiveness 70+ times a day', 'breath_s' => 11 ],
 	// SALAWAT — the durood DHIKR formula (asking Allah to bless the
 	// Prophet ﷺ), not the honorific 'Sallallahu ʿalayhi wa sallam'
@@ -75,6 +81,7 @@ $la_phrases = [
 	  'meaning' => 'O Allah, send blessings upon Muhammad ﷺ',
 	  'inhale' => 'Allāhumma',   'exhale' => 'ṣalli ʿalā Muḥammad',
 	  'arabic_inhale' => 'اللَّهُمَّ', 'arabic_exhale' => 'صَلِّ عَلَى مُحَمَّد',
+	  'chant_video' => 'maHPe1byTfk',  // Omar Hisham — 1 Hour Salat on the Prophet
 	  'note' => 'Salawat — every blessing on him returns to you tenfold (Muslim 408)', 'breath_s' => 12 ],
 ];
 
@@ -263,6 +270,16 @@ get_header();
 			<div class="la-dhikr-backdrop-haze"></div>
 			<div class="la-dhikr-backdrop-psyche" data-dhikr-psyche></div>
 		</div>
+
+		<!-- HIDDEN YouTube CHANT IFRAME — when the Chant sound layer is ON,
+		     JS injects a real qari/reciter recording matching the selected
+		     phrase (Shaykh Hasan Ali, Omar Hisham, Mevlan Kurtishi). Real
+		     human voice repeating the dhikr for an hour — way more
+		     spiritually evocative than synthesised drones. Iframe sits
+		     visually-hidden (1x1px off-screen) but plays audio. Autoplay
+		     with sound is allowed here because the user just clicked Begin
+		     (counts as a user gesture). -->
+		<div class="la-dhikr-chant-host" data-chant-host aria-hidden="true"></div>
 
 		<!-- Slim header — phrase + countdown -->
 		<div class="la-dhikr-session-head">

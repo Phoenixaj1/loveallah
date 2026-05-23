@@ -1382,6 +1382,7 @@
 
 		const sceneList   = root.querySelector('[data-scene-list]');
 		const soundList   = root.querySelector('[data-sound-list]');
+		const chantHost   = root.querySelector('[data-chant-host]');
 
 		// Scene → YouTube video map (read from data attrs in landing)
 		const sceneVideoIds = {};
@@ -1587,7 +1588,10 @@
 			duration: 7,
 			mode: 'qalbi',
 			scene: 'cosmos',
-			sounds: { chant: false, duff: false, breath: false },
+			// Chant defaulted ON — the spiritual depth comes from the real
+			// qari voice; users shouldn't have to know to toggle it. Duff +
+			// breath stay off by default (additive).
+			sounds: { chant: true, duff: false, breath: false },
 		};
 
 		// Restore persisted scene + sound preferences so each return visit
@@ -1603,15 +1607,17 @@
 				});
 			}
 			if (saved.sounds) {
-				selected.sounds = { chant: false, duff: false, breath: false, ...saved.sounds };
-				root.querySelectorAll('[data-sound]').forEach(b => {
-					const k = b.getAttribute('data-sound');
-					const on = !!selected.sounds[k];
-					b.classList.toggle('is-selected', on);
-					b.setAttribute('aria-pressed', on ? 'true' : 'false');
-				});
+				selected.sounds = { chant: true, duff: false, breath: false, ...saved.sounds };
 			}
 		} catch (_) {}
+		// Always reflect current selected.sounds on the buttons (covers both
+		// the first-load default and the restored-from-prefs path)
+		root.querySelectorAll('[data-sound]').forEach(b => {
+			const k = b.getAttribute('data-sound');
+			const on = !!selected.sounds[k];
+			b.classList.toggle('is-selected', on);
+			b.setAttribute('aria-pressed', on ? 'true' : 'false');
+		});
 
 		function persistPrefs() {
 			try { localStorage.setItem('la_dhikr_prefs', JSON.stringify({ scene: selected.scene, sounds: selected.sounds })); } catch (_) {}
@@ -1645,7 +1651,9 @@
 			applyScene(selected.scene);
 			persistPrefs();
 		});
-		// Sound layers = multi-select toggles
+		// Sound layers = multi-select toggles. Also reflects changes
+		// LIVE during an active session (load/unload chant iframe, build/
+		// destroy synth layers) so the user can stack/unstack on the fly.
 		soundList?.addEventListener('click', (e) => {
 			const btn = e.target.closest('[data-sound]');
 			if (!btn) return;
@@ -1655,6 +1663,21 @@
 			btn.setAttribute('aria-pressed', selected.sounds[k] ? 'true' : 'false');
 			persistPrefs();
 			if (navigator.vibrate) navigator.vibrate(10);
+
+			// Live update if a session is in progress (body class is the flag)
+			if (document.body.classList.contains('is-dhikr-active')) {
+				if (k === 'chant') {
+					loadChantVideo(selected.sounds.chant ? selected.phrase.chant_video : null);
+				} else if (k === 'breath') {
+					if (selected.sounds.breath && !audioLayers.breath && audioCtx) {
+						audioLayers.breath = buildBreath();
+					} else if (!selected.sounds.breath && audioLayers.breath) {
+						try { audioLayers.breath.off(); audioLayers.breath._destroy?.(); } catch(_){}
+						audioLayers.breath = null;
+					}
+				}
+				// Duff is fired per-inhale in updateBreathPhase; nothing to wire here
+			}
 		});
 
 		function applyScene(sceneKey) {
@@ -1802,10 +1825,12 @@
 			ensureAudio();
 			// Tear down + rebuild layers so we always reflect the current toggles
 			destroyAudioLayers();
-			if (audioCtx && selected.sounds.chant)  audioLayers.chant  = buildChant();
 			if (audioCtx && selected.sounds.breath) audioLayers.breath = buildBreath();
-			audioLayers.chant?.on();
-			// Duff fires on each breath beat, see breathTick below
+			// Duff fires on each breath beat, see updateBreathPhase
+
+			// CHANT — REAL human voice from YouTube, not synthesised drone.
+			// Loads a phrase-specific qari recording into a hidden iframe.
+			loadChantVideo(selected.sounds.chant ? selected.phrase.chant_video : null);
 
 			// Start at the arc's entry rate (0.5× phrase) — close to resting
 			// breath so the user can follow comfortably from breath 1. The
@@ -1914,6 +1939,23 @@
 			// First half = remainder of current phase (inhale lasts 40% of breathS)
 			const firstDur = (breathPhase === 'inhale' ? 0.4 : 0.6) * breathS * 1000;
 			breathTimer_handle = setTimeout(nextHalf, firstDur);
+		}
+
+		// CHANT — inject a hidden YouTube iframe playing a real qari
+		// recording for the selected phrase. Pass null to unload.
+		// User gesture (Begin click) satisfies autoplay-with-sound policy.
+		function loadChantVideo(videoId) {
+			if (!chantHost) return;
+			chantHost.innerHTML = '';
+			if (!videoId) return;
+			const iframe = document.createElement('iframe');
+			iframe.allow = 'autoplay; encrypted-media';
+			iframe.allowFullscreen = false;
+			// autoplay=1 + mute=0 = real audio. loop=1 + playlist=ID keeps it
+			// from drifting to recommended (Rick Astley protection).
+			const params = `autoplay=1&mute=0&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0`;
+			iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?${params}`;
+			chantHost.appendChild(iframe);
 		}
 
 		function loadBackgroundVideo(sceneKey) {
@@ -2100,6 +2142,7 @@
 		function stopAudio() {
 			destroyAudioLayers();
 			if (bgYtHost) { bgYtHost.innerHTML = ''; bgYtHost.classList.remove('is-playing'); }
+			if (chantHost) chantHost.innerHTML = '';
 		}
 
 		function endSession() {
