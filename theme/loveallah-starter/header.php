@@ -15,14 +15,12 @@ if ( ! empty( $_COOKIE['wordpress_la_geo'] ) ) {
 	}
 }
 
-// Resolve a sensible IANA timezone for SSR: WP setting if valid, else
-// rough longitude→tz mapping, else Europe/London (our home market).
-$la_tz = wp_timezone_string();
-if ( empty( $la_tz ) || $la_tz === 'UTC' ) {
-	$la_tz = ( $la_geo_lng > -0.5 && $la_geo_lng < 0.5 && $la_geo_lat > 49 && $la_geo_lat < 61 )
-		? 'Europe/London'
-		: 'Europe/London';  // safe default — JS will re-fetch with browser tz on hydration
-}
+// Resolve a sensible IANA timezone for SSR: WP setting if it's a real
+// region name (not a UTC offset like '+00:00'), else Europe/London.
+$la_tz_raw = wp_timezone_string();
+$la_tz = ( $la_tz_raw && ! preg_match( '/^[+\-]?\d{1,2}:?\d{0,2}$/', $la_tz_raw ) && $la_tz_raw !== 'UTC' )
+	? $la_tz_raw
+	: 'Europe/London';  // safe default for our home market; JS re-fetches with browser tz on hydration
 $la_timings = class_exists( 'LA_Prayer_Times' )
 	? LA_Prayer_Times::for_lat_lng( $la_geo_lat, $la_geo_lng, null, $la_tz )
 	: [];
@@ -30,16 +28,24 @@ $la_next   = $la_timings ? LA_Prayer_Times::next_prayer( $la_timings ) : [];
 $la_streak = function_exists( 'la_unlock_state_for_view' ) ? la_unlock_state_for_view()['streak'] : 0;
 
 // Hijri date — uses the modern Islamic calendar bundled in PHP's IntlDateFormatter.
-// Falls back to plain Gregorian if Intl extension isn't loaded.
+// IntlDateFormatter only accepts IANA timezone names, not UTC offsets like '+00:00'.
 $la_hijri_label = '';
 if ( class_exists( 'IntlDateFormatter' ) ) {
-	$fmt = new IntlDateFormatter(
-		'en@calendar=islamic-umalqura',
-		IntlDateFormatter::LONG, IntlDateFormatter::NONE,
-		$la_tz, IntlDateFormatter::TRADITIONAL, 'd MMM y'
-	);
-	$la_hijri_label = $fmt->format( new DateTime( 'now', new DateTimeZone( $la_tz ) ) );
-	$la_hijri_label = str_replace( ' AH', '', $la_hijri_label ); // already implied
+	$la_hijri_tz = $la_tz;
+	if ( ! $la_hijri_tz || preg_match( '/^[+\-]?\d{2}:?\d{2}$/', $la_hijri_tz ) ) {
+		$la_hijri_tz = 'UTC';
+	}
+	try {
+		$fmt = new IntlDateFormatter(
+			'en@calendar=islamic-umalqura',
+			IntlDateFormatter::LONG, IntlDateFormatter::NONE,
+			$la_hijri_tz, IntlDateFormatter::TRADITIONAL, 'd MMM y'
+		);
+		$la_hijri_label = $fmt->format( new DateTime( 'now', new DateTimeZone( $la_hijri_tz ) ) );
+		$la_hijri_label = str_replace( ' AH', '', $la_hijri_label );
+	} catch ( Throwable $e ) {
+		$la_hijri_label = ''; // silently skip on error — page must always render
+	}
 }
 ?><!DOCTYPE html>
 <html <?php language_attributes(); ?>>
