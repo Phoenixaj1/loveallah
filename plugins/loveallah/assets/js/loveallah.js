@@ -1367,19 +1367,132 @@
 		const sessionTimer  = root.querySelector('[data-active-timer]');
 		const breathArabic  = root.querySelector('[data-breath-arabic]');
 		const breathCue     = root.querySelector('[data-breath-cue]');
+		const breathMeaning = root.querySelector('[data-breath-meaning]');
+		const subsEl        = root.querySelector('[data-dhikr-subs]');
 		const breathCircle  = root.querySelector('.la-breath-circle');
 		const breathGlow    = root.querySelector('.la-breath-glow');
-		const guidanceEl    = root.querySelector('[data-dhikr-guidance]');
+		const bgYtHost      = root.querySelector('[data-bg-yt]');
+		const psycheEl      = root.querySelector('[data-dhikr-psyche]');
+		const rhythmValue   = root.querySelector('[data-rhythm-value]');
+		const rhythmControl = root.querySelector('[data-rhythm-control]');
 		const progressFill  = root.querySelector('[data-progress-fill]');
 
 		const sceneList   = root.querySelector('[data-scene-list]');
 		const soundList   = root.querySelector('[data-sound-list]');
-		const audioRack   = root.querySelector('[data-audio-rack]');
-		const audioEls    = {
-			chant:  audioRack?.querySelector('[data-audio-key="chant"]'),
-			duff:   audioRack?.querySelector('[data-audio-key="duff"]'),
-			breath: audioRack?.querySelector('[data-audio-key="breath"]'),
-		};
+
+		// Scene → YouTube video map (read from data attrs in landing)
+		const sceneVideoIds = {};
+		sceneList?.querySelectorAll('[data-scene]').forEach(b => {
+			sceneVideoIds[b.getAttribute('data-scene')] = b.getAttribute('data-scene-video') || '';
+		});
+
+		// Web Audio API — synthesise chant / duff / breath in real time.
+		// Zero asset downloads, works offline, no licensing concerns.
+		// Each layer = { nodes, on(), off() }
+		const audioCtx = (window.AudioContext || window.webkitAudioContext) ? new (window.AudioContext || window.webkitAudioContext)() : null;
+		let masterGain = null;
+		const audioLayers = { chant: null, duff: null, breath: null };
+
+		function ensureAudio() {
+			if (!audioCtx) return;
+			if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+			if (!masterGain) {
+				masterGain = audioCtx.createGain();
+				masterGain.gain.value = 0.7;
+				masterGain.connect(audioCtx.destination);
+			}
+		}
+
+		// Chant: a sustained sine drone (root + fifth) — like a tanpura
+		function buildChant() {
+			if (!audioCtx) return null;
+			const gain = audioCtx.createGain();
+			gain.gain.value = 0;
+			const root = audioCtx.createOscillator();
+			root.type = 'sine';
+			root.frequency.value = 110;  // A2
+			const fifth = audioCtx.createOscillator();
+			fifth.type = 'sine';
+			fifth.frequency.value = 164.81; // E3 (5th)
+			const lfo = audioCtx.createOscillator();
+			lfo.type = 'sine';
+			lfo.frequency.value = 0.08; // very slow swell
+			const lfoGain = audioCtx.createGain();
+			lfoGain.gain.value = 0.025;
+			lfo.connect(lfoGain).connect(gain.gain);
+			root.connect(gain);
+			fifth.connect(gain);
+			gain.connect(masterGain);
+			root.start(); fifth.start(); lfo.start();
+			return {
+				on() { gain.gain.cancelScheduledValues(audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 1.5); },
+				off() { gain.gain.cancelScheduledValues(audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0,    audioCtx.currentTime + 0.8); },
+				_destroy() { try { root.stop(); fifth.stop(); lfo.stop(); } catch (_) {} },
+			};
+		}
+
+		// Duff: a single drum hit, scheduled on each breath beat
+		function makeDuffHit(when) {
+			if (!audioCtx) return;
+			const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.18, audioCtx.sampleRate);
+			const d = buf.getChannelData(0);
+			for (let i = 0; i < d.length; i++) {
+				const t = i / audioCtx.sampleRate;
+				// Pink-ish noise + low-freq thump envelope
+				d[i] = (Math.random() * 2 - 1) * Math.exp(-t * 14) * 0.6
+				     + Math.sin(2 * Math.PI * 70 * t) * Math.exp(-t * 10) * 0.85;
+			}
+			const src = audioCtx.createBufferSource();
+			src.buffer = buf;
+			const filt = audioCtx.createBiquadFilter();
+			filt.type = 'lowpass';
+			filt.frequency.value = 320;
+			const gain = audioCtx.createGain();
+			gain.gain.value = 0.55;
+			src.connect(filt).connect(gain).connect(masterGain);
+			src.start(when);
+		}
+
+		// Breath: pink-noise pad with breath-paced envelope. We start/stop
+		// segments inside the breath cycle to make audible inhale + exhale.
+		function buildBreath() {
+			if (!audioCtx) return null;
+			const buf = audioCtx.createBuffer(2, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+			for (let ch = 0; ch < 2; ch++) {
+				const d = buf.getChannelData(ch);
+				let last = 0;
+				for (let i = 0; i < d.length; i++) {
+					last = (last * 0.97) + (Math.random() * 2 - 1) * 0.03;
+					d[i] = last * 3;
+				}
+			}
+			const src = audioCtx.createBufferSource();
+			src.buffer = buf;
+			src.loop = true;
+			const filt = audioCtx.createBiquadFilter();
+			filt.type = 'lowpass';
+			filt.frequency.value = 1200;
+			const gain = audioCtx.createGain();
+			gain.gain.value = 0;
+			src.connect(filt).connect(gain).connect(masterGain);
+			src.start();
+			return {
+				on(phase, halfDur) {
+					if (!audioCtx) return;
+					const now = audioCtx.currentTime;
+					gain.gain.cancelScheduledValues(now);
+					if (phase === 'inhale') {
+						gain.gain.linearRampToValueAtTime(0.10, now + halfDur * 0.55);
+						gain.gain.linearRampToValueAtTime(0.06, now + halfDur);
+					} else {
+						gain.gain.linearRampToValueAtTime(0.08, now + halfDur * 0.50);
+						gain.gain.linearRampToValueAtTime(0.00, now + halfDur);
+					}
+				},
+				off() { if (!audioCtx) return; gain.gain.cancelScheduledValues(audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5); },
+				_destroy() { try { src.stop(); } catch (_) {} },
+			};
+		}
 
 		let selected = {
 			phrase: phrases[0],
@@ -1472,7 +1585,6 @@
 		// Session state
 		let sessionTimer_handle = null;
 		let breathTimer_handle = null;
-		let guidanceTimer_handle = null;
 		let endsAt = 0;
 		let breathPhase = 'inhale'; // inhale | exhale
 		let breathCycleIndex = 0;
@@ -1484,6 +1596,9 @@
 			});
 		}
 
+		// Live breath duration in seconds (mutable — rhythm slider updates this)
+		let breathS = 8;
+
 		function startSession() {
 			showScene('session');
 			document.body.classList.add('is-dhikr-active');
@@ -1491,30 +1606,29 @@
 			root.classList.add('is-' + selected.mode);
 			applyScene(selected.scene);
 
-			// Start any toggled sound layers. Convention:
-			//   /wp-content/plugins/loveallah/assets/audio/dhikr-{phrase}-{layer}.mp3
-			// Missing files silently fail play() — no error UX, no exception.
-			const audioBase = (window.LA && LA.pluginUrl) ? LA.pluginUrl : '/wp-content/plugins/loveallah/';
-			Object.entries(audioEls).forEach(([k, el]) => {
-				if (!el) return;
-				if (selected.sounds[k]) {
-					const fname = 'dhikr-' + (selected.phrase.key || 'kalimah') + '-' + k + '.mp3';
-					el.src = audioBase + 'assets/audio/' + fname;
-					el.volume = (k === 'breath') ? 0.4 : (k === 'duff' ? 0.55 : 0.7);
-					el.play().catch(() => {});
-				} else {
-					try { el.pause(); el.removeAttribute('src'); el.load(); } catch (_) {}
-				}
-			});
+			// Background YouTube video — load only on session start so the
+			// bandwidth hit happens once, not on every page view.
+			loadBackgroundVideo(selected.scene);
 
-			// Apply breath duration to CSS animation
-			const breathS = selected.phrase.breath_s || 8;
-			breathCircle.style.animationDuration = breathS + 's';
-			breathGlow.style.animationDuration = breathS + 's';
+			// Audio: ensure context is alive (must be on user gesture — Begin click qualifies)
+			ensureAudio();
+			// Tear down + rebuild layers so we always reflect the current toggles
+			destroyAudioLayers();
+			if (audioCtx && selected.sounds.chant)  audioLayers.chant  = buildChant();
+			if (audioCtx && selected.sounds.breath) audioLayers.breath = buildBreath();
+			audioLayers.chant?.on();
+			// Duff fires on each breath beat, see breathTick below
 
-			// Initial Arabic
+			// Apply breath duration to CSS animation. breath_s comes from the phrase
+			// (typical 7-9s) but the rhythm slider can override it per-session.
+			breathS = selected.phrase.breath_s || 8;
+			updateRhythmDisplay();
+			applyBreathAnimDuration();
+
+			// Initial Arabic + meaning subtitle
 			breathArabic.textContent = selected.phrase.arabic || '';
 			sessionPhrase.textContent = selected.phrase.translit || '';
+			breathMeaning.textContent = selected.phrase.meaning || '';
 
 			// Timer
 			endsAt = Date.now() + (selected.duration * 60 * 1000);
@@ -1525,28 +1639,95 @@
 			breathPhase = 'inhale';
 			breathCycleIndex = 0;
 			updateBreathPhase();
-			breathTimer_handle = setInterval(() => {
-				breathPhase = (breathPhase === 'inhale') ? 'exhale' : 'inhale';
-				if (breathPhase === 'inhale') breathCycleIndex++;
-				updateBreathPhase();
-			}, (breathS / 2) * 1000);
-
-			// Guidance rotation
-			rotateGuidance();
-			guidanceTimer_handle = setInterval(rotateGuidance, 18000);
+			startBreathInterval();
 
 			// Soft start haptic
 			if (navigator.vibrate) navigator.vibrate([20, 60, 30, 60, 20]);
 		}
 
+		function applyBreathAnimDuration() {
+			if (breathCircle) breathCircle.style.animationDuration = breathS + 's';
+			if (breathGlow)   breathGlow.style.animationDuration   = breathS + 's';
+			if (psycheEl)     psycheEl.style.animationDuration     = (breathS * 1.75) + 's';
+		}
+
+		function startBreathInterval() {
+			if (breathTimer_handle) clearInterval(breathTimer_handle);
+			breathTimer_handle = setInterval(() => {
+				breathPhase = (breathPhase === 'inhale') ? 'exhale' : 'inhale';
+				if (breathPhase === 'inhale') breathCycleIndex++;
+				updateBreathPhase();
+			}, (breathS / 2) * 1000);
+		}
+
+		function loadBackgroundVideo(sceneKey) {
+			if (!bgYtHost) return;
+			bgYtHost.innerHTML = '';
+			bgYtHost.classList.remove('is-playing');
+			const vid = sceneVideoIds[sceneKey];
+			if (!vid) return; // 'Stillness' or unknown → keep CSS-only backdrop
+			const iframe = document.createElement('iframe');
+			iframe.allow = 'autoplay; encrypted-media';
+			iframe.allowFullscreen = false;
+			const params = `autoplay=1&mute=1&loop=1&playlist=${vid}&controls=0&modestbranding=1&playsinline=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0`;
+			iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?${params}`;
+			iframe.addEventListener('load', () => bgYtHost.classList.add('is-playing'));
+			bgYtHost.appendChild(iframe);
+		}
+
 		function updateBreathPhase() {
 			const p = selected.phrase;
-			const cue = breathPhase === 'inhale' ? (p.inhale || 'Inhale') : (p.exhale || 'Exhale');
+			const cue     = breathPhase === 'inhale' ? (p.inhale  || 'Inhale')  : (p.exhale || 'Exhale');
+			const meaning = breathPhase === 'inhale'
+				? (p.meaning_inhale || p.meaning || '')
+				: (p.meaning_exhale || p.meaning || '');
 			breathCue.textContent = cue;
-			// In Sirri (Secret) mode, Arabic stays hidden
+			if (breathMeaning) breathMeaning.textContent = meaning;
+
+			// Drive subtitle colour shift
+			subsEl?.classList.toggle('is-inhale', breathPhase === 'inhale');
+			subsEl?.classList.toggle('is-exhale', breathPhase === 'exhale');
+
+			// Sirri (Secret) mode hides Arabic
 			if (selected.mode !== 'sirri') {
 				breathArabic.style.opacity = breathPhase === 'inhale' ? '1' : '0.55';
 			}
+
+			// Schedule audio events for this phase
+			if (audioCtx) {
+				const half = (breathS / 2);
+				audioLayers.breath?.on(breathPhase, half);
+				// Duff hits on each inhale (downbeat) — simple, hypnotic
+				if (selected.sounds.duff && breathPhase === 'inhale') {
+					makeDuffHit(audioCtx.currentTime + 0.01);
+				}
+			}
+		}
+
+		// Rhythm controls — ± buttons step breath_s by 1s, clamped [3, 18]
+		rhythmControl?.addEventListener('click', (e) => {
+			const btn = e.target.closest('[data-rhythm]');
+			if (!btn) return;
+			const dir = btn.getAttribute('data-rhythm');
+			let next = breathS + (dir === 'faster' ? -1 : 1);
+			next = Math.max(3, Math.min(18, next));
+			if (next === breathS) return;
+			breathS = next;
+			updateRhythmDisplay();
+			applyBreathAnimDuration();
+			startBreathInterval();
+			if (navigator.vibrate) navigator.vibrate(10);
+		});
+		function updateRhythmDisplay() {
+			if (rhythmValue) rhythmValue.textContent = breathS + 's';
+		}
+
+		function destroyAudioLayers() {
+			Object.entries(audioLayers).forEach(([k, layer]) => {
+				if (!layer) return;
+				try { layer.off(); layer._destroy && layer._destroy(); } catch (_) {}
+				audioLayers[k] = null;
+			});
 		}
 
 		function tickTimer() {
@@ -1561,51 +1742,18 @@
 			if (remaining <= 0) finishSession();
 		}
 
-		// Guidance: rotate Sufi prompts/wisdom during the session
-		const guidancePrompts = [
-			'Bring your attention to the heart, two fingers beneath the centre of your chest.',
-			'Let the breath be slow. The dhikr enters with the inhale, the world leaves with the exhale.',
-			'Do not chase the count. The Beloved sees the heart, not the tongue.',
-			'Notice the stillness between breaths. Allah is there.',
-			'When the mind wanders, return without scolding. The return itself is the dhikr.',
-			'Imagine the Name descending into the heart with each breath.',
-			'The polish needs no force. Only persistence.',
-			'You are not calling Him from afar. He is closer to you than your jugular vein.',
-		];
-		let guidanceIdx = 0;
-		function rotateGuidance() {
-			if (!guidanceEl) return;
-			// In Sirri mode, no guidance text — pure presence
-			if (selected.mode === 'sirri') {
-				guidanceEl.textContent = '';
-				return;
-			}
-			guidanceEl.style.opacity = '0';
-			setTimeout(() => {
-				// Alternate between guidance prompts and wisdom quotes
-				if (guidanceIdx % 2 === 0 || !wisdom.length) {
-					guidanceEl.textContent = guidancePrompts[guidanceIdx % guidancePrompts.length];
-				} else {
-					const w = wisdom[Math.floor(Math.random() * wisdom.length)];
-					guidanceEl.textContent = '"' + w.quote + '"';
-				}
-				guidanceEl.style.opacity = '1';
-				guidanceIdx++;
-			}, 600);
-		}
+		// (Old rotating guidance text removed — the big subtitle now carries
+		// the guidance role with inhale-cue + translation per breath.)
 
 		function clearTimers() {
 			clearInterval(sessionTimer_handle);
 			clearInterval(breathTimer_handle);
-			clearInterval(guidanceTimer_handle);
-			sessionTimer_handle = breathTimer_handle = guidanceTimer_handle = null;
+			sessionTimer_handle = breathTimer_handle = null;
 		}
 
 		function stopAudio() {
-			Object.values(audioEls).forEach(el => {
-				if (!el) return;
-				try { el.pause(); el.removeAttribute('src'); el.load(); } catch (_) {}
-			});
+			destroyAudioLayers();
+			if (bgYtHost) { bgYtHost.innerHTML = ''; bgYtHost.classList.remove('is-playing'); }
 		}
 
 		function endSession() {

@@ -99,15 +99,18 @@ $la_modes = [
 	[ 'key' => 'sirri',  'label' => 'Secret', 'desc' => 'No Arabic shown — pure presence' ],
 ];
 
-// Background scenes — pure CSS animated gradients, no asset downloads needed.
-// Each is designed to be a contemplative immersive backdrop, not entertainment.
+// Background scenes — each has a YouTube ambient loop AND a CSS-gradient
+// fallback so the experience never goes blank if YT fails.
+//   video: YouTube ID for an ambient 10hr+ loop (cosmos, nature, etc.)
+//   Swap the IDs below for whatever ambient loops you prefer — anything
+//   long-form, no narration, muted-friendly works.
 $la_scenes = [
-	[ 'key' => 'cosmos',   'emoji' => '✨', 'label' => 'Cosmos',   'desc' => 'Stars adrift in deep night' ],
-	[ 'key' => 'desert',   'emoji' => '🌅', 'label' => 'Desert',   'desc' => 'Dunes at fajr' ],
-	[ 'key' => 'forest',   'emoji' => '🌿', 'label' => 'Forest',   'desc' => 'Green canopy at dawn' ],
-	[ 'key' => 'ocean',    'emoji' => '🌊', 'label' => 'Ocean',    'desc' => 'Slow tide under moon' ],
-	[ 'key' => 'kaaba',    'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The unseen tawaf' ],
-	[ 'key' => 'none',     'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else' ],
+	[ 'key' => 'cosmos',  'emoji' => '✨', 'label' => 'Cosmos',   'desc' => 'Stars adrift in deep night',  'video' => 'EXX4lU5JJ9w' ],
+	[ 'key' => 'desert',  'emoji' => '🌅', 'label' => 'Desert',   'desc' => 'Dunes at fajr',               'video' => 'qGJ3vR4Cd5w' ],
+	[ 'key' => 'forest',  'emoji' => '🌿', 'label' => 'Forest',   'desc' => 'Green canopy at dawn',        'video' => 'BHACKCNDMW8' ],
+	[ 'key' => 'ocean',   'emoji' => '🌊', 'label' => 'Ocean',    'desc' => 'Slow tide under moon',        'video' => 'V-_O7nl0Ii0' ],
+	[ 'key' => 'kaaba',   'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The unseen tawaf',            'video' => 'OvkPldHRMyk' ],
+	[ 'key' => 'none',    'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else',     'video' => '' ],
 ];
 
 // Sound layers — optional auxiliary tracks to layer with the breath.
@@ -205,6 +208,7 @@ get_header();
 						role="radio"
 						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
 						data-scene="<?php echo esc_attr( $s['key'] ); ?>"
+						data-scene-video="<?php echo esc_attr( $s['video'] ?? '' ); ?>"
 						title="<?php echo esc_attr( $s['desc'] ); ?>">
 						<span class="la-dhikr-scene-emoji"><?php echo $s['emoji']; ?></span>
 						<span class="la-dhikr-scene-label"><?php echo esc_html( $s['label'] ); ?></span>
@@ -247,19 +251,19 @@ get_header();
 	<!-- ─── ACTIVE SESSION — the heart pulses with the breath ─── -->
 	<section class="la-dhikr-session" data-dhikr-scene="session" hidden>
 
-		<!-- Scene backdrop — pure CSS layers (stars, haze) coloured by the
-		     active scene class on the root. No video/asset download. -->
+		<!-- Scene backdrop —
+		     Layer 1: YouTube ambient video (cosmos / nature etc) muted on loop
+		     Layer 2: CSS gradient + animated stars/haze (fallback + colour wash)
+		     Layer 3: Psychedelic colour-cycle that pulses with the breath
+		     All three stack so even if YT fails the visuals stay rich. -->
 		<div class="la-dhikr-backdrop" data-dhikr-backdrop aria-hidden="true">
+			<div class="la-dhikr-bg-yt" data-bg-yt>
+				<!-- iframe is injected by JS only when a scene has a video ID,
+				     so the bandwidth hit only happens during an active session. -->
+			</div>
 			<div class="la-dhikr-backdrop-stars"></div>
 			<div class="la-dhikr-backdrop-haze"></div>
-		</div>
-
-		<!-- Hidden audio elements — one per sound layer. A 404'd src is
-		     gracefully ignored so missing assets are a silent no-op. -->
-		<div class="la-dhikr-audio-rack" data-audio-rack aria-hidden="true">
-			<audio class="la-dhikr-audio" data-audio-key="chant"  loop preload="none"></audio>
-			<audio class="la-dhikr-audio" data-audio-key="duff"   loop preload="none"></audio>
-			<audio class="la-dhikr-audio" data-audio-key="breath" loop preload="none"></audio>
+			<div class="la-dhikr-backdrop-psyche" data-dhikr-psyche></div>
 		</div>
 
 		<!-- Slim header — phrase + countdown -->
@@ -271,20 +275,34 @@ get_header();
 			<div class="la-dhikr-session-timer" data-active-timer>—:—</div>
 		</div>
 
-		<!-- The breath circle: expands on inhale, contracts on exhale.
-		     CSS animation drives the visual; JS drives the phrase text. -->
+		<!-- The breath orb — smaller, pulsing core (visual anchor only) -->
 		<div class="la-breath" data-breath-ring>
 			<div class="la-breath-glow"></div>
 			<div class="la-breath-circle">
 				<div class="la-breath-inner">
 					<div class="la-breath-arabic" data-breath-arabic dir="rtl" lang="ar">—</div>
-					<div class="la-breath-cue" data-breath-cue>Settle</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- Soft guidance below — rotates -->
-		<div class="la-dhikr-guidance" data-dhikr-guidance>—</div>
+		<!-- BIG SUBTITLE BLOCK — TikTok-style auto-captions, two lines.
+		     Top line = current breath cue (Inhale "Lā ilāha" / Exhale "illa-llāh"),
+		     Bottom line = translation, in a different colour so the eye reads
+		     it as a secondary line. Both pop with each breath. -->
+		<div class="la-dhikr-subs" data-dhikr-subs>
+			<div class="la-dhikr-subs-cue" data-breath-cue>Settle</div>
+			<div class="la-dhikr-subs-meaning" data-breath-meaning>—</div>
+		</div>
+
+		<!-- Rhythm slider — adjust breath cycle speed in real time. -->
+		<div class="la-dhikr-rhythm" data-rhythm-control>
+			<button type="button" class="la-dhikr-rhythm-btn" data-rhythm="slower" aria-label="Slower">−</button>
+			<div class="la-dhikr-rhythm-meta">
+				<div class="la-dhikr-rhythm-label">Rhythm</div>
+				<div class="la-dhikr-rhythm-value" data-rhythm-value>8s</div>
+			</div>
+			<button type="button" class="la-dhikr-rhythm-btn" data-rhythm="faster" aria-label="Faster">+</button>
+		</div>
 
 		<!-- Progress arc -->
 		<div class="la-dhikr-progress" aria-hidden="true">
