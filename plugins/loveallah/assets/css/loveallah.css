@@ -2512,9 +2512,9 @@ body.is-dhikr-active .la-header {
 	50%      { transform: translate3d(0, -3%, 0) scale(1.05); opacity: 1; }
 }
 
-/* Hidden YouTube chant iframe — visually invisible, audio only.
-   1x1px in the corner with opacity 0; iframe still produces audio. */
-.la-dhikr-chant-host {
+/* Hidden YouTube soundscape iframe — invisible audio host for nature
+   ambient. 1x1px in the corner with opacity 0; audio still plays. */
+.la-dhikr-soundscape-host {
 	position: absolute;
 	width: 1px; height: 1px;
 	overflow: hidden;
@@ -2522,10 +2522,42 @@ body.is-dhikr-active .la-header {
 	pointer-events: none;
 	left: 0; top: 0;
 }
-.la-dhikr-chant-host iframe {
-	width: 1px; height: 1px;
-	border: 0;
+.la-dhikr-soundscape-host iframe { width: 1px; height: 1px; border: 0; }
+
+/* Soundscape picker chips — visual style matches the existing scene chips */
+.la-dhikr-soundscape-list {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 6px;
 }
+@media (max-width: 480px) {
+	.la-dhikr-soundscape-list { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+}
+.la-dhikr-soundscape-chip {
+	display: flex; flex-direction: column; align-items: center;
+	gap: 3px;
+	padding: 10px 4px 8px;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1.5px solid rgba(255, 255, 255, 0.08);
+	border-radius: 14px;
+	color: #fff;
+	font-family: inherit;
+	cursor: pointer;
+	transition: all 0.2s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-dhikr-soundscape-emoji { font-size: 20px; line-height: 1; }
+.la-dhikr-soundscape-label {
+	font-size: 10px; font-weight: 700;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+.la-dhikr-soundscape-chip.is-selected {
+	background: rgba(237, 28, 108, 0.14);
+	border-color: rgba(237, 28, 108, 0.55);
+	box-shadow: 0 4px 12px rgba(237, 28, 108, 0.18);
+}
+.la-dhikr-soundscape-chip:active { transform: scale(0.96); }
 
 /* Cosmos — deep purple/black field with twinkling stars (CSS box-shadow trick) */
 .la-app--dhikr-meditate.scene-cosmos {

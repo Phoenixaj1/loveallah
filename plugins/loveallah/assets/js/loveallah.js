@@ -1382,8 +1382,14 @@
 		const progressFill  = root.querySelector('[data-progress-fill]');
 
 		const sceneList   = root.querySelector('[data-scene-list]');
-		const soundList   = root.querySelector('[data-sound-list]');
-		const chantHost   = root.querySelector('[data-chant-host]');
+		const soundscapeList = root.querySelector('[data-soundscape-list]');
+		const soundscapeHost = root.querySelector('[data-soundscape-host]');
+
+		// Map soundscape key → YouTube video ID (or '' for silent)
+		const soundscapeVideos = {};
+		soundscapeList?.querySelectorAll('[data-soundscape]').forEach(b => {
+			soundscapeVideos[b.getAttribute('data-soundscape')] = b.getAttribute('data-soundscape-video') || '';
+		});
 
 		// Scene → YouTube video map (read from data attrs in landing)
 		const sceneVideoIds = {};
@@ -1650,14 +1656,12 @@
 			duration: 7,
 			mode: 'qalbi',
 			scene: 'cosmos',
-			// Wave 19: silent practice. All audio layers removed; the
-			// `sounds` object is kept as an empty stub for any code still
-			// reading it during the transition (safe to delete later).
-			sounds: {},
+			// Wave 20: gentle nature ambient (rain/ocean/forest/fire/silent).
+			// Default silent so first session is silent unless the user picks.
+			soundscape: 'silent',
 		};
 
-		// Restore persisted scene + sound preferences so each return visit
-		// keeps the user's chosen immersion setup
+		// Restore persisted scene + soundscape so the user's last choice carries over
 		try {
 			const saved = JSON.parse(localStorage.getItem('la_dhikr_prefs') || '{}');
 			if (saved.scene) {
@@ -1668,21 +1672,18 @@
 					b.setAttribute('aria-checked', on ? 'true' : 'false');
 				});
 			}
-			if (saved.sounds) {
-				selected.sounds = { chant: true, duff: false, mind: true, breath: false, ...saved.sounds };
+			if (saved.soundscape) {
+				selected.soundscape = saved.soundscape;
+				root.querySelectorAll('[data-soundscape]').forEach(b => {
+					const on = b.getAttribute('data-soundscape') === saved.soundscape;
+					b.classList.toggle('is-selected', on);
+					b.setAttribute('aria-checked', on ? 'true' : 'false');
+				});
 			}
 		} catch (_) {}
-		// Always reflect current selected.sounds on the buttons (covers both
-		// the first-load default and the restored-from-prefs path)
-		root.querySelectorAll('[data-sound]').forEach(b => {
-			const k = b.getAttribute('data-sound');
-			const on = !!selected.sounds[k];
-			b.classList.toggle('is-selected', on);
-			b.setAttribute('aria-pressed', on ? 'true' : 'false');
-		});
 
 		function persistPrefs() {
-			try { localStorage.setItem('la_dhikr_prefs', JSON.stringify({ scene: selected.scene, sounds: selected.sounds })); } catch (_) {}
+			try { localStorage.setItem('la_dhikr_prefs', JSON.stringify({ scene: selected.scene, soundscape: selected.soundscape })); } catch (_) {}
 		}
 
 		// Radio-group click handler (delegated)
@@ -1713,8 +1714,15 @@
 			applyScene(selected.scene);
 			persistPrefs();
 		});
-		// Sound layer toggles removed Wave 19 — silent practice. No audio
-		// listeners to wire here.
+		// Soundscape = single-select (radio). If session is in progress,
+		// live-swap the ambient audio iframe so the change is immediate.
+		bindRadio(soundscapeList, 'data-soundscape', (btn) => {
+			selected.soundscape = btn.getAttribute('data-soundscape');
+			persistPrefs();
+			if (document.body.classList.contains('is-dhikr-active')) {
+				loadSoundscape(soundscapeVideos[selected.soundscape]);
+			}
+		});
 
 		function applyScene(sceneKey) {
 			['cosmos','desert','forest','ocean','kaaba','none']
@@ -1857,10 +1865,10 @@
 			// bandwidth hit happens once, not on every page view.
 			loadBackgroundVideo(selected.scene);
 
-			// AUDIO REMOVED in Wave 19 — silent mindful dhikr. The user
-			// leads with their own inner repetition synced to the visual
-			// orb + Inhale/Exhale cues. (See $la_sound_layers comment.)
-			// The scene backdrop YouTube video stays as a MUTED visual.
+			// Wave 20: optional nature ambient (rain/ocean/forest/fire).
+			// Loaded into a hidden iframe at ~30% volume — atmospheric,
+			// never the lead. Silent by default; user picks on the landing.
+			loadSoundscape(soundscapeVideos[selected.soundscape] || '');
 
 			// Start at the arc's entry rate (0.5× phrase) — close to resting
 			// breath so the user can follow comfortably from breath 1. The
@@ -2051,6 +2059,51 @@
 				document.head.appendChild(s);
 			});
 			_ytApiPromise.then(cb);
+		}
+
+		// SOUNDSCAPE — gentle nature ambient (rain/ocean/forest/fire).
+		// Hidden iframe at low volume. Same YT IFrame API + ENDED-restart
+		// pattern as the scene backdrop — never lets Rick Astley sneak in.
+		let soundscapePlayer = null;
+		function loadSoundscape(videoId) {
+			if (!soundscapeHost) return;
+			if (soundscapePlayer) { try { soundscapePlayer.destroy(); } catch(_) {} soundscapePlayer = null; }
+			soundscapeHost.innerHTML = '';
+			if (!videoId) return;  // 'silent' choice
+			const placeholder = document.createElement('div');
+			placeholder.id = 'la-soundscape-yt-' + Date.now();
+			soundscapeHost.appendChild(placeholder);
+			ensureYTApi(() => {
+				try {
+					soundscapePlayer = new YT.Player(placeholder.id, {
+						videoId: videoId,
+						host: 'https://www.youtube-nocookie.com',
+						playerVars: {
+							autoplay: 1, mute: 0, loop: 1, playlist: videoId,
+							controls: 0, modestbranding: 1, playsinline: 1, rel: 0,
+							iv_load_policy: 3, cc_load_policy: 0, disablekb: 1, fs: 0,
+						},
+						events: {
+							onReady: (e) => {
+								try {
+									// 30% — atmospheric, NEVER leading. Background only.
+									e.target.setVolume(30);
+									e.target.playVideo();
+								} catch (_) {}
+							},
+							onStateChange: (e) => {
+								if (e.data === 0) {  // ENDED
+									try { e.target.seekTo(0, true); e.target.playVideo(); } catch (_) {}
+								}
+							},
+							onError: (e) => {
+								try { e.target.destroy(); } catch (_) {}
+								soundscapePlayer = null;
+							},
+						},
+					});
+				} catch (_) {}
+			});
 		}
 
 		// Scene backdrop also uses the YT API so we can catch ENDED and
@@ -2245,10 +2298,11 @@
 		}
 
 		function stopAudio() {
-			// Only the scene backdrop iframe to tear down — all other audio
-			// layers were removed in Wave 19.
+			// Tear down scene-backdrop iframe + soundscape ambient iframe.
 			if (bgYtPlayer) { try { bgYtPlayer.destroy(); } catch(_) {} bgYtPlayer = null; }
 			if (bgYtHost)  { bgYtHost.innerHTML = ''; bgYtHost.classList.remove('is-playing'); }
+			if (soundscapePlayer) { try { soundscapePlayer.destroy(); } catch(_) {} soundscapePlayer = null; }
+			if (soundscapeHost) soundscapeHost.innerHTML = '';
 		}
 
 		function endSession() {

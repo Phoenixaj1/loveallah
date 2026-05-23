@@ -122,12 +122,18 @@ $la_scenes = [
 	[ 'key' => 'none',    'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else',       'video' => '' ],
 ];
 
-// Audio layers REMOVED in Wave 19 — the synth + halaqa-recording experiment
-// over-engineered the experience. Mindful dhikr is YOU leading, with the
-// visual cues holding the rhythm. Silence is sacred; the user's own inner
-// recitation fills the space. (Combined dhikr+dua audio flows belong in a
-// separate future feature, not bolted onto the breathing meditation.)
-$la_sound_layers = [];
+// SOUNDSCAPE — gentle nature ambient (rain / ocean / forest / fire / silent).
+// One pick at a time, plays low-volume in the background. Doesn't dictate
+// rhythm — just creates a calmer space for the user to lead their own dhikr.
+// Synth chants / drums / binaural were removed in Wave 19; this is the
+// healing-focused replacement.
+$la_soundscapes = [
+	[ 'key' => 'silent', 'emoji' => '🌑', 'label' => 'Silent', 'desc' => 'Pure quiet — your dhikr fills the space', 'video' => '' ],
+	[ 'key' => 'rain',   'emoji' => '🌧', 'label' => 'Rain',   'desc' => '10hr gentle rain (Relaxing Sounds of Nature)', 'video' => '8plwv25NYRo' ],
+	[ 'key' => 'ocean',  'emoji' => '🌊', 'label' => 'Ocean',  'desc' => '10hr gentle waves (Cozy Nature Noise)',         'video' => 'NJXzcQJi_A8' ],
+	[ 'key' => 'forest', 'emoji' => '🌲', 'label' => 'Forest', 'desc' => '10hr birdsong (The Silent Watcher)',            'video' => 'EHklxmBvzwc' ],
+	[ 'key' => 'fire',   'emoji' => '🔥', 'label' => 'Hearth', 'desc' => 'Crackling fireplace + spring forest',           'video' => 'GWWMbcXwVwI' ],
+];
 
 // Wisdom — load + pick three (one for landing, rest rotate during session)
 $la_wisdom = [];
@@ -224,8 +230,26 @@ get_header();
 			</div>
 		</div>
 
-		<!-- Sound layers removed in Wave 19. Silence is sacred. -->
-		<?php // Audio chips intentionally hidden — see $la_sound_layers comment ?>
+		<!-- Soundscape — gentle nature ambient. One pick at a time, plays low-
+		     volume so it never competes with the user's own inner dhikr.
+		     Default is Silent. -->
+		<div class="la-dhikr-section">
+			<h2 class="la-dhikr-section-label">Soundscape <span class="la-dhikr-section-hint">background ambient · pick one</span></h2>
+			<div class="la-dhikr-soundscape-list" data-soundscape-list role="radiogroup" aria-label="Background soundscape">
+				<?php foreach ( $la_soundscapes as $i => $s ) : ?>
+					<button type="button"
+						class="la-dhikr-soundscape-chip <?php echo $i === 0 ? 'is-selected' : ''; ?>"
+						role="radio"
+						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
+						data-soundscape="<?php echo esc_attr( $s['key'] ); ?>"
+						data-soundscape-video="<?php echo esc_attr( $s['video'] ); ?>"
+						title="<?php echo esc_attr( $s['desc'] ); ?>">
+						<span class="la-dhikr-soundscape-emoji"><?php echo $s['emoji']; ?></span>
+						<span class="la-dhikr-soundscape-label"><?php echo esc_html( $s['label'] ); ?></span>
+					</button>
+				<?php endforeach; ?>
+			</div>
+		</div>
 
 		<button type="button" class="la-dhikr-begin" data-action="begin-dhikr">
 			<span>Begin</span>
@@ -255,7 +279,11 @@ get_header();
 			<div class="la-dhikr-backdrop-psyche" data-dhikr-psyche></div>
 		</div>
 
-		<?php // Chant iframe removed Wave 19 — silence is the practice ?>
+		<!-- Soundscape iframe — invisible audio host for the chosen nature
+		     ambient (rain, ocean, forest, fire). Loads only if user picks
+		     a non-Silent option. Volume kept low (~30%) so it stays
+		     background atmosphere. -->
+		<div class="la-dhikr-soundscape-host" data-soundscape-host aria-hidden="true"></div>
 
 		<!-- Slim header — phrase + countdown + breath count.
 		     The count is the ONE quiet improvement: a soft tally of breaths
