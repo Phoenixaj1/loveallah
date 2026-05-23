@@ -36,11 +36,15 @@ $la_phrases = [
 	  'inhale' => 'Lā ilāha',    'exhale' => 'illa-llāh',
 	  'arabic_inhale' => 'لَا إِلَهَ', 'arabic_exhale' => 'إِلَّا ٱللَّٰه',
 	  'note' => 'The kalimah — the testimony and the highest dhikr', 'breath_s' => 10 ],
-	[ 'key' => 'allah',          'arabic' => 'ٱللَّٰه',                               'translit' => 'Allāh',
-	  'meaning' => 'The Divine Name',
-	  'inhale' => 'Al-',         'exhale' => 'lāh',
-	  'arabic_inhale' => 'ٱل', 'arabic_exhale' => 'لَّٰه',
-	  'note' => 'The singular Name — the dhikr of the gnostics', 'breath_s' => 10 ],
+	// "Yā Allāh" — the established Sufi formula for the dhikr-of-the-Name
+	// (used across Qadiri, Chishti, Shadhili, Naqshbandi orders). Splits
+	// at the natural particle/Name boundary, NOT mid-syllable across the
+	// Name itself (which is not an established practice).
+	[ 'key' => 'allah',          'arabic' => 'يَا ٱللَّٰه',                          'translit' => 'Yā Allāh',
+	  'meaning' => 'O Allah — calling on the Divine Name',
+	  'inhale' => 'Yā',          'exhale' => 'Allāh',
+	  'arabic_inhale' => 'يَا', 'arabic_exhale' => 'ٱللَّٰه',
+	  'note' => 'The singular Name — calling, then descent into the heart', 'breath_s' => 10 ],
 	[ 'key' => 'subhanallah',    'arabic' => 'سُبْحَانَ ٱللَّٰه',                   'translit' => 'Subḥān Allāh',
 	  'meaning' => 'Glory be to Allah',
 	  'inhale' => 'Subḥān',      'exhale' => 'Allāh',
@@ -61,11 +65,17 @@ $la_phrases = [
 	  'inhale' => 'Astaghfiru',  'exhale' => 'Allāh',
 	  'arabic_inhale' => 'أَسْتَغْفِرُ', 'arabic_exhale' => 'ٱللَّٰه',
 	  'note' => 'The polish — the Prophet ﷺ sought forgiveness 70+ times a day', 'breath_s' => 11 ],
-	[ 'key' => 'salawat',        'arabic' => 'صَلَّى ٱللَّٰهُ عَلَيْهِ وَسَلَّم',     'translit' => 'Ṣalla-llāhu ʿalayhi wa sallam',
-	  'meaning' => 'Peace and blessings upon the Prophet ﷺ',
-	  'inhale' => 'Ṣalla-llāhu', 'exhale' => 'ʿalayhi wa sallam',
-	  'arabic_inhale' => 'صَلَّى ٱللَّٰهُ', 'arabic_exhale' => 'عَلَيْهِ وَسَلَّم',
-	  'note' => 'Salawat — every blessing on him returns to you tenfold', 'breath_s' => 12 ],
+	// SALAWAT — the durood DHIKR formula (asking Allah to bless the
+	// Prophet ﷺ), not the honorific 'Sallallahu ʿalayhi wa sallam'
+	// that we say AFTER his name. This is the formula every Sufi order
+	// uses for repeated salawat practice + the Friday sunnah of sending
+	// 80+ salawat. Hadith: 'Whoever sends one blessing on me, Allah
+	// sends ten on him' (Muslim 408).
+	[ 'key' => 'salawat',        'arabic' => 'اللَّهُمَّ صَلِّ عَلَى مُحَمَّد',        'translit' => 'Allāhumma ṣalli ʿalā Muḥammad',
+	  'meaning' => 'O Allah, send blessings upon Muhammad ﷺ',
+	  'inhale' => 'Allāhumma',   'exhale' => 'ṣalli ʿalā Muḥammad',
+	  'arabic_inhale' => 'اللَّهُمَّ', 'arabic_exhale' => 'صَلِّ عَلَى مُحَمَّد',
+	  'note' => 'Salawat — every blessing on him returns to you tenfold (Muslim 408)', 'breath_s' => 12 ],
 ];
 
 // Durations (minutes)
