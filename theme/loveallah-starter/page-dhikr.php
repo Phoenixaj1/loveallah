@@ -23,27 +23,48 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // nervous system more strongly (Russo et al. 2017, "The physiological
 // effects of slow breathing in the healthy human"). The user can dial
 // faster or slower mid-session via the rhythm pill.
+// Each phrase carries BOTH:
+//   - The full arabic / translit / meaning (shown in the landing card)
+//   - The inhale and exhale halves IN ARABIC AND TRANSLITERATION — the
+//     breath orb cycles between these two halves so the dhikr is split
+//     across the breath the way Sufi practitioners actually do it:
+//     inhale draws the negation, exhale releases the affirmation
+//     (or inhale draws the Name in, exhale lets it descend into the heart).
 $la_phrases = [
 	[ 'key' => 'kalimah',        'arabic' => 'لَا إِلَهَ إِلَّا ٱللَّٰه',           'translit' => 'Lā ilāha illa-llāh',
-	  'meaning' => 'There is no god but Allah', 'inhale' => 'Lā ilāha', 'exhale' => 'illa-llāh',
+	  'meaning' => 'There is no god but Allah',
+	  'inhale' => 'Lā ilāha',    'exhale' => 'illa-llāh',
+	  'arabic_inhale' => 'لَا إِلَهَ', 'arabic_exhale' => 'إِلَّا ٱللَّٰه',
 	  'note' => 'The kalimah — the testimony and the highest dhikr', 'breath_s' => 10 ],
 	[ 'key' => 'allah',          'arabic' => 'ٱللَّٰه',                               'translit' => 'Allāh',
-	  'meaning' => 'The Divine Name', 'inhale' => 'Al-', 'exhale' => 'lāh',
+	  'meaning' => 'The Divine Name',
+	  'inhale' => 'Al-',         'exhale' => 'lāh',
+	  'arabic_inhale' => 'ٱل', 'arabic_exhale' => 'لَّٰه',
 	  'note' => 'The singular Name — the dhikr of the gnostics', 'breath_s' => 10 ],
 	[ 'key' => 'subhanallah',    'arabic' => 'سُبْحَانَ ٱللَّٰه',                   'translit' => 'Subḥān Allāh',
-	  'meaning' => 'Glory be to Allah', 'inhale' => 'Subḥān', 'exhale' => 'Allāh',
+	  'meaning' => 'Glory be to Allah',
+	  'inhale' => 'Subḥān',      'exhale' => 'Allāh',
+	  'arabic_inhale' => 'سُبْحَانَ', 'arabic_exhale' => 'ٱللَّٰه',
 	  'note' => 'Glorification — the dhikr that frees Allah from imperfection', 'breath_s' => 10 ],
 	[ 'key' => 'alhamdulillah',  'arabic' => 'ٱلْحَمْدُ لِلَّٰه',                   'translit' => 'Alḥamdulillāh',
-	  'meaning' => 'All praise is for Allah', 'inhale' => 'Alḥamdu', 'exhale' => 'lillāh',
+	  'meaning' => 'All praise is for Allah',
+	  'inhale' => 'Alḥamdu',     'exhale' => 'lillāh',
+	  'arabic_inhale' => 'ٱلْحَمْدُ', 'arabic_exhale' => 'لِلَّٰه',
 	  'note' => 'Gratitude — the dhikr that fills the scales', 'breath_s' => 10 ],
 	[ 'key' => 'allahuakbar',    'arabic' => 'ٱللَّٰهُ أَكْبَر',                     'translit' => 'Allāhu akbar',
-	  'meaning' => 'Allah is greater', 'inhale' => 'Allāhu', 'exhale' => 'akbar',
+	  'meaning' => 'Allah is greater',
+	  'inhale' => 'Allāhu',      'exhale' => 'akbar',
+	  'arabic_inhale' => 'ٱللَّٰهُ', 'arabic_exhale' => 'أَكْبَر',
 	  'note' => 'Magnification — the dhikr that puts every concern in its place', 'breath_s' => 10 ],
 	[ 'key' => 'astaghfirullah', 'arabic' => 'أَسْتَغْفِرُ ٱللَّٰه',                 'translit' => 'Astaghfirullāh',
-	  'meaning' => 'I seek forgiveness of Allah', 'inhale' => 'Astaghfi', 'exhale' => 'rullāh',
+	  'meaning' => 'I seek forgiveness of Allah',
+	  'inhale' => 'Astaghfiru',  'exhale' => 'Allāh',
+	  'arabic_inhale' => 'أَسْتَغْفِرُ', 'arabic_exhale' => 'ٱللَّٰه',
 	  'note' => 'The polish — the Prophet ﷺ sought forgiveness 70+ times a day', 'breath_s' => 11 ],
 	[ 'key' => 'salawat',        'arabic' => 'صَلَّى ٱللَّٰهُ عَلَيْهِ وَسَلَّم',     'translit' => 'Ṣalla-llāhu ʿalayhi wa sallam',
-	  'meaning' => 'Peace and blessings upon the Prophet ﷺ', 'inhale' => 'Ṣalla-llāhu', 'exhale' => 'ʿalayhi wa sallam',
+	  'meaning' => 'Peace and blessings upon the Prophet ﷺ',
+	  'inhale' => 'Ṣalla-llāhu', 'exhale' => 'ʿalayhi wa sallam',
+	  'arabic_inhale' => 'صَلَّى ٱللَّٰهُ', 'arabic_exhale' => 'عَلَيْهِ وَسَلَّم',
 	  'note' => 'Salawat — every blessing on him returns to you tenfold', 'breath_s' => 12 ],
 ];
 
@@ -268,6 +289,13 @@ get_header();
 				<!-- Shimmer highlights — like wet skin in lamplight -->
 				<div class="la-breath-shimmer" aria-hidden="true"></div>
 				<div class="la-breath-inner">
+					<!-- Inhale / Exhale cue ON THE ORB — drives the user's
+					     breath in real time. Above the Arabic so the eye
+					     reads it first before the contemplated meaning. -->
+					<div class="la-breath-phase" data-breath-phase>Inhale</div>
+					<!-- Arabic also flips to match: kalimah inhale = لَا إِلَهَ,
+					     exhale = إِلَّا ٱللَّٰه — same split a Sufi practitioner
+					     would use mid-breath. -->
 					<div class="la-breath-arabic" data-breath-arabic dir="rtl" lang="ar">—</div>
 				</div>
 			</div>

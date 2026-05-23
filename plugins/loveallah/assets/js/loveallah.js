@@ -1366,6 +1366,7 @@
 		const sessionPhrase = root.querySelector('[data-active-phrase]');
 		const sessionTimer  = root.querySelector('[data-active-timer]');
 		const breathArabic  = root.querySelector('[data-breath-arabic]');
+		const breathPhaseEl = root.querySelector('[data-breath-phase]');
 		const breathCue     = root.querySelector('[data-breath-cue]');
 		const breathMeaning = root.querySelector('[data-breath-meaning]');
 		const heartPrompt   = root.querySelector('[data-heart-prompt]');
@@ -1816,8 +1817,11 @@
 			updateRhythmDisplay();
 			applyBreathAnimDuration();
 
-			// Initial Arabic + meaning subtitle
-			breathArabic.textContent = selected.phrase.arabic || '';
+			// Initial state — start in inhale phase with the inhale-half
+			// Arabic on the orb (kalimah → "لَا إِلَهَ"). Will flip every
+			// half-breath by updateBreathPhase().
+			breathArabic.textContent = selected.phrase.arabic_inhale || selected.phrase.arabic || '';
+			if (breathPhaseEl) breathPhaseEl.textContent = 'Inhale';
 			sessionPhrase.textContent = selected.phrase.translit || '';
 			breathMeaning.textContent = selected.phrase.meaning || '';
 
@@ -1942,20 +1946,33 @@
 
 		function updateBreathPhase() {
 			const p = selected.phrase;
-			const cue     = breathPhase === 'inhale' ? (p.inhale  || 'Inhale')  : (p.exhale || 'Exhale');
+			const cue = breathPhase === 'inhale' ? (p.inhale || 'Inhale') : (p.exhale || 'Exhale');
 			const meaning = breathPhase === 'inhale'
 				? (p.meaning_inhale || p.meaning || '')
 				: (p.meaning_exhale || p.meaning || '');
+			// ARABIC on the orb flips between the inhale + exhale halves so
+			// the Arabic the user contemplates matches what their breath is
+			// doing in real time (kalimah inhale = لَا إِلَهَ, exhale = إِلَّا ٱللَّٰه).
+			const arabicHalf = breathPhase === 'inhale'
+				? (p.arabic_inhale || p.arabic || '')
+				: (p.arabic_exhale || p.arabic || '');
+
 			breathCue.textContent = cue;
 			if (breathMeaning) breathMeaning.textContent = meaning;
+			if (breathArabic)  breathArabic.textContent  = arabicHalf;
+			if (breathPhaseEl) {
+				breathPhaseEl.textContent = breathPhase === 'inhale' ? 'Inhale' : 'Exhale';
+				breathPhaseEl.classList.toggle('is-inhale', breathPhase === 'inhale');
+				breathPhaseEl.classList.toggle('is-exhale', breathPhase === 'exhale');
+			}
 
 			// Drive subtitle colour shift
 			subsEl?.classList.toggle('is-inhale', breathPhase === 'inhale');
 			subsEl?.classList.toggle('is-exhale', breathPhase === 'exhale');
 
-			// Sirri (Secret) mode hides Arabic
+			// Sirri (Secret) mode hides Arabic + the orb phase label
 			if (selected.mode !== 'sirri') {
-				breathArabic.style.opacity = breathPhase === 'inhale' ? '1' : '0.55';
+				breathArabic.style.opacity = '1';  // always full opacity for the active half
 			}
 
 			// Schedule audio events for this phase. Half-duration MATCHES the
