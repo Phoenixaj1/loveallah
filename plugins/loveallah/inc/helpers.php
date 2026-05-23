@@ -17,7 +17,7 @@ function la_get_or_set_session_id() : string {
 			'wordpress_la_session',
 			$sid,
 			[
-				'expires'  => time() + ( 30 * DAY_IN_SECONDS ),
+				'expires'  => time() + YEAR_IN_SECONDS,
 				'path'     => COOKIEPATH ?: '/',
 				'domain'   => COOKIE_DOMAIN,
 				'secure'   => is_ssl(),

@@ -140,8 +140,20 @@ class LA_Algorithm {
 	}
 
 	/**
-	 * Scholar engagement scores for this user.
+	 * Scholar engagement scores for this user, time-decayed.
 	 * Returns map: scholar_id => total_weight.
+	 *
+	 * Recent engagements count MORE than old ones so a like today actually
+	 * reshapes the next feed pull rather than getting drowned out by
+	 * historical noise:
+	 *   ≤ 24h  → 3× multiplier (your current mood matters most)
+	 *   ≤ 7d   → 2× multiplier
+	 *   ≤ 30d  → 1× multiplier
+	 *   ≤ 60d  → 0.5× multiplier
+	 *   > 60d  → not counted (filtered out at SQL level)
+	 *
+	 * Works identically for logged-in users (user_id) and anon visitors
+	 * (session_id) — same query, different identity column.
 	 */
 	private static function scholar_affinities( ?int $user_id, ?string $session_id ) : array {
 		global $wpdb;
@@ -151,18 +163,24 @@ class LA_Algorithm {
 		if ( ! $val ) return [];
 
 		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT fp.scholar_id, fi.action, COUNT(*) as n
+			"SELECT fp.scholar_id, fi.action,
+			        TIMESTAMPDIFF(HOUR, fi.occurred_at, NOW()) as age_h
 			 FROM {$t['feed_interactions']} fi
 			 JOIN {$t['feed_posts']} fp ON fp.id = fi.post_id
 			 WHERE fi.{$col} = %s
-			 GROUP BY fp.scholar_id, fi.action",
+			   AND fi.occurred_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)",
 			(string) $val
 		) );
 
 		$scores = [];
 		foreach ( $rows as $r ) {
 			$w = self::ENGAGEMENT_WEIGHTS[ $r->action ] ?? 0;
-			$scores[ (int) $r->scholar_id ] = ( $scores[ (int) $r->scholar_id ] ?? 0 ) + ( $w * (int) $r->n );
+			$age_h = (int) $r->age_h;
+			if ( $age_h <= 24 )       $mul = 3.0;
+			elseif ( $age_h <= 168 )  $mul = 2.0;  // 7 days
+			elseif ( $age_h <= 720 )  $mul = 1.0;  // 30 days
+			else                      $mul = 0.5;  // 30-60 days
+			$scores[ (int) $r->scholar_id ] = ( $scores[ (int) $r->scholar_id ] ?? 0 ) + ( $w * $mul );
 		}
 		return $scores;
 	}
@@ -252,10 +270,13 @@ class LA_Algorithm {
 		}
 
 		// Scholar affinity boost: rewards what this user has engaged with
-		// (likes, saves, shares, completions). Capped to 250 so a single
-		// scholar can't monopolise the feed.
+		// (likes, saves, shares, completions). The cap (was 250, now 450)
+		// is higher because affinities are now time-decayed — a like today
+		// gives ~75 boost (25 × 3× recency), so binge-engaging with one
+		// scholar still lets them surface 3-5 videos worth of content
+		// without monopolising the feed entirely.
 		if ( ! empty( $post->scholar_id ) && isset( $affinities[ (int) $post->scholar_id ] ) ) {
-			$score += min( 250, $affinities[ (int) $post->scholar_id ] );
+			$score += min( 450, $affinities[ (int) $post->scholar_id ] );
 		}
 
 		// Already-seen penalty — push down posts the user has scrolled past
