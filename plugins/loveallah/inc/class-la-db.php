@@ -42,10 +42,18 @@ class LA_DB {
 		$current = (int) get_option( 'la_db_version', 0 );
 		if ( $current < LA_DB_VERSION ) {
 			self::create_tables();
-			// Re-seed scholars + duas on every DB version bump (both idempotent).
-			// Keeps the curated lists in sync with the codebase as we add content.
+			// Re-seed on every DB version bump. All of these are idempotent
+			// (insert-or-update by unique key, or count-and-skip-if-exists)
+			// so re-running them on existing installs is safe.
 			self::seed_scholars();
 			self::seed_duas();
+			self::seed_skill_listings();
+			// Events for the default mosque (idempotent — skips if any
+			// events already exist for that mosque_id).
+			$default_mosque_id = (int) ( get_option( 'la_default_mosque_id' ) ?: 1 );
+			if ( class_exists( 'LA_Events' ) && $default_mosque_id ) {
+				LA_Events::seed_for_mosque( $default_mosque_id );
+			}
 			update_option( 'la_db_version', LA_DB_VERSION );
 		}
 	}
