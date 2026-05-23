@@ -1,0 +1,64 @@
+{
+  "packageId": "app.loveallah.app",
+  "host": "loveallah.app",
+  "name": "Love Allah",
+  "launcherName": "Love Allah",
+  "display": "standalone",
+  "themeColor": "#ED1C6C",
+  "navigationColor": "#ED1C6C",
+  "navigationColorDark": "#ED1C6C",
+  "navigationDividerColor": "#ED1C6C",
+  "navigationDividerColorDark": "#ED1C6C",
+  "backgroundColor": "#FFFFFF",
+  "enableNotifications": true,
+  "startUrl": "/?source=twa",
+  "iconUrl": "https://loveallah.app/wp-content/plugins/loveallah/assets/icons/icon-512.png",
+  "maskableIconUrl": "https://loveallah.app/wp-content/plugins/loveallah/assets/icons/icon-512-maskable.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "loveallah"
+  },
+  "appVersionCode": 1,
+  "appVersionName": "0.5.0",
+  "shortcuts": [
+    {
+      "name": "Dhikr",
+      "shortName": "Dhikr",
+      "url": "/dhikr?source=twa-shortcut",
+      "chosenIconUrl": "https://loveallah.app/wp-content/plugins/loveallah/assets/icons/icon-192.png"
+    },
+    {
+      "name": "Nasheeds",
+      "shortName": "Nasheed",
+      "url": "/nasheed?source=twa-shortcut",
+      "chosenIconUrl": "https://loveallah.app/wp-content/plugins/loveallah/assets/icons/icon-192.png"
+    },
+    {
+      "name": "Your Masjid",
+      "shortName": "Masjid",
+      "url": "/masjid?source=twa-shortcut",
+      "chosenIconUrl": "https://loveallah.app/wp-content/plugins/loveallah/assets/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://loveallah.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://loveallah.app/",
+  "minSdkVersion": 21,
+  "orientation": "portrait"
+}

@@ -67,6 +67,8 @@ class LA_Admin {
 		register_setting( 'loveallah_settings', 'la_yt_max_duration',      [ 'sanitize_callback' => 'absint' ] );
 		register_setting( 'loveallah_settings', 'la_required_dhikr',       [ 'sanitize_callback' => 'absint' ] );
 		register_setting( 'loveallah_settings', 'la_recency_window_days',  [ 'sanitize_callback' => 'absint' ] );
+		register_setting( 'loveallah_settings', 'la_android_sha256',      [ 'sanitize_callback' => 'sanitize_text_field' ] );
+		register_setting( 'loveallah_settings', 'la_android_package',     [ 'sanitize_callback' => 'sanitize_text_field' ] );
 	}
 
 	// ────────────────────────────────────────────────────────────
@@ -695,6 +697,17 @@ class LA_Admin {
 					<tr><th><label for="la_recency_window_days"><?php esc_html_e( 'Feed recency window (days)', 'loveallah' ); ?></label></th>
 						<td><input type="number" id="la_recency_window_days" name="la_recency_window_days" value="<?php echo esc_attr( get_option( 'la_recency_window_days', 60 ) ); ?>" min="7" max="365" style="width:100px;"></td></tr>
 				</tbody></table>
+
+				<h2><?php esc_html_e( 'Android app (TWA)', 'loveallah' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'Required for Android Digital Asset Links. Get the SHA-256 fingerprint from bubblewrap after building.', 'loveallah' ); ?></p>
+				<table class="form-table"><tbody>
+					<tr><th><label for="la_android_package"><?php esc_html_e( 'Android package ID', 'loveallah' ); ?></label></th>
+						<td><input class="regular-text" type="text" id="la_android_package" name="la_android_package" value="<?php echo esc_attr( get_option( 'la_android_package', 'app.loveallah.app' ) ); ?>"></td></tr>
+					<tr><th><label for="la_android_sha256"><?php esc_html_e( 'Signing key SHA-256 fingerprint', 'loveallah' ); ?></label></th>
+						<td><input class="regular-text" type="text" id="la_android_sha256" name="la_android_sha256" value="<?php echo esc_attr( get_option( 'la_android_sha256', '' ) ); ?>" placeholder="AA:BB:CC:DD:...:FF">
+						<p class="description"><?php esc_html_e( 'Surfaced at /.well-known/assetlinks.json so Android trusts this PWA.', 'loveallah' ); ?></p></td></tr>
+				</tbody></table>
+
 				<?php submit_button(); ?>
 			</form>
 		</div>

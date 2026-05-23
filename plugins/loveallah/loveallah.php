@@ -35,6 +35,7 @@ require_once LA_DIR . 'inc/class-la-algorithm.php';
 require_once LA_DIR . 'inc/class-la-feed-render.php';
 require_once LA_DIR . 'inc/class-la-youtube.php';
 require_once LA_DIR . 'inc/class-la-events.php';
+require_once LA_DIR . 'inc/class-la-pwa.php';
 require_once LA_DIR . 'inc/class-la-admin.php';
 require_once LA_DIR . 'inc/class-la-cli.php';
 require_once LA_DIR . 'inc/ornaments.php';
@@ -44,6 +45,7 @@ require_once LA_DIR . 'inc/helpers.php';
 register_activation_hook( __FILE__, function() {
 	LA_DB::install();
 	LA_Caps::install();
+	LA_PWA::on_activate();
 	if ( ! wp_next_scheduled( 'la_youtube_sync' ) ) {
 		wp_schedule_event( time() + 60, 'la_six_hours', 'la_youtube_sync' );
 	}
@@ -98,6 +100,9 @@ add_action( 'rest_api_init', [ 'LA_API', 'register_routes' ] );
 
 // ── Admin UI ──
 LA_Admin::register();
+
+// ── PWA (manifest + service worker + meta tags) ──
+LA_PWA::register();
 
 // ── WP-CLI ──
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
