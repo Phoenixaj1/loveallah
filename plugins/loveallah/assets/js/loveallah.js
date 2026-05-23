@@ -1388,11 +1388,13 @@
 			sceneVideoIds[b.getAttribute('data-scene')] = b.getAttribute('data-scene-video') || '';
 		});
 
-		// Web Audio API — synthesise chant / duff / breath in real time.
-		// Zero asset downloads, works offline, no licensing concerns.
-		// Each layer = { nodes, on(), off() }
+		// Web Audio API — rich, reverberant synthesis. No asset downloads,
+		// works offline, no licensing concerns. Three layers (chant / duff
+		// / breath) all run through a synthetic hall-reverb convolver so
+		// they sit in a single resonant space — like recitation echoing
+		// inside a domed masjid.
 		const audioCtx = (window.AudioContext || window.webkitAudioContext) ? new (window.AudioContext || window.webkitAudioContext)() : null;
-		let masterGain = null;
+		let masterGain = null, reverbBus = null, dryBus = null;
 		const audioLayers = { chant: null, duff: null, breath: null };
 
 		function ensureAudio() {
@@ -1400,95 +1402,178 @@
 			if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
 			if (!masterGain) {
 				masterGain = audioCtx.createGain();
-				masterGain.gain.value = 0.7;
+				masterGain.gain.value = 0.8;
 				masterGain.connect(audioCtx.destination);
+
+				// Synthetic hall-reverb impulse response. White noise decays
+				// exponentially over ~4 seconds — gives every sound a soft
+				// tail, like sound bouncing inside a stone dome.
+				const sr = audioCtx.sampleRate;
+				const len = sr * 4;
+				const irBuf = audioCtx.createBuffer(2, len, sr);
+				for (let ch = 0; ch < 2; ch++) {
+					const d = irBuf.getChannelData(ch);
+					for (let i = 0; i < len; i++) {
+						const t = i / sr;
+						d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t / 4, 3.2) * 0.4;
+					}
+				}
+				const convolver = audioCtx.createConvolver();
+				convolver.buffer = irBuf;
+				reverbBus = audioCtx.createGain();
+				reverbBus.gain.value = 0.55;
+				dryBus = audioCtx.createGain();
+				dryBus.gain.value = 1.0;
+				reverbBus.connect(convolver).connect(masterGain);
+				dryBus.connect(masterGain);
 			}
 		}
 
-		// Chant: a sustained sine drone (root + fifth) — like a tanpura
+		// Helper: route a source through both dry + reverb buses (wet+dry mix)
+		function routeAmbient(node, wet = 0.55) {
+			const dryS = audioCtx.createGain(); dryS.gain.value = 1 - wet;
+			const wetS = audioCtx.createGain(); wetS.gain.value = wet;
+			node.connect(dryS).connect(dryBus);
+			node.connect(wetS).connect(reverbBus);
+		}
+
+		// CHANT — Tanpura-style drone. Root (A2=110Hz) + fifth (E3) + octave
+		// (A3) + slight detune for chorus warmth. Each oscillator has its
+		// own slow LFO so the drone breathes naturally. Sounds like a real
+		// reciter holding the phrase under you, not a sine wave.
 		function buildChant() {
 			if (!audioCtx) return null;
 			const gain = audioCtx.createGain();
 			gain.gain.value = 0;
-			const root = audioCtx.createOscillator();
-			root.type = 'sine';
-			root.frequency.value = 110;  // A2
-			const fifth = audioCtx.createOscillator();
-			fifth.type = 'sine';
-			fifth.frequency.value = 164.81; // E3 (5th)
+
+			// Three voices: root, fifth, octave. Each pair detuned ±3 cents
+			// for a subtle chorus effect (warmer than a pure sine).
+			const voices = [];
+			const freqs = [110, 110.2, 164.81, 164.95, 220, 220.3];
+			const weights = [0.5, 0.5, 0.35, 0.35, 0.25, 0.25];
+			freqs.forEach((freq, i) => {
+				const osc = audioCtx.createOscillator();
+				osc.type = i < 2 ? 'sine' : 'triangle';  // octaves use triangle for a brighter overtone
+				osc.frequency.value = freq;
+				const oscGain = audioCtx.createGain();
+				oscGain.gain.value = weights[i] * 0.18;
+				osc.connect(oscGain).connect(gain);
+				voices.push(osc);
+				osc.start();
+			});
+
+			// Slow tremolo on the whole drone — 7-8 second cycle, like breathing
 			const lfo = audioCtx.createOscillator();
 			lfo.type = 'sine';
-			lfo.frequency.value = 0.08; // very slow swell
+			lfo.frequency.value = 0.13;
 			const lfoGain = audioCtx.createGain();
-			lfoGain.gain.value = 0.025;
+			lfoGain.gain.value = 0.05;
 			lfo.connect(lfoGain).connect(gain.gain);
-			root.connect(gain);
-			fifth.connect(gain);
-			gain.connect(masterGain);
-			root.start(); fifth.start(); lfo.start();
+			lfo.start();
+
+			// A gentle low-pass to soften the high overtones
+			const filt = audioCtx.createBiquadFilter();
+			filt.type = 'lowpass';
+			filt.frequency.value = 1800;
+			filt.Q.value = 0.7;
+			gain.connect(filt);
+			routeAmbient(filt, 0.65);
+
 			return {
-				on() { gain.gain.cancelScheduledValues(audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 1.5); },
-				off() { gain.gain.cancelScheduledValues(audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0,    audioCtx.currentTime + 0.8); },
-				_destroy() { try { root.stop(); fifth.stop(); lfo.stop(); } catch (_) {} },
+				on() {
+					const now = audioCtx.currentTime;
+					gain.gain.cancelScheduledValues(now);
+					gain.gain.linearRampToValueAtTime(0.45, now + 2.0);
+				},
+				off() {
+					const now = audioCtx.currentTime;
+					gain.gain.cancelScheduledValues(now);
+					gain.gain.linearRampToValueAtTime(0, now + 1.2);
+				},
+				_destroy() { try { voices.forEach(v => v.stop()); lfo.stop(); } catch (_) {} },
 			};
 		}
 
-		// Duff: a single drum hit, scheduled on each breath beat
+		// DUFF — frame-drum hit. Two-part synthesis: a low THUMP (60Hz body)
+		// + a brighter SLAP (filtered noise 'skin' transient). Each with its
+		// own envelope. Then through reverb for that cavernous masjid sound.
 		function makeDuffHit(when) {
 			if (!audioCtx) return;
-			const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.18, audioCtx.sampleRate);
-			const d = buf.getChannelData(0);
-			for (let i = 0; i < d.length; i++) {
-				const t = i / audioCtx.sampleRate;
-				// Pink-ish noise + low-freq thump envelope
-				d[i] = (Math.random() * 2 - 1) * Math.exp(-t * 14) * 0.6
-				     + Math.sin(2 * Math.PI * 70 * t) * Math.exp(-t * 10) * 0.85;
+			const sr = audioCtx.sampleRate;
+			const len = sr * 0.45;
+			const buf = audioCtx.createBuffer(2, len, sr);
+			for (let ch = 0; ch < 2; ch++) {
+				const d = buf.getChannelData(ch);
+				for (let i = 0; i < len; i++) {
+					const t = i / sr;
+					// Low thump: 60Hz sine with fast-decay envelope
+					const thump = Math.sin(2 * Math.PI * 60 * t) * Math.exp(-t * 6) * 0.9;
+					// Bright skin slap: filtered noise, very fast decay
+					const slap = (Math.random() * 2 - 1) * Math.exp(-t * 30) * 0.45;
+					// Subtle high frequency sparkle
+					const sparkle = (Math.random() * 2 - 1) * Math.exp(-t * 50) * 0.12;
+					d[i] = thump + slap + sparkle;
+				}
 			}
 			const src = audioCtx.createBufferSource();
 			src.buffer = buf;
 			const filt = audioCtx.createBiquadFilter();
 			filt.type = 'lowpass';
-			filt.frequency.value = 320;
+			filt.frequency.value = 1100;
+			filt.Q.value = 1.2;
 			const gain = audioCtx.createGain();
-			gain.gain.value = 0.55;
-			src.connect(filt).connect(gain).connect(masterGain);
+			gain.gain.value = 0.70;
+			src.connect(filt).connect(gain);
+			routeAmbient(gain, 0.5);
 			src.start(when);
 		}
 
-		// Breath: pink-noise pad with breath-paced envelope. We start/stop
-		// segments inside the breath cycle to make audible inhale + exhale.
+		// BREATH — humanised breath pad. Pink noise through a band-pass
+		// filter that sweeps with the breath phase (low formant on exhale,
+		// higher formant on inhale — mimics opening/closing of the throat).
+		// Subtle reverb gives it a roomy, present quality.
 		function buildBreath() {
 			if (!audioCtx) return null;
-			const buf = audioCtx.createBuffer(2, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+			const sr = audioCtx.sampleRate;
+			const buf = audioCtx.createBuffer(2, sr * 2, sr);
 			for (let ch = 0; ch < 2; ch++) {
 				const d = buf.getChannelData(ch);
+				// Generate pink-ish noise (Voss-McCartney approximation)
 				let last = 0;
 				for (let i = 0; i < d.length; i++) {
-					last = (last * 0.97) + (Math.random() * 2 - 1) * 0.03;
-					d[i] = last * 3;
+					last = last * 0.97 + (Math.random() * 2 - 1) * 0.03;
+					d[i] = last * 5;
 				}
 			}
 			const src = audioCtx.createBufferSource();
 			src.buffer = buf;
 			src.loop = true;
+			// Band-pass filter to give it a vocal-tract character
 			const filt = audioCtx.createBiquadFilter();
-			filt.type = 'lowpass';
-			filt.frequency.value = 1200;
+			filt.type = 'bandpass';
+			filt.frequency.value = 700;
+			filt.Q.value = 1.5;
 			const gain = audioCtx.createGain();
 			gain.gain.value = 0;
-			src.connect(filt).connect(gain).connect(masterGain);
+			src.connect(filt).connect(gain);
+			routeAmbient(gain, 0.4);
 			src.start();
 			return {
 				on(phase, halfDur) {
 					if (!audioCtx) return;
 					const now = audioCtx.currentTime;
 					gain.gain.cancelScheduledValues(now);
+					filt.frequency.cancelScheduledValues(now);
 					if (phase === 'inhale') {
-						gain.gain.linearRampToValueAtTime(0.10, now + halfDur * 0.55);
-						gain.gain.linearRampToValueAtTime(0.06, now + halfDur);
+						// Inhale: filter sweeps UP (open throat) + gain swells
+						gain.gain.linearRampToValueAtTime(0.16, now + halfDur * 0.55);
+						gain.gain.linearRampToValueAtTime(0.10, now + halfDur);
+						filt.frequency.linearRampToValueAtTime(1100, now + halfDur);
 					} else {
-						gain.gain.linearRampToValueAtTime(0.08, now + halfDur * 0.50);
+						// Exhale: filter sweeps DOWN (close throat) + gain fades
+						gain.gain.linearRampToValueAtTime(0.13, now + halfDur * 0.45);
 						gain.gain.linearRampToValueAtTime(0.00, now + halfDur);
+						filt.frequency.linearRampToValueAtTime(500, now + halfDur);
 					}
 				},
 				off() { if (!audioCtx) return; gain.gain.cancelScheduledValues(audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5); },
@@ -1670,28 +1755,31 @@
 		let rhythmMode = 'auto';     // 'auto' | 'manual'
 		let phraseBaseS = 10;        // captured from selected.phrase.breath_s at session start
 
-		// SESSION ARC — guided respiratory ramping toward transcendence.
-		// Research (HeartMath, Lehrer/Gevirtz) shows you can't drop a user
-		// straight to 6/min — they need to be eased in, held in coherence,
-		// then deepened. Returns multiplier of the phrase's natural breath_s.
-		//   0-15%   settle    → 0.8× phrase_s (gentler than coherence)
-		//   15-25%  ramp-in   → smooth interpolate 0.8 → 1.0
-		//   25-70%  coherence → 1.0× (= phrase's breath_s, 6/min for kalimah)
-		//   70-90%  deepen    → smooth interpolate 1.0 → 1.2
-		//   90-100% hold      → 1.2× (5/min for kalimah — opens the heart)
+		// SESSION ARC — a CONTINUOUS journey, no plateaus.
+		// Returns a multiplier of the phrase's natural breath_s.
+		// For kalimah (10s base) the journey goes:
+		//   start (0%)   = 0.5× =  5s = 12 BPM (close to resting breath)
+		//   mid (50%)    = ~1.0× = 10s =  6 BPM (HRV coherence)
+		//   end (100%)   = 1.5× = 15s =  4 BPM (deep parasympathetic
+		//                                       + mystical-experience band,
+		//                                       Wahbeh et al. 2014)
+		// Smoothstep curve (cosine ease) means the change is fastest in the
+		// middle and gentler at the edges — never feels stuck, never jolts.
 		function arcMultiplier(progress) {
-			if (progress < 0.15) return 0.8;
-			if (progress < 0.25) return 0.8 + (progress - 0.15) / 0.10 * 0.2;
-			if (progress < 0.70) return 1.0;
-			if (progress < 0.90) return 1.0 + (progress - 0.70) / 0.20 * 0.2;
-			return 1.2;
+			const min = 0.5, max = 1.5;
+			// Smoothstep S-curve: 0→0, 0.5→0.5, 1→1, with zero gradient at edges
+			const eased = 0.5 - Math.cos(Math.PI * Math.max(0, Math.min(1, progress))) / 2;
+			return min + (max - min) * eased;
 		}
 		function arcStageLabel(progress) {
-			if (progress < 0.15) return 'settle';
-			if (progress < 0.25) return 'easing in';
-			if (progress < 0.70) return 'coherence';
-			if (progress < 0.90) return 'deepening';
-			return 'holding';
+			// Labels track the actual breath rate the user is at, not arbitrary
+			// percentages — so they FEEL aligned with the breath, not abstract.
+			if (progress < 0.10) return 'entering';
+			if (progress < 0.30) return 'descending';
+			if (progress < 0.55) return 'coherence';
+			if (progress < 0.80) return 'deepening';
+			if (progress < 0.95) return 'opening';
+			return 'union';
 		}
 
 		function startSession() {
@@ -1718,15 +1806,13 @@
 			audioLayers.chant?.on();
 			// Duff fires on each breath beat, see breathTick below
 
-			// Start with the session-arc settle pace (0.8× phrase rate).
-			// The arc auto-ramps as session progresses unless the user
-			// presses the rhythm ± buttons (which locks to manual mode).
-			// IMPORTANT: set endsAt BEFORE updateRhythmDisplay() so the
-			// stage label ('settle') can be computed from progress %.
+			// Start at the arc's entry rate (0.5× phrase) — close to resting
+			// breath so the user can follow comfortably from breath 1. The
+			// arc then ramps continuously, never plateaus.
 			rhythmMode = 'auto';
 			phraseBaseS = selected.phrase.breath_s || 10;
-			breathS = +(phraseBaseS * 0.8).toFixed(1);
 			endsAt = Date.now() + (selected.duration * 60 * 1000);
+			breathS = +(phraseBaseS * arcMultiplier(0)).toFixed(1);
 			updateRhythmDisplay();
 			applyBreathAnimDuration();
 
@@ -1948,17 +2034,19 @@
 			const pct = Math.min(100, (elapsed / total) * 100);
 			if (progressFill) progressFill.style.width = pct + '%';
 
-			// Auto-ramp the breath rhythm along the session arc. Only when in
-			// 'auto' mode (user hasn't manually overridden via ± buttons).
-			// Only update by ≥0.3s steps to avoid jittery micro-adjustments.
+			// Auto-ramp the breath rhythm along the session arc. The arc is
+			// CONTINUOUS — we update breathS every tick so the journey feels
+			// alive, never stuck. Threshold of 0.1s prevents flicker on the
+			// rounded display while the underlying value drifts smoothly.
 			if (rhythmMode === 'auto') {
 				const target = +(phraseBaseS * arcMultiplier(pct / 100)).toFixed(1);
-				if (Math.abs(target - breathS) >= 0.3) {
+				if (Math.abs(target - breathS) >= 0.1) {
 					breathS = target;
 					updateRhythmDisplay();
 					applyBreathAnimDuration();
-					// Don't restart interval mid-cycle — the next nextHalf()
-					// call already reads breathS dynamically.
+					// The chained nextHalf() setTimeout reads breathS dynamically
+					// on each call, so the new pace applies on the next phase
+					// boundary (never jolts mid-inhale).
 				}
 			}
 
