@@ -1373,7 +1373,7 @@
 		const heartPrompt   = root.querySelector('[data-heart-prompt]');
 		const subsEl        = root.querySelector('[data-dhikr-subs]');
 		const breathCircle  = root.querySelector('.la-breath-circle');
-		const breathSplash  = root.querySelector('.la-breath-splash');
+		// breathSplash removed in Wave 23 — water-cascade visual was poor execution.
 		const breathGlow    = root.querySelector('.la-breath-glow');
 		const bgYtHost      = root.querySelector('[data-bg-yt]');
 		const psycheEl      = root.querySelector('[data-dhikr-psyche]');
@@ -2164,13 +2164,7 @@
 				breathCountEl.textContent = String(breathCycleIndex);
 			}
 
-			// Splash ring — fires on each inhale, visualising water hitting
-			// the heart-orb. The dhikr is the polish of the heart (Bayhaqi).
-			if (breathPhase === 'inhale' && breathSplash) {
-				breathSplash.classList.remove('is-splashing');
-				void breathSplash.offsetWidth;  // restart animation
-				breathSplash.classList.add('is-splashing');
-			}
+			// (Splash ring removed in Wave 23 — water-cascade visual scrapped.)
 		}
 
 		// Rhythm controls — ± buttons step breath_s by 1s, clamped [3, 18].

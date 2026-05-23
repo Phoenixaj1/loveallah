@@ -271,31 +271,13 @@ get_header();
 			<div class="la-dhikr-session-timer" data-active-timer>—:—</div>
 		</div>
 
-		<!-- The breath orb — the HEART being polished. Water cascades over
-		     it (the dhikr is the polish of the heart, Bayhaqi). The droplet
-		     elements + sheet are pure CSS animations; no asset downloads. -->
+		<!-- The breath orb. The water-cascade decoration was removed in
+		     Wave 23 — it read as artificial CSS droplets, not the polish-of-
+		     the-heart metaphor it was meant to evoke. The orb's pulse +
+		     INHALE/EXHALE label do the visual work without distractions. -->
 		<div class="la-breath" data-breath-ring>
 			<div class="la-breath-glow"></div>
-			<!-- Water cascade — 12 droplets at different speeds/positions -->
-			<div class="la-breath-rain" aria-hidden="true">
-				<span class="la-breath-drop" style="--x: 18%; --d: 0.0s; --dur: 2.4s;"></span>
-				<span class="la-breath-drop" style="--x: 32%; --d: 0.8s; --dur: 2.9s;"></span>
-				<span class="la-breath-drop" style="--x: 48%; --d: 1.4s; --dur: 2.6s;"></span>
-				<span class="la-breath-drop" style="--x: 62%; --d: 0.4s; --dur: 3.1s;"></span>
-				<span class="la-breath-drop" style="--x: 78%; --d: 1.1s; --dur: 2.7s;"></span>
-				<span class="la-breath-drop" style="--x: 8%;  --d: 1.9s; --dur: 3.0s;"></span>
-				<span class="la-breath-drop" style="--x: 88%; --d: 0.2s; --dur: 2.8s;"></span>
-				<span class="la-breath-drop" style="--x: 26%; --d: 2.3s; --dur: 2.5s;"></span>
-				<span class="la-breath-drop" style="--x: 55%; --d: 2.0s; --dur: 2.9s;"></span>
-				<span class="la-breath-drop" style="--x: 70%; --d: 1.6s; --dur: 3.2s;"></span>
-				<span class="la-breath-drop" style="--x: 40%; --d: 0.7s; --dur: 2.6s;"></span>
-				<span class="la-breath-drop" style="--x: 14%; --d: 2.5s; --dur: 2.8s;"></span>
-			</div>
 			<div class="la-breath-circle">
-				<!-- Wet sheet — semi-transparent water flowing over the orb's surface -->
-				<div class="la-breath-sheet" aria-hidden="true"></div>
-				<!-- Shimmer highlights — like wet skin in lamplight -->
-				<div class="la-breath-shimmer" aria-hidden="true"></div>
 				<div class="la-breath-inner">
 					<!-- Inhale / Exhale cue ON THE ORB — drives the user's
 					     breath in real time. Above the Arabic so the eye
@@ -307,8 +289,6 @@ get_header();
 					<div class="la-breath-arabic" data-breath-arabic dir="rtl" lang="ar">—</div>
 				</div>
 			</div>
-			<!-- Splash ring — triggered on each inhale via JS toggle of .is-splashing -->
-			<div class="la-breath-splash" aria-hidden="true"></div>
 		</div>
 
 		<!-- BIG SUBTITLE BLOCK — TikTok-style auto-captions, three lines:
