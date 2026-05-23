@@ -28,6 +28,19 @@ $la_timings = class_exists( 'LA_Prayer_Times' )
 	: [];
 $la_next   = $la_timings ? LA_Prayer_Times::next_prayer( $la_timings ) : [];
 $la_streak = function_exists( 'la_unlock_state_for_view' ) ? la_unlock_state_for_view()['streak'] : 0;
+
+// Hijri date — uses the modern Islamic calendar bundled in PHP's IntlDateFormatter.
+// Falls back to plain Gregorian if Intl extension isn't loaded.
+$la_hijri_label = '';
+if ( class_exists( 'IntlDateFormatter' ) ) {
+	$fmt = new IntlDateFormatter(
+		'en@calendar=islamic-umalqura',
+		IntlDateFormatter::LONG, IntlDateFormatter::NONE,
+		$la_tz, IntlDateFormatter::TRADITIONAL, 'd MMM y'
+	);
+	$la_hijri_label = $fmt->format( new DateTime( 'now', new DateTimeZone( $la_tz ) ) );
+	$la_hijri_label = str_replace( ' AH', '', $la_hijri_label ); // already implied
+}
 ?><!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>
@@ -79,6 +92,11 @@ $la_streak = function_exists( 'la_unlock_state_for_view' ) ? la_unlock_state_for
 			<?php endif; ?>
 
 			<div class="la-header-actions">
+				<?php if ( $la_hijri_label ) : ?>
+					<div class="la-hijri-pill" title="Today, Hijri" aria-label="Hijri date <?php echo esc_attr( $la_hijri_label ); ?>">
+						<span class="la-hijri-text"><?php echo esc_html( $la_hijri_label ); ?></span>
+					</div>
+				<?php endif; ?>
 				<?php if ( $la_streak >= 1 ) : ?>
 					<div class="la-streak-pill" title="<?php echo esc_attr( $la_streak ); ?>-day remembrance streak">
 						<span class="la-streak-icon">🤲</span>

@@ -394,6 +394,41 @@
 		toastTimer = setTimeout(() => toast.classList.remove('is-visible'), dur);
 	}
 
+	// ─── Double-tap to like (with heart burst) ───
+	// TikTok muscle memory: tap the video → like + spawn burst at touch point.
+	const lastTapByCard = new WeakMap();
+	feedContainer.addEventListener('pointerdown', (e) => {
+		const card = e.target.closest('.la-snap--content');
+		if (!card) return;
+		// Don't hijack taps on the action rail or overlay text
+		if (e.target.closest('.la-snap-actions, .la-snap-overlay a, button')) return;
+		const now = Date.now();
+		const last = lastTapByCard.get(card) || 0;
+		if (now - last < 320) {
+			// Double-tap: trigger like + heart burst
+			const likeBtn = card.querySelector('.la-snap-action[data-act="like"]');
+			if (likeBtn && !likeBtn.classList.contains('is-active')) {
+				likeBtn.click();
+			}
+			spawnHeartBurst(card, e.clientX, e.clientY);
+			lastTapByCard.set(card, 0); // reset so triple-tap doesn't keep firing
+		} else {
+			lastTapByCard.set(card, now);
+		}
+	});
+
+	function spawnHeartBurst(card, clientX, clientY) {
+		const rect = card.getBoundingClientRect();
+		const burst = document.createElement('div');
+		burst.className = 'la-heart-burst';
+		burst.innerHTML = '<svg viewBox="0 0 24 24" fill="#ED1C6C"><path d="M12 21s-7-4.5-9.5-9C.5 8 3 4 7 4c2 0 3.5 1 5 3 1.5-2 3-3 5-3 4 0 6.5 4 4.5 8C19 16.5 12 21 12 21z"/></svg>';
+		burst.style.left = (clientX - rect.left - 40) + 'px';
+		burst.style.top  = (clientY - rect.top  - 40) + 'px';
+		card.appendChild(burst);
+		setTimeout(() => burst.remove(), 900);
+		haptic(15);
+	}
+
 	// ─── Action buttons (like / save / share) ───
 	feedContainer.addEventListener('click', async (e) => {
 		const action = e.target.closest('.la-snap-action[data-act]');
@@ -412,8 +447,18 @@
 
 		if (act === 'like') {
 			action.classList.toggle('is-active');
+			// Pop the button + tick the count with a slide animation
+			action.classList.remove('is-pop');
+			void action.offsetWidth; // restart animation
+			action.classList.add('is-pop');
 			const span = action.querySelector('[data-likes]');
-			if (span) span.textContent = (parseInt(span.textContent || '0', 10) + 1);
+			if (span) {
+				const newVal = parseInt(span.textContent || '0', 10) + (action.classList.contains('is-active') ? 1 : -1);
+				span.textContent = Math.max(0, newVal);
+				span.classList.remove('is-tick');
+				void span.offsetWidth;
+				span.classList.add('is-tick');
+			}
 		}
 
 		if (act === 'save') {
@@ -671,12 +716,27 @@
 		iframe.src = 'about:blank';
 	}
 
-	// Play first content card on load
+	// Play first content card on load + pulse "tap for sound" hint if muted
 	const firstContent = feedContainer.querySelector('.la-snap--content');
 	if (firstContent) {
 		const r = firstContent.getBoundingClientRect();
 		const fr = feedContainer.getBoundingClientRect();
 		if (r.top >= fr.top && r.bottom <= fr.bottom + 50) playVideoIn(firstContent);
+
+		// First-card sound hint: if the user hasn't enabled audio yet,
+		// pulse a ring around the mute button for ~5s as a discoverability nudge.
+		if (!userWantsSound) {
+			const muteBtn = firstContent.querySelector('.la-snap-mute');
+			if (muteBtn && !sessionStorage.getItem('la_hint_seen')) {
+				muteBtn.classList.add('is-hint');
+				const stopHint = () => muteBtn.classList.remove('is-hint');
+				muteBtn.addEventListener('pointerdown', () => {
+					stopHint();
+					sessionStorage.setItem('la_hint_seen', '1');
+				}, { once: true });
+				setTimeout(stopHint, 5500);
+			}
+		}
 	}
 })();
 
