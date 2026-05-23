@@ -45,7 +45,8 @@ class LA_Algorithm {
 	 */
 	public static function for_user( ?int $user_id, ?string $session_id, int $limit = 20, int $page = 0, ?string $type_filter = null ) : array {
 		$affinities = self::scholar_affinities( $user_id, $session_id );
-		$all        = self::ranked_content_full( $affinities, $type_filter );
+		$seen_ids   = self::recently_seen_post_ids( $user_id, $session_id, 60 );
+		$all        = self::ranked_content_full( $affinities, $seen_ids, $user_id, $session_id, $page, $type_filter );
 
 		// Dhikr only mixed in on page 0 AND only when not filtering (filtered views = pure content)
 		$dhikr = ( $page === 0 && empty( $type_filter ) ) ? self::today_remaining_dhikr( $user_id, $session_id ) : [];
@@ -71,6 +72,11 @@ class LA_Algorithm {
 		for ( $i = 0; $i < $limit; $i++ ) {
 			$content[] = $all[ ( $offset + $i ) % $total ];
 		}
+
+		// Diversity pass — no two adjacent posts from the same scholar.
+		// Keeps the feed feeling varied even when one channel has many videos
+		// at the top of the score list (e.g. a recently-ingested batch).
+		$content = self::diversify_by_scholar( $content );
 
 		// Interleave dhikr (page 0 only) + signup cards (page 0, anonymous, not captured, no filter)
 		$signups = ( $page === 0 && empty( $type_filter ) && self::should_show_signup( $user_id, $session_id ) )
@@ -163,7 +169,7 @@ class LA_Algorithm {
 	 * For larger pools we'd add a cap, but with curated content (10s-100s of posts)
 	 * we want all of them in scoring rotation.
 	 */
-	private static function ranked_content_full( array $affinities, ?string $type_filter = null ) : array {
+	private static function ranked_content_full( array $affinities, array $seen_ids, ?int $user_id, ?string $session_id, int $page, ?string $type_filter = null ) : array {
 		global $wpdb;
 		$t = LA_DB::tables();
 
@@ -208,15 +214,22 @@ class LA_Algorithm {
 			$rows = $type_args ? $wpdb->get_results( $wpdb->prepare( $sql_all, $type_args ) ) : $wpdb->get_results( $sql_all );
 		}
 
+		// Build stable per-(session+page) jitter — same user sees same order
+		// during one session, but different users / different pages get a
+		// fresh shuffle. Without this, identical scores cluster posts from
+		// the same scholar at the top of the feed.
+		$seed_key = ( $user_id ? "u{$user_id}" : ( $session_id ?: 'anon' ) ) . '|p' . $page;
+		$seed = abs( crc32( $seed_key ) );
+
 		foreach ( $rows as $r ) {
 			$r->_card_type = 'content';
-			$r->_score = self::score_post( $r, $affinities );
+			$r->_score = self::score_post( $r, $affinities, $seen_ids, $seed );
 		}
 		usort( $rows, function( $a, $b ) { return $b->_score <=> $a->_score; } );
 		return $rows;
 	}
 
-	private static function score_post( $post, array $affinities ) : float {
+	private static function score_post( $post, array $affinities, array $seen_ids, int $seed ) : float {
 		$score = 1000.0;
 		$age_days = ( time() - strtotime( $post->published_at ) ) / 86400;
 
@@ -235,13 +248,107 @@ class LA_Algorithm {
 			$score -= 1000; // archived — only surfaces if nothing else
 		}
 
-		// Scholar affinity boost
+		// Scholar affinity boost: rewards what this user has engaged with
+		// (likes, saves, shares, completions). Capped to 250 so a single
+		// scholar can't monopolise the feed.
 		if ( ! empty( $post->scholar_id ) && isset( $affinities[ (int) $post->scholar_id ] ) ) {
 			$score += min( 250, $affinities[ (int) $post->scholar_id ] );
 		}
-		// Tiny popularity nudge
+
+		// Already-seen penalty — push down posts the user has scrolled past
+		// recently so the feed feels fresh on every visit. Strong penalty,
+		// but not -1000 so they can still appear if the pool is small.
+		if ( isset( $seen_ids[ (int) $post->id ] ) ) {
+			$score -= 400;
+		}
+
+		// Popularity nudge
 		$score += min( 50, (int) ( $post->likes_count ?? 0 ) );
+
+		// Deterministic per-session jitter [-30, +30] — breaks ties so equal-
+		// score posts shuffle predictably per user per page, no two visits
+		// land on the same Qalam-Qalam-Qalam ordering.
+		$jitter = ( ( $seed ^ ( (int) $post->id * 2654435761 ) ) % 61 ) - 30;
+		$score += $jitter;
+
 		return $score;
+	}
+
+	/**
+	 * Round-robin scholars across the slice so the feed never shows two
+	 * adjacent posts from the same channel. Preserves overall ranking
+	 * order — just spreads same-scholar runs apart.
+	 */
+	private static function diversify_by_scholar( array $content ) : array {
+		if ( count( $content ) <= 2 ) return $content;
+
+		// Group by scholar in original order
+		$buckets = [];
+		foreach ( $content as $c ) {
+			$sid = (int) ( $c->scholar_id ?? 0 );
+			$buckets[ $sid ][] = $c;
+		}
+		// One scholar in the result? Nothing to interleave.
+		if ( count( $buckets ) === 1 ) return $content;
+
+		// Round-robin: take one from each non-empty bucket, looping until
+		// all are drained. This guarantees no two adjacent posts from the
+		// same scholar unless one scholar has more than half the total.
+		$result = [];
+		$total  = count( $content );
+		while ( count( $result ) < $total ) {
+			$any_pushed = false;
+			foreach ( $buckets as $sid => &$bucket ) {
+				if ( ! empty( $bucket ) ) {
+					// Avoid duplicating the last pushed scholar back-to-back.
+					$last_sid = empty( $result ) ? null : ( (int) ( end( $result )->scholar_id ?? 0 ) );
+					if ( $last_sid === $sid && count( array_filter( $buckets, function( $b ) { return ! empty( $b ); } ) ) > 1 ) {
+						continue;
+					}
+					$result[] = array_shift( $bucket );
+					$any_pushed = true;
+				}
+			}
+			unset( $bucket );
+			// Failsafe: if we couldn't push anything (all remaining same scholar),
+			// drain them rather than infinite loop.
+			if ( ! $any_pushed ) {
+				foreach ( $buckets as $sid => &$bucket ) {
+					while ( ! empty( $bucket ) ) {
+						$result[] = array_shift( $bucket );
+					}
+				}
+				unset( $bucket );
+				break;
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * Posts this identity has seen in the last N interactions.
+	 * Returns map [post_id => true] for O(1) lookup.
+	 * 'view' interactions are written client-side when a card scrolls into focus.
+	 */
+	private static function recently_seen_post_ids( ?int $user_id, ?string $session_id, int $limit = 60 ) : array {
+		global $wpdb;
+		$t = LA_DB::tables();
+		$col = $user_id ? 'user_id' : 'session_id';
+		$val = $user_id ?: $session_id;
+		if ( ! $val ) return [];
+
+		$rows = $wpdb->get_col( $wpdb->prepare(
+			"SELECT DISTINCT post_id
+			 FROM {$t['feed_interactions']}
+			 WHERE {$col} = %s
+			 ORDER BY id DESC
+			 LIMIT %d",
+			(string) $val,
+			(int) $limit
+		) );
+		$map = [];
+		foreach ( $rows as $id ) { $map[ (int) $id ] = true; }
+		return $map;
 	}
 
 	/**
