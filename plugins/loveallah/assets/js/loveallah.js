@@ -1668,6 +1668,100 @@
 		}
 	});
 
+	// ─── Connect — skills marketplace filter + search + submit ───
+	(function() {
+		const grid = document.querySelector('[data-skills-grid]');
+		const chips = document.querySelectorAll('[data-skill-chips] .la-chip');
+		const search = document.querySelector('[data-skill-search]');
+		const form = document.querySelector('[data-skill-form]');
+		if (!grid && !form) return;
+
+		let activeCat = 'all';
+		let query = '';
+
+		function applyFilter() {
+			if (!grid) return;
+			const q = query.trim().toLowerCase();
+			const cards = grid.querySelectorAll('.la-skill');
+			let visible = 0;
+			cards.forEach(card => {
+				const cat = card.dataset.cat;
+				const text = card.dataset.q || '';
+				const catOk = (activeCat === 'all' || cat === activeCat);
+				const qOk = (!q || text.includes(q));
+				const show = catOk && qOk;
+				card.classList.toggle('is-hidden', !show);
+				if (show) visible++;
+			});
+			const counter = document.querySelector('[data-listing-count]');
+			if (counter) counter.textContent = visible;
+		}
+
+		chips.forEach(chip => chip.addEventListener('click', () => {
+			chips.forEach(c => c.classList.toggle('is-active', c === chip));
+			activeCat = chip.dataset.cat || 'all';
+			applyFilter();
+			if (navigator.vibrate) navigator.vibrate(8);
+		}));
+
+		search?.addEventListener('input', () => {
+			query = search.value || '';
+			applyFilter();
+		});
+
+		// Submit handler — POST to /skills/submit, show success or error
+		form?.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const submitBtn = form.querySelector('.la-skill-form-submit');
+			const msg = form.querySelector('[data-form-msg]');
+			if (submitBtn) submitBtn.disabled = true;
+			if (msg) { msg.hidden = true; msg.className = 'la-skill-form-msg'; }
+
+			const data = Object.fromEntries(new FormData(form).entries());
+			try {
+				const r = await fetch(`${LA.apiRoot}skills/submit`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce': LA.nonce,
+						'X-LA-Session': LA.sessionId,
+					},
+					body: JSON.stringify(data),
+				});
+				const body = await r.json();
+				if (!r.ok) throw new Error(body.message || 'submission failed');
+				form.reset();
+				if (msg) {
+					msg.hidden = false;
+					msg.classList.add('is-success');
+					msg.textContent = 'JazakAllah khair — your listing is in review. We aim to approve within 24h.';
+				}
+				if (navigator.vibrate) navigator.vibrate([20, 60, 30]);
+			} catch (err) {
+				if (msg) {
+					msg.hidden = false;
+					msg.classList.add('is-error');
+					msg.textContent = err.message || 'Something went wrong. Please try again.';
+				}
+			} finally {
+				if (submitBtn) submitBtn.disabled = false;
+			}
+		});
+
+		// Contact tap — increment counter (fire-and-forget; link still opens)
+		document.addEventListener('click', (e) => {
+			const a = e.target.closest('[data-action="skill-contact"]');
+			if (!a) return;
+			const id = a.dataset.id;
+			if (!id) return;
+			fetch(`${LA.apiRoot}skills/${id}/contact`, {
+				method: 'POST',
+				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+				keepalive: true,
+			}).catch(() => {});
+		});
+	})();
+
 	// ─── Masjid event RSVP / favourite toggles ───
 	// Delegated handler — works for all event posters in the rail.
 	document.addEventListener('click', async (e) => {

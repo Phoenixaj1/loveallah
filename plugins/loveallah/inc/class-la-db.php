@@ -29,6 +29,7 @@ class LA_DB {
 			'duas'              => $wpdb->prefix . 'la_duas',
 			'dua_ameen'         => $wpdb->prefix . 'la_dua_ameen',
 			'event_rsvps'       => $wpdb->prefix . 'la_event_rsvps',
+			'skill_listings'    => $wpdb->prefix . 'la_skill_listings',
 		];
 	}
 
@@ -255,6 +256,36 @@ class LA_DB {
 			KEY identity (identity)
 		) $charset_collate;" );
 
+		// Skills marketplace (Connect page). Anyone can post, money flows
+		// through the platform to Islamic projects (% revenue share).
+		// status: pending | active | rejected. Admins moderate.
+		dbDelta( "CREATE TABLE {$t['skill_listings']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			user_id bigint(20) unsigned DEFAULT NULL,
+			identity varchar(80) DEFAULT NULL,
+			category varchar(60) NOT NULL,
+			title varchar(180) NOT NULL,
+			blurb text,
+			full_name varchar(120) NOT NULL,
+			city varchar(120) DEFAULT NULL,
+			country varchar(80) DEFAULT NULL,
+			contact_email varchar(190) DEFAULT NULL,
+			contact_whatsapp varchar(40) DEFAULT NULL,
+			contact_url varchar(500) DEFAULT NULL,
+			price_from int unsigned DEFAULT NULL,
+			price_unit varchar(20) DEFAULT NULL,
+			currency varchar(8) DEFAULT 'GBP',
+			photo_url varchar(500) DEFAULT NULL,
+			status varchar(20) NOT NULL DEFAULT 'pending',
+			views_count int unsigned NOT NULL DEFAULT 0,
+			contact_count int unsigned NOT NULL DEFAULT 0,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY category (category),
+			KEY status (status),
+			KEY identity (identity)
+		) $charset_collate;" );
+
 		dbDelta( "CREATE TABLE {$t['email_captures']} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			email varchar(190) NOT NULL,
@@ -332,6 +363,34 @@ class LA_DB {
 		self::seed_scholars();
 		self::seed_feed_posts();
 		self::seed_duas();
+		self::seed_skill_listings();
+	}
+
+	/** Seed 6 example Connect listings so the marketplace isn't empty
+	 *  on first deploy. Idempotent — skips if any 'sample' listings exist. */
+	private static function seed_skill_listings() {
+		global $wpdb;
+		$t = self::tables();
+		$existing = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$t['skill_listings']}"
+		);
+		if ( $existing > 0 ) return;
+
+		$samples = [
+			[ 'category' => 'tutoring',  'title' => 'Qur\'an + Tajweed online', 'blurb' => 'Beginner-to-intermediate students welcome. Ijazah from Madinah-trained teachers. 30-min trial free.', 'full_name' => 'Ust. Bilal Yusuf', 'city' => 'Online', 'contact_email' => 'sample@loveallah.app', 'price_from' => 15, 'price_unit' => 'hour' ],
+			[ 'category' => 'medical',   'title' => 'GP — same-day consultations', 'blurb' => 'NHS GP available privately on weekends for Muslim patients. Confidential, sister doctors available.', 'full_name' => 'Dr Aisha Khan', 'city' => 'Birmingham', 'contact_whatsapp' => '+447000000000', 'price_from' => 35, 'price_unit' => 'visit' ],
+			[ 'category' => 'trades',    'title' => 'Plumbing + heating repairs', 'blurb' => 'Gas-safe registered. Emergency callouts. Halal pricing for masjid + community jobs.', 'full_name' => 'Umar Ahmed', 'city' => 'London', 'contact_email' => 'sample2@loveallah.app', 'price_from' => 60, 'price_unit' => 'hour' ],
+			[ 'category' => 'design',    'title' => 'Logo + brand design for da\'wah projects', 'blurb' => 'I help Islamic non-profits and start-ups with brand identity. Discount for masjids and student projects.', 'full_name' => 'Sister Fatima', 'city' => 'Manchester', 'contact_email' => 'sample3@loveallah.app', 'price_from' => 250, 'price_unit' => 'project' ],
+			[ 'category' => 'legal',     'title' => 'Solicitor — family + immigration', 'blurb' => 'Specialist in Muslim family law, wills (wasiyyah), nikkah agreements and immigration.', 'full_name' => 'Imran Choudhury', 'city' => 'Leicester', 'contact_email' => 'sample4@loveallah.app', 'price_from' => 90, 'price_unit' => 'consultation' ],
+			[ 'category' => 'fitness',   'title' => 'Sisters-only personal training', 'blurb' => 'Female PT, modesty-respecting sessions, indoor + home gym. Group rates available.', 'full_name' => 'Sister Layla', 'city' => 'Bradford', 'contact_whatsapp' => '+447000000001', 'price_from' => 25, 'price_unit' => 'session' ],
+		];
+		foreach ( $samples as $s ) {
+			$wpdb->insert( $t['skill_listings'], array_merge( [
+				'status' => 'active',  // pre-approved samples
+				'currency' => 'GBP',
+				'identity' => 'sample',
+			], $s ) );
+		}
 	}
 
 	private static function seed_duas() {

@@ -121,6 +121,28 @@ class LA_API {
 			'permission_callback' => [ __CLASS__, 'check_nonce' ],
 		] );
 
+		// Connect — skills marketplace
+		register_rest_route( self::NS, '/skills', [
+			'methods'  => 'GET',
+			'callback' => [ __CLASS__, 'skills_list' ],
+			'permission_callback' => '__return_true',
+			'args' => [
+				'category' => [ 'type' => 'string', 'default' => '' ],
+				'q'        => [ 'type' => 'string', 'default' => '' ],
+				'limit'    => [ 'type' => 'integer', 'default' => 30 ],
+			],
+		] );
+		register_rest_route( self::NS, '/skills/submit', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'skills_submit' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+		] );
+		register_rest_route( self::NS, '/skills/(?P<id>\d+)/contact', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'skills_contact' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+		] );
+
 		register_rest_route( self::NS, '/mosques/nearest', [
 			'methods'  => 'GET',
 			'callback' => [ __CLASS__, 'nearest_mosques' ],
@@ -570,6 +592,108 @@ class LA_API {
 			$event_id
 		) );
 		return [ 'event_id' => $event_id, 'status' => $status, 'active' => $active, 'count' => $count ];
+	}
+
+	/**
+	 * Connect — list approved skill listings. Filters by category + free
+	 * text search. Returns sorted by recency for now (we'll add affinity
+	 * later when we have engagement signal).
+	 */
+	public static function skills_list( WP_REST_Request $req ) {
+		global $wpdb;
+		$t = LA_DB::tables();
+		$category = sanitize_key( (string) $req->get_param( 'category' ) );
+		$q        = trim( (string) $req->get_param( 'q' ) );
+		$limit    = max( 1, min( 100, (int) $req->get_param( 'limit' ) ?: 30 ) );
+
+		$where = "status = 'active'";
+		$args  = [];
+		if ( $category && $category !== 'all' ) {
+			$where .= " AND category = %s";
+			$args[] = $category;
+		}
+		if ( $q !== '' ) {
+			$like = '%' . $wpdb->esc_like( $q ) . '%';
+			$where .= " AND ( title LIKE %s OR full_name LIKE %s OR city LIKE %s OR blurb LIKE %s )";
+			$args[] = $like; $args[] = $like; $args[] = $like; $args[] = $like;
+		}
+
+		$sql = "SELECT id, category, title, blurb, full_name, city, country,
+		               contact_email, contact_whatsapp, contact_url,
+		               price_from, price_unit, currency, photo_url,
+		               views_count, contact_count, created_at
+		        FROM {$t['skill_listings']}
+		        WHERE {$where}
+		        ORDER BY created_at DESC
+		        LIMIT %d";
+		$args[] = $limit;
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ) );
+		return [ 'listings' => $rows ];
+	}
+
+	/**
+	 * Submit a new skill listing. Anonymous-allowed (identity recorded
+	 * for moderation). Goes into 'pending' status until an admin approves.
+	 */
+	public static function skills_submit( WP_REST_Request $req ) {
+		$body = $req->get_json_params();
+		if ( ! is_array( $body ) ) $body = $req->get_params();
+
+		$category = sanitize_key( (string) ( $body['category'] ?? '' ) );
+		$title    = sanitize_text_field( (string) ( $body['title'] ?? '' ) );
+		$blurb    = sanitize_textarea_field( (string) ( $body['blurb'] ?? '' ) );
+		$name     = sanitize_text_field( (string) ( $body['full_name'] ?? '' ) );
+		$city     = sanitize_text_field( (string) ( $body['city'] ?? '' ) );
+		$email    = sanitize_email( (string) ( $body['contact_email'] ?? '' ) );
+		$whats    = sanitize_text_field( (string) ( $body['contact_whatsapp'] ?? '' ) );
+		$price    = (int) ( $body['price_from'] ?? 0 );
+		$unit     = sanitize_key( (string) ( $body['price_unit'] ?? '' ) );
+
+		if ( ! $category || ! $title || ! $name ) {
+			return new WP_Error( 'missing', 'Category, title and your name are required.', [ 'status' => 400 ] );
+		}
+		if ( ! $email && ! $whats ) {
+			return new WP_Error( 'missing_contact', 'At least one contact method (email or WhatsApp) is required.', [ 'status' => 400 ] );
+		}
+
+		[ $user_id, $session_id ] = self::identity( $req );
+		$identity = self::identity_str( $req );
+
+		global $wpdb;
+		$t = LA_DB::tables();
+		$ok = $wpdb->insert( $t['skill_listings'], [
+			'user_id'          => $user_id,
+			'identity'         => $identity ?: null,
+			'category'         => $category,
+			'title'            => $title,
+			'blurb'            => $blurb,
+			'full_name'        => $name,
+			'city'             => $city,
+			'country'          => null,
+			'contact_email'    => $email ?: null,
+			'contact_whatsapp' => $whats ?: null,
+			'contact_url'      => null,
+			'price_from'       => $price > 0 ? $price : null,
+			'price_unit'       => $unit ?: null,
+			'currency'         => 'GBP',
+			'status'           => 'pending',
+		] );
+		if ( ! $ok ) {
+			return new WP_Error( 'insert_failed', 'Could not save listing.', [ 'status' => 500 ] );
+		}
+		return [ 'ok' => true, 'id' => (int) $wpdb->insert_id, 'status' => 'pending' ];
+	}
+
+	/** Increment contact_count when a visitor taps the contact button. */
+	public static function skills_contact( WP_REST_Request $req ) {
+		$id = (int) $req['id'];
+		global $wpdb;
+		$t = LA_DB::tables();
+		$wpdb->query( $wpdb->prepare(
+			"UPDATE {$t['skill_listings']} SET contact_count = contact_count + 1 WHERE id = %d AND status = 'active'",
+			$id
+		) );
+		return [ 'ok' => true ];
 	}
 
 	/** Build the string identity used for prayer_log / tasbeeh_log rows. */
