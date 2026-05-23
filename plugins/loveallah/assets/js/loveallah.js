@@ -866,7 +866,7 @@
 		);
 	});
 
-	// ─── Duas sidebar — switch categories ───
+	// ─── Duas sidebar — switch categories + per-day tick tracking ───
 	const duasApp = document.querySelector('.la-app--duas-sidebar');
 	if (duasApp) {
 		const railButtons = duasApp.querySelectorAll('[data-cat]');
@@ -874,25 +874,130 @@
 		const catIcon = duasApp.querySelector('[data-cat-icon]');
 		const catTitle = duasApp.querySelector('[data-cat-title]');
 		const catSub = duasApp.querySelector('[data-cat-sub]');
+		const progressFill = duasApp.querySelector('[data-cat-progress-bar]');
+		const progressText = duasApp.querySelector('[data-cat-progress-text]');
 		let cats = {};
 		try { cats = JSON.parse(duasApp.querySelector('#la-duas-cats').textContent); } catch (_) {}
 
+		// Day-tick state — stored per identity in localStorage, keyed by YYYY-MM-DD
+		// so it resets at midnight local time. Survives page reloads, navigations,
+		// and works the same for anon visitors (no server roundtrip needed).
+		const todayKey = () => {
+			const d = new Date();
+			return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+		};
+		const stateKey = 'la_dua_ticks_' + todayKey();
+
+		function loadTicks() {
+			try { return new Set(JSON.parse(localStorage.getItem(stateKey) || '[]').map(String)); } catch (_) { return new Set(); }
+		}
+		function saveTicks(set) {
+			try {
+				localStorage.setItem(stateKey, JSON.stringify([...set]));
+				// Prune old day keys to keep localStorage tidy
+				Object.keys(localStorage).filter(k => k.startsWith('la_dua_ticks_') && k !== stateKey).forEach(k => {
+					try { localStorage.removeItem(k); } catch (_) {}
+				});
+			} catch (_) {}
+		}
+
+		// Apply persisted tick state to cards on render
+		const ticks = loadTicks();
+		duasApp.querySelectorAll('.la-dua').forEach(card => {
+			if (ticks.has(card.dataset.duaId)) card.classList.add('is-ticked');
+		});
+
+		// Compute & paint progress for a given category
+		function paintProgress(catKey) {
+			const section = duasApp.querySelector(`[data-cat-section="${catKey}"]`);
+			if (!section) return;
+			const cards = section.querySelectorAll('.la-dua');
+			const total = cards.length;
+			const done = [...cards].filter(c => c.classList.contains('is-ticked')).length;
+			const pct = total ? Math.round((done / total) * 100) : 0;
+
+			if (progressFill) {
+				progressFill.style.width = pct + '%';
+				progressFill.classList.toggle('is-complete', done === total && total > 0);
+			}
+			if (progressText) {
+				progressText.textContent = `${done} of ${total} read today`;
+			}
+
+			// Mark rail count when complete
+			const railBtn = duasApp.querySelector(`.la-duas-rail-btn[data-cat="${catKey}"]`);
+			if (railBtn) railBtn.classList.toggle('is-complete', done === total && total > 0);
+		}
+
+		// Activate a category — swap section visibility, header, progress
+		function activate(key) {
+			railButtons.forEach(b => b.classList.toggle('is-active', b.dataset.cat === key));
+			sections.forEach(s => s.classList.toggle('is-active', s.dataset.catSection === key));
+			const meta = cats[key];
+			if (meta) {
+				if (catIcon) catIcon.textContent = meta.emoji;
+				if (catTitle) catTitle.textContent = meta.label;
+				if (catSub) catSub.textContent = meta.sub;
+			}
+			paintProgress(key);
+			const pane = duasApp.querySelector('.la-duas-pane');
+			pane?.scrollTo({ top: 0, behavior: 'smooth' });
+		}
+
 		railButtons.forEach(btn => {
 			btn.addEventListener('click', () => {
-				const key = btn.dataset.cat;
-				railButtons.forEach(b => b.classList.toggle('is-active', b === btn));
-				sections.forEach(s => s.classList.toggle('is-active', s.dataset.catSection === key));
-				const meta = cats[key];
-				if (meta) {
-					if (catIcon) catIcon.textContent = meta.emoji;
-					if (catTitle) catTitle.textContent = meta.label;
-					if (catSub) catSub.textContent = meta.sub;
-				}
-				// Reset scroll to top for new category
-				const pane = duasApp.querySelector('.la-duas-pane');
-				pane?.scrollTo({ top: 0, behavior: 'smooth' });
+				activate(btn.dataset.cat);
 				if (navigator.vibrate) navigator.vibrate(10);
 			});
+		});
+
+		// Paint progress for ALL categories on load so rail badges reflect completion
+		Object.keys(cats).forEach(k => paintProgress(k));
+		// Re-paint the currently-active category so its bar shows up
+		const firstActive = duasApp.querySelector('.la-duas-rail-btn.is-active');
+		if (firstActive) paintProgress(firstActive.dataset.cat);
+
+		// Tick button per card — toggles today's "read" state
+		duasApp.addEventListener('click', (e) => {
+			const tickBtn = e.target.closest('[data-action="tick-day"]');
+			if (tickBtn) {
+				e.stopPropagation();
+				const card = tickBtn.closest('.la-dua');
+				const id = String(tickBtn.dataset.id);
+				const cat = tickBtn.dataset.cat;
+				const t = loadTicks();
+				if (t.has(id)) {
+					t.delete(id);
+					card?.classList.remove('is-ticked');
+				} else {
+					t.add(id);
+					card?.classList.add('is-ticked');
+					tickBtn.classList.remove('is-just-ticked');
+					void tickBtn.offsetWidth;
+					tickBtn.classList.add('is-just-ticked');
+				}
+				saveTicks(t);
+				paintProgress(cat);
+				if (navigator.vibrate) navigator.vibrate(12);
+				return;
+			}
+
+			// Reset-day button
+			const resetBtn = e.target.closest('[data-action="reset-day"]');
+			if (resetBtn) {
+				const active = duasApp.querySelector('.la-duas-rail-btn.is-active')?.dataset.cat;
+				if (!active) return;
+				if (!confirm("Clear today's ticks in this category?")) return;
+				const section = duasApp.querySelector(`[data-cat-section="${active}"]`);
+				const t = loadTicks();
+				section?.querySelectorAll('.la-dua').forEach(c => {
+					t.delete(String(c.dataset.duaId));
+					c.classList.remove('is-ticked');
+				});
+				saveTicks(t);
+				paintProgress(active);
+				if (navigator.vibrate) navigator.vibrate(20);
+			}
 		});
 	}
 

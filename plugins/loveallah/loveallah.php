@@ -15,7 +15,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'LA_VERSION',  '0.8.2' );
+define( 'LA_VERSION',  '0.9.0' );
 define( 'LA_DB_VERSION', 8 );
 define( 'LA_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LA_URL', plugin_dir_url( __FILE__ ) );
@@ -72,7 +72,7 @@ add_action( 'plugins_loaded', function() {
 
 // Page creation needs $wp_rewrite (init priority 10), so we hook later
 add_action( 'init', function() {
-	$expected_version = '3';
+	$expected_version = '4';
 	if ( get_option( 'la_pages_created' ) === $expected_version ) return;
 	$pages = [
 		'dhikr'       => 'Dhikr',
@@ -82,6 +82,7 @@ add_action( 'init', function() {
 		'masjid'      => 'Masjid',
 		'saved'       => 'Saved',
 		'duas'        => 'Duas',
+		'donate'      => 'Donate',
 	];
 	foreach ( $pages as $slug => $title ) {
 		if ( ! get_page_by_path( $slug ) ) {

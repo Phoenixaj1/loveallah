@@ -4,8 +4,7 @@ $la_cur = '';
 if ( is_front_page() )              $la_cur = 'feed';
 elseif ( is_page( 'dhikr' ) )       $la_cur = 'dhikr';
 elseif ( is_page( 'duas' ) )        $la_cur = 'duas';
-elseif ( is_page( 'nasheed' ) )     $la_cur = 'nasheed';
-elseif ( is_page( 'mindfulness' ) ) $la_cur = 'mindfulness';
+elseif ( is_page( 'donate' ) )      $la_cur = 'donate';
 elseif ( is_page( 'masjid' ) )      $la_cur = 'masjid';
 elseif ( is_page( 'connect' ) )     $la_cur = 'connect';
 ?>
@@ -19,13 +18,13 @@ elseif ( is_page( 'connect' ) )     $la_cur = 'connect';
 		<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="4" r="1.6"/><circle cx="12" cy="20" r="1.6"/><circle cx="4" cy="12" r="1.6"/><circle cx="20" cy="12" r="1.6"/><circle cx="6.3" cy="6.3" r="1.4"/><circle cx="17.7" cy="6.3" r="1.4"/><circle cx="6.3" cy="17.7" r="1.4"/><circle cx="17.7" cy="17.7" r="1.4"/></svg>
 		<span><?php esc_html_e( 'Dhikr', 'loveallah' ); ?></span>
 	</a>
-	<a class="la-tab <?php echo $la_cur === 'nasheed' ? 'is-active' : ''; ?>" href="<?php echo esc_url( home_url( '/nasheed' ) ); ?>" <?php echo $la_cur === 'nasheed' ? 'aria-current="page"' : ''; ?>>
-		<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 18V6l12-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-		<span><?php esc_html_e( 'Nasheed', 'loveallah' ); ?></span>
-	</a>
 	<a class="la-tab <?php echo $la_cur === 'duas' ? 'is-active' : ''; ?>" href="<?php echo esc_url( home_url( '/duas' ) ); ?>" <?php echo $la_cur === 'duas' ? 'aria-current="page"' : ''; ?>>
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22c-3-2-5-4-5-7 0-3 1.5-4 3-4s2 1 2 1 1-1 2.5-1 2.5 1 2.5 4-2 5-5 7z" fill="currentColor" stroke="none"/><path d="M12 5c0-1.5 1-3 2.5-3M12 5c0-1.5-1-3-2.5-3" stroke-linecap="round"/></svg>
-		<span><?php esc_html_e( 'Duas', 'loveallah' ); ?></span>
+		<span><?php esc_html_e( 'Dua', 'loveallah' ); ?></span>
+	</a>
+	<a class="la-tab <?php echo $la_cur === 'donate' ? 'is-active' : ''; ?>" href="<?php echo esc_url( home_url( '/donate' ) ); ?>" <?php echo $la_cur === 'donate' ? 'aria-current="page"' : ''; ?>>
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="currentColor" stroke="none" opacity="0.95"/><path d="M9 12.5l1.5 1.5L15 9.5" stroke="#fff" stroke-width="2.2" fill="none"/></svg>
+		<span><?php esc_html_e( 'Donate', 'loveallah' ); ?></span>
 	</a>
 	<a class="la-tab <?php echo $la_cur === 'masjid' ? 'is-active' : ''; ?>" href="<?php echo esc_url( home_url( '/masjid' ) ); ?>" <?php echo $la_cur === 'masjid' ? 'aria-current="page"' : ''; ?>>
 		<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.2 2 1 .6V8h2v2h1V8h2v3h1v11h-3v-5h-2v5H8v-5H6v5H3V11h1V8h2v2h1V8h2v-3.4l1-.6L12 2z"/></svg>

@@ -86,6 +86,20 @@ get_header();
 			</div>
 		</header>
 
+		<!-- Per-category progress bar — resets daily. JS reads localStorage
+		     keyed by date so taps survive page reloads but new day = fresh. -->
+		<div class="la-duas-progress" aria-label="Today's progress in this category">
+			<div class="la-duas-progress-track">
+				<div class="la-duas-progress-fill" data-cat-progress-bar style="width:0%"></div>
+			</div>
+			<div class="la-duas-progress-meta">
+				<span class="la-duas-progress-text" data-cat-progress-text>0 of 0 read today</span>
+				<button type="button" class="la-duas-progress-reset" data-action="reset-day" title="Reset today's ticks" aria-label="Reset today's ticks">
+					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+				</button>
+			</div>
+		</div>
+
 		<!-- Card lists — one section per category, only active is visible -->
 		<div class="la-duas-lists">
 			<?php foreach ( $active_cats as $key => $meta ) : ?>
@@ -94,7 +108,16 @@ get_header();
 					<?php foreach ( $by_cat[ $key ] as $d ) :
 						$is_amened = isset( $my_ameen[ (int) $d->id ] );
 					?>
-						<article class="la-dua" data-dua-id="<?php echo (int) $d->id; ?>">
+						<article class="la-dua" data-dua-id="<?php echo (int) $d->id; ?>" data-cat="<?php echo esc_attr( $key ); ?>">
+							<!-- Per-day tick button — large tappable area at the top-right of each card -->
+							<button type="button" class="la-dua-tick"
+								data-action="tick-day"
+								data-id="<?php echo (int) $d->id; ?>"
+								data-cat="<?php echo esc_attr( $key ); ?>"
+								aria-label="Mark as read today"
+								title="Mark as read today">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+							</button>
 							<header class="la-dua-head">
 								<h2 class="la-dua-title"><?php echo esc_html( $d->title ); ?></h2>
 								<?php if ( (int) $d->repeat_count > 1 ) : ?>

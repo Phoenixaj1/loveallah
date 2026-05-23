@@ -2658,6 +2658,58 @@ button { font-family: inherit; }
 	margin: 1px 0 0;
 }
 
+/* Per-category daily progress bar — sits between the head and the cards */
+.la-duas-progress {
+	margin: 4px 0 14px;
+	display: flex; flex-direction: column; gap: 6px;
+}
+.la-duas-progress-track {
+	height: 8px;
+	background: rgba(15, 15, 30, 0.06);
+	border-radius: 999px;
+	overflow: hidden;
+	position: relative;
+}
+.la-duas-progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, rgba(30, 142, 62, 0.7), #1e8e3e);
+	border-radius: 999px;
+	width: 0%;
+	transition: width 0.45s var(--la-spring);
+}
+.la-duas-progress-fill.is-complete {
+	background: linear-gradient(90deg, #1e8e3e, var(--la-primary));
+	box-shadow: 0 0 8px rgba(237, 28, 108, 0.30);
+}
+.la-duas-progress-meta {
+	display: flex; align-items: center; justify-content: space-between;
+	font-size: 11.5px;
+	color: var(--la-ink-soft);
+	font-weight: 700;
+	letter-spacing: 0.01em;
+}
+.la-duas-progress-text { font-variant-numeric: tabular-nums; }
+.la-duas-progress-reset {
+	display: inline-flex; align-items: center; gap: 3px;
+	padding: 3px 8px 3px 6px;
+	background: transparent;
+	border: 1px solid var(--la-line);
+	border-radius: 999px;
+	color: var(--la-ink-faint);
+	font-size: 10px; font-weight: 700;
+	cursor: pointer; font-family: inherit;
+	transition: all 0.15s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-duas-progress-reset:hover { color: var(--la-primary); border-color: var(--la-primary); }
+.la-duas-progress-reset:active { transform: scale(0.94); }
+
+/* Rail count badge — when category is complete, fill with green check */
+.la-duas-rail-btn.is-complete .la-duas-rail-count {
+	background: #1e8e3e;
+	color: #fff;
+}
+
 /* Dua card list — only active section visible */
 .la-duas-list { display: none; }
 .la-duas-list.is-active { display: block; animation: la-cat-fade 0.3s ease; }
@@ -2667,13 +2719,57 @@ button { font-family: inherit; }
 }
 
 .la-dua {
+	position: relative;
 	background: #fff;
 	border: 1px solid var(--la-line);
 	border-radius: 16px;
 	padding: 16px;
 	margin-bottom: 12px;
 	box-shadow: 0 1px 0 rgba(15,15,30,0.02);
+	transition: background 0.25s var(--la-easing), border-color 0.25s var(--la-easing);
 }
+.la-dua.is-ticked {
+	background: linear-gradient(180deg, #f1f9f3 0%, #fff 60%);
+	border-color: rgba(30, 142, 62, 0.32);
+}
+.la-dua.is-ticked .la-dua-title {
+	color: #1e8e3e;
+}
+
+/* Per-day tick button — large round check at top-right of every card */
+.la-dua-tick {
+	position: absolute;
+	top: 14px; right: 14px;
+	width: 30px; height: 30px;
+	border-radius: 50%;
+	background: #fff;
+	border: 1.5px solid var(--la-line);
+	color: rgba(15, 15, 30, 0.25);
+	display: inline-flex; align-items: center; justify-content: center;
+	cursor: pointer;
+	transition: all 0.2s var(--la-spring);
+	-webkit-tap-highlight-color: transparent;
+	z-index: 1;
+}
+.la-dua-tick svg { width: 16px; height: 16px; }
+.la-dua-tick:hover { border-color: rgba(30, 142, 62, 0.40); color: rgba(30, 142, 62, 0.55); }
+.la-dua-tick:active { transform: scale(0.9); }
+.la-dua.is-ticked .la-dua-tick {
+	background: linear-gradient(180deg, #1e8e3e 0%, #2c9e4d 100%);
+	border-color: #1e8e3e;
+	color: #fff;
+	box-shadow: 0 4px 12px rgba(30, 142, 62, 0.30);
+}
+.la-dua.is-ticked .la-dua-tick.is-just-ticked {
+	animation: la-tick-pop 0.5s var(--la-spring);
+}
+@keyframes la-tick-pop {
+	0%   { transform: scale(1); }
+	40%  { transform: scale(1.32); }
+	100% { transform: scale(1); }
+}
+/* Push the card's title to make room for the tick button */
+.la-dua-head { padding-right: 40px; }
 .la-dua-head {
 	display: flex; align-items: center; justify-content: space-between;
 	gap: 10px;
@@ -3465,6 +3561,170 @@ button { font-family: inherit; }
 	font-size: 13px;
 	color: var(--la-ink-soft);
 	margin: 0;
+	line-height: 1.5;
+}
+
+/* ============================================================
+   DONATE — poster-card cause hub linking out to YourNiyyah
+   ============================================================ */
+.la-app--donate {
+	padding: 0 0 calc(var(--la-tabbar-h) + 24px);
+	background: var(--la-bg-soft);
+	min-height: 100vh;
+}
+.la-donate-head {
+	padding: 24px 18px 18px;
+	text-align: left;
+	background: linear-gradient(180deg, #fff 0%, var(--la-bg-soft) 100%);
+}
+.la-donate-eyebrow {
+	font-size: 11px; font-weight: 800;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--la-primary);
+	margin-bottom: 8px;
+}
+.la-donate-title {
+	font-size: clamp(22px, 6vw, 28px);
+	font-weight: 900;
+	letter-spacing: -0.02em;
+	margin: 0 0 8px;
+	color: var(--la-ink-dark);
+	line-height: 1.2;
+}
+.la-donate-sub {
+	font-size: 14px;
+	color: var(--la-ink-soft);
+	margin: 0;
+	line-height: 1.55;
+	max-width: 56ch;
+}
+
+/* Card grid — 2-col mobile, 3-col tablet+ */
+.la-donate-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 12px;
+	padding: 16px 14px 24px;
+}
+@media (min-width: 720px) {
+	.la-donate-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 20px; }
+}
+
+/* Movie-poster style card — full gradient fill, content layered over */
+.la-donate-card {
+	position: relative;
+	display: flex; flex-direction: column;
+	aspect-ratio: 3 / 4;
+	border-radius: 18px;
+	padding: 14px;
+	color: #fff;
+	text-decoration: none;
+	overflow: hidden;
+	transition: transform 0.2s var(--la-spring), box-shadow 0.2s var(--la-easing);
+	box-shadow: 0 4px 18px rgba(15, 15, 30, 0.12);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-donate-card::before {
+	/* Subtle bottom darken so the CTA + body stay readable across gradients */
+	content: '';
+	position: absolute; inset: 0;
+	background: linear-gradient(180deg, transparent 35%, rgba(0,0,0,0.40) 100%);
+	pointer-events: none;
+}
+.la-donate-card > * { position: relative; z-index: 1; }
+.la-donate-card:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 12px 30px rgba(15, 15, 30, 0.22);
+}
+.la-donate-card:active { transform: scale(0.98); }
+
+.la-donate-card-top {
+	display: flex; justify-content: space-between; align-items: flex-start;
+}
+.la-donate-card-emoji {
+	font-size: 30px;
+	line-height: 1;
+	filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+}
+.la-donate-card-tag {
+	font-size: 9.5px; font-weight: 800;
+	padding: 3px 8px;
+	border-radius: 999px;
+	background: rgba(255,255,255,0.22);
+	border: 1px solid rgba(255,255,255,0.28);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	backdrop-filter: blur(4px);
+	-webkit-backdrop-filter: blur(4px);
+}
+
+.la-donate-card-body {
+	margin-top: auto;
+	padding: 8px 0 4px;
+}
+.la-donate-card-name {
+	font-size: clamp(15px, 4vw, 18px);
+	font-weight: 900;
+	letter-spacing: -0.015em;
+	margin: 0 0 4px;
+	line-height: 1.2;
+	text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.la-donate-card-blurb {
+	font-size: 11.5px;
+	color: rgba(255,255,255,0.88);
+	margin: 0;
+	line-height: 1.45;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.la-donate-card-cta {
+	display: inline-flex; align-items: center; gap: 4px;
+	margin-top: 10px;
+	padding: 7px 12px;
+	background: rgba(255,255,255,0.22);
+	border: 1px solid rgba(255,255,255,0.30);
+	border-radius: 999px;
+	font-size: 12px; font-weight: 800;
+	letter-spacing: 0.02em;
+	width: fit-content;
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+}
+
+.la-donate-trust {
+	padding: 0 14px 24px;
+}
+.la-donate-trust-inner {
+	display: flex; align-items: flex-start; gap: 12px;
+	padding: 16px 18px;
+	background: #fff;
+	border: 1px solid var(--la-line);
+	border-radius: 16px;
+	box-shadow: 0 1px 2px rgba(15,15,30,0.04);
+}
+.la-donate-trust-icon {
+	flex-shrink: 0;
+	width: 36px; height: 36px;
+	display: inline-flex; align-items: center; justify-content: center;
+	background: rgba(30, 142, 62, 0.12);
+	color: #1e8e3e;
+	border-radius: 10px;
+}
+.la-donate-trust-text { display: flex; flex-direction: column; gap: 2px; }
+.la-donate-trust-text strong {
+	font-size: 14px; font-weight: 800;
+	color: var(--la-ink-dark);
+	letter-spacing: -0.01em;
+}
+.la-donate-trust-text span {
+	font-size: 12.5px;
+	color: var(--la-ink-soft);
 	line-height: 1.5;
 }
 
