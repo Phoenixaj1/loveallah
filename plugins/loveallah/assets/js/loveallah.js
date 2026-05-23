@@ -1592,33 +1592,69 @@
 		let breathPhase = 'inhale'; // inhale | exhale
 		let breathCycleIndex = 0;
 
-		// HEART-DRAWING PROMPTS — Sufi-style psychological reminders that
-		// pull the heart closer to Allah. NOT the dhikr translation;
-		// these are additional contemplations rotating during a session.
-		// Mixes original Sufi-tradition prompts + verified quotes from
-		// Quran/Hadith/Hikam/Mathnawi (also injected via the wisdom JSON).
-		const heartPrompts = [
-			"Bring your attention to the heart, two fingers beneath the centre of your chest. Let the Name descend there.",
-			"Let the breath be slow. The dhikr enters with the inhale, the world leaves with the exhale.",
-			"Do not chase the count. The Beloved sees the heart, not the tongue.",
-			"Notice the stillness between breaths. Allah is there.",
-			"When the mind wanders, return without scolding. The return itself is the dhikr.",
-			"Imagine the Name descending into the heart with each breath, like rain into dry earth.",
-			"The polish needs no force. Only persistence.",
-			"You are not calling Him from afar. He is closer to you than your jugular vein. (Qur'an 50:16)",
-			"He is the First — before this breath. He is the Last — after this breath. (Qur'an 57:3)",
-			"Every breath that leaves the body without remembrance is a death. Every breath drawn in His presence is a life. — Shaykh Ahmad al-Sirhindi",
-			"You think you are the one calling Allah, but His call is in your call. — Rumi",
-			"Persist in remembrance until the tongue is silent and the heart speaks. — Imam al-Ghazali",
-			"For everything there is a polish, and the polish of the heart is the remembrance of Allah. — The Prophet ﷺ",
-			"He is with you wherever you are. (Qur'an 57:4) — feel it now, in this breath.",
-			"Whoever loves a thing remembers it often. Let this be your love. — Imam al-Junayd",
-			"The heart rusts like iron. Its polish is His Name. — Ibn al-Qayyim",
-			"If you knew the reward of dhikr, you would not let your tongue rest from it for a single breath. — Ibn al-Qayyim",
-			"Sincere dhikr is when the one remembering forgets themselves in the remembrance. — Imam al-Junayd",
-			"Do not abandon the remembrance because you do not feel His presence. Your heedlessness OF His remembrance is worse than your heedlessness WITHIN it. — Ibn Ata'illah",
-			"Remember Me, I will remember you. (Qur'an 2:152)",
-		];
+		// HEART-DRAWING COACHING — a PROGRESSIVE arc, not random rotation.
+		// Each stage maps to a phase of a typical contemplative session
+		// (settle → focus → deepen → expand → integrate). Research on
+		// mindfulness sessions (Lutz et al. 2008; Hölzel et al. 2011)
+		// shows structured progression deepens immersion vs random cues.
+		// We mix in Quran/Hadith/Sufi-master quotes throughout but the
+		// SEQUENCE leads the heart through the journey.
+		const heartCoachArc = {
+			// STAGE 1 (first ~20% of session) — settle the body + breath
+			settle: [
+				"Soften your shoulders. Let your jaw rest. Plant your feet.",
+				"Lengthen the spine. Crown of the head reaches up. Sit like a king before The King.",
+				"Bring your attention to the heart, two fingers beneath the centre of your chest.",
+				"Let the breath slow. The dhikr enters with the inhale, the world leaves with the exhale.",
+				"Notice the stillness between breaths. Allah is there.",
+			],
+			// STAGE 2 (~20-50%) — focus the heart
+			focus: [
+				"Imagine the Name descending into the heart with each breath, like rain into dry earth.",
+				"Whoever loves a thing remembers it often. Let this be your love. — Imam al-Junayd",
+				"For everything there is a polish, and the polish of the heart is the remembrance of Allah. — The Prophet ﷺ",
+				"The heart rusts like iron. Its polish is His Name. — Ibn al-Qayyim",
+				"When the mind wanders, return without scolding. The return itself is the dhikr.",
+			],
+			// STAGE 3 (~50-75%) — deepen presence
+			deepen: [
+				"You are not calling Him from afar. He is closer to you than your jugular vein. (Qur'an 50:16)",
+				"He is with you wherever you are. (Qur'an 57:4) — feel it now, in this breath.",
+				"You think you are the one calling Allah, but His call is in your call. — Rumi",
+				"Persist in remembrance until the tongue is silent and the heart speaks. — Imam al-Ghazali",
+				"Do not abandon the remembrance because you do not feel His presence. Your heedlessness OF His remembrance is worse than your heedlessness WITHIN it. — Ibn Ata'illah",
+			],
+			// STAGE 4 (~75-95%) — expand into awe
+			expand: [
+				"He is the First — before this breath. He is the Last — after this breath. (Qur'an 57:3)",
+				"Every breath that leaves the body without remembrance is a death. Every breath drawn in His presence is a life. — Shaykh Ahmad al-Sirhindi",
+				"Sincere dhikr is when the one remembering forgets themselves in the remembrance. — Imam al-Junayd",
+				"Remember Me, I will remember you. (Qur'an 2:152)",
+				"The polish needs no force. Only persistence.",
+			],
+			// STAGE 5 (final ~5%) — integrate + carry forward
+			integrate: [
+				"Take this presence with you. Let it touch the next conversation, the next step.",
+				"Whatever you were before this breath, you are softer now. Trust that.",
+				"The dhikr does not end when the session ends. It descends into the bones.",
+			],
+		};
+		// Flatten to a sequence we'll walk through based on session progress %.
+		// Each entry: { text, stage }
+		function buildCoachSequence() {
+			const stages = ['settle', 'focus', 'deepen', 'expand', 'integrate'];
+			const ranges = [[0,0.2],[0.2,0.5],[0.5,0.75],[0.75,0.95],[0.95,1.0]];
+			const out = [];
+			stages.forEach((s, i) => {
+				heartCoachArc[s].forEach((t, j) => {
+					const within = (j + 0.5) / heartCoachArc[s].length;
+					const [lo, hi] = ranges[i];
+					out.push({ text: t, stage: s, at: lo + (hi - lo) * within });
+				});
+			});
+			return out;
+		}
+		const coachSequence = buildCoachSequence();
 
 		function showScene(name) {
 			Object.entries(scenes).forEach(([k, el]) => {
@@ -1672,8 +1708,13 @@
 			updateBreathPhase();
 			startBreathInterval();
 
-			// Heart-drawing prompts — rotate every ~15s. Sirri (Secret) mode
-			// skips them: that station IS pure presence, no words.
+			// Reset progressive coaching arc for this session
+			shownCoachIdx.clear();
+
+			// Heart coaching — rotates every ~15s, picks from progressive arc
+			// (settle → focus → deepen → expand → integrate) based on session
+			// progress %. Sirri (Secret) mode skips them — that station IS
+			// pure presence, no words.
 			if (selected.mode !== 'sirri') {
 				rotateHeartPrompt();
 				heartPromptTimer_handle = setInterval(rotateHeartPrompt, 15000);
@@ -1685,23 +1726,40 @@
 			if (navigator.vibrate) navigator.vibrate([20, 60, 30, 60, 20]);
 		}
 
-		let heartIdx = 0;
+		// Walk the coaching arc based on session progress (0.0 - 1.0). Picks
+		// the next un-shown prompt whose `at` is closest to current progress.
+		const shownCoachIdx = new Set();
 		function rotateHeartPrompt() {
 			if (!heartPrompt || selected.mode === 'sirri') return;
+			const total = selected.duration * 60 * 1000;
+			const elapsed = total - Math.max(0, endsAt - Date.now());
+			const progress = Math.max(0, Math.min(1, elapsed / total));
+
+			// Find the next prompt within our window that hasn't shown yet
+			let pick = null;
+			for (let i = 0; i < coachSequence.length; i++) {
+				if (shownCoachIdx.has(i)) continue;
+				if (coachSequence[i].at <= progress + 0.05) {
+					pick = { entry: coachSequence[i], idx: i };
+					break;
+				}
+			}
+			// Fallback — if everything in window is shown, pull a wisdom quote
+			let text;
+			if (pick) {
+				shownCoachIdx.add(pick.idx);
+				text = pick.entry.text;
+			} else if (wisdom.length) {
+				const w = wisdom[Math.floor(Math.random() * wisdom.length)];
+				text = '"' + w.quote + '" — ' + w.speaker;
+			} else {
+				return;
+			}
+
 			heartPrompt.classList.add('is-fading');
 			setTimeout(() => {
-				// Alternate between Sufi prompts and the wisdom-quotes JSON
-				// (Ghazali, Ibn Ata'illah, Rumi etc) so the variety is real.
-				let text;
-				if (heartIdx % 3 === 2 && wisdom.length) {
-					const w = wisdom[Math.floor(Math.random() * wisdom.length)];
-					text = '"' + w.quote + '" — ' + w.speaker;
-				} else {
-					text = heartPrompts[heartIdx % heartPrompts.length];
-				}
 				heartPrompt.textContent = text;
 				heartPrompt.classList.remove('is-fading');
-				heartIdx++;
 			}, 700);
 		}
 
@@ -1711,13 +1769,23 @@
 			if (psycheEl)     psycheEl.style.animationDuration     = (breathS * 1.75) + 's';
 		}
 
+		// Asymmetric breath cadence — 40% inhale / 60% exhale.
+		// Research: longer exhale increases parasympathetic / vagal tone
+		// (Russo et al. 2017; Sevoz-Couche & Laborde 2022). Net cycle =
+		// breathS as before, but each half is scheduled separately by
+		// chained setTimeout rather than a uniform setInterval.
 		function startBreathInterval() {
-			if (breathTimer_handle) clearInterval(breathTimer_handle);
-			breathTimer_handle = setInterval(() => {
+			if (breathTimer_handle) { clearTimeout(breathTimer_handle); breathTimer_handle = null; }
+			function nextHalf() {
 				breathPhase = (breathPhase === 'inhale') ? 'exhale' : 'inhale';
 				if (breathPhase === 'inhale') breathCycleIndex++;
 				updateBreathPhase();
-			}, (breathS / 2) * 1000);
+				const dur = (breathPhase === 'inhale' ? 0.4 : 0.6) * breathS * 1000;
+				breathTimer_handle = setTimeout(nextHalf, dur);
+			}
+			// First half = remainder of current phase (inhale lasts 40% of breathS)
+			const firstDur = (breathPhase === 'inhale' ? 0.4 : 0.6) * breathS * 1000;
+			breathTimer_handle = setTimeout(nextHalf, firstDur);
 		}
 
 		function loadBackgroundVideo(sceneKey) {
@@ -1767,10 +1835,11 @@
 				breathArabic.style.opacity = breathPhase === 'inhale' ? '1' : '0.55';
 			}
 
-			// Schedule audio events for this phase
+			// Schedule audio events for this phase. Half-duration MATCHES the
+			// asymmetric breath ratio (0.4 in / 0.6 out × breathS).
 			if (audioCtx) {
-				const half = (breathS / 2);
-				audioLayers.breath?.on(breathPhase, half);
+				const halfDur = (breathPhase === 'inhale' ? 0.4 : 0.6) * breathS;
+				audioLayers.breath?.on(breathPhase, halfDur);
 				// Duff hits on each inhale (downbeat) — simple, hypnotic
 				if (selected.sounds.duff && breathPhase === 'inhale') {
 					makeDuffHit(audioCtx.currentTime + 0.01);
@@ -1801,7 +1870,13 @@
 			if (navigator.vibrate) navigator.vibrate(10);
 		});
 		function updateRhythmDisplay() {
-			if (rhythmValue) rhythmValue.textContent = breathS + 's';
+			if (!rhythmValue) return;
+			// Show seconds + breaths-per-minute. 6/min ≈ coherence frequency
+			// (gold-standard for HRV/parasympathetic activation).
+			const bpm = (60 / breathS).toFixed(1).replace(/\.0$/, '');
+			rhythmValue.textContent = breathS + 's · ' + bpm + '/min';
+			// Add a hint when the user is in the coherence band (5-7/min)
+			rhythmValue.classList.toggle('is-coherence', breathS >= 8 && breathS <= 12);
 		}
 
 		function destroyAudioLayers() {
@@ -1829,7 +1904,7 @@
 
 		function clearTimers() {
 			clearInterval(sessionTimer_handle);
-			clearInterval(breathTimer_handle);
+			clearTimeout(breathTimer_handle);      // setTimeout chain since 4:6 ratio
 			clearInterval(heartPromptTimer_handle);
 			sessionTimer_handle = breathTimer_handle = heartPromptTimer_handle = null;
 		}

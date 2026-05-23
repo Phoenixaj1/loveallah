@@ -14,79 +14,37 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 // The dhikr phrases — ordered from the highest to the everyday.
-// La ilaha illa Allah is the primary dhikr of the Sufi orders (the kalimah),
-// the testimony itself and the means by which the heart is unlocked.
+// La ilaha illa Allah is the primary dhikr of the Sufi orders (the kalimah).
+// breath_s = full cycle in seconds. We default to 10s (6 breaths/min) —
+// the gold-standard "resonance frequency" for HRV coherence + maximum
+// vagal tone (Lehrer & Gevirtz 2014; Sevoz-Couche & Laborde 2022).
+// Per-breath ratio is asymmetric: 40% inhale / 60% exhale (4s in / 6s out
+// at 10s cycle), because longer exhales activate the parasympathetic
+// nervous system more strongly (Russo et al. 2017, "The physiological
+// effects of slow breathing in the healthy human"). The user can dial
+// faster or slower mid-session via the rhythm pill.
 $la_phrases = [
-	[
-		'key'       => 'kalimah',
-		'arabic'    => 'لَا إِلَهَ إِلَّا ٱللَّٰه',
-		'translit'  => 'Lā ilāha illa-llāh',
-		'meaning'   => 'There is no god but Allah',
-		'inhale'    => 'Lā ilāha',
-		'exhale'    => 'illa-llāh',
-		'note'      => 'The kalimah — the testimony and the highest dhikr',
-		'breath_s'  => 8,
-	],
-	[
-		'key'       => 'allah',
-		'arabic'    => 'ٱللَّٰه',
-		'translit'  => 'Allāh',
-		'meaning'   => 'The Divine Name',
-		'inhale'    => 'Al-',
-		'exhale'    => 'lāh',
-		'note'      => 'The singular Name — the dhikr of the gnostics',
-		'breath_s'  => 8,
-	],
-	[
-		'key'       => 'subhanallah',
-		'arabic'    => 'سُبْحَانَ ٱللَّٰه',
-		'translit'  => 'Subḥān Allāh',
-		'meaning'   => 'Glory be to Allah',
-		'inhale'    => 'Subḥān',
-		'exhale'    => 'Allāh',
-		'note'      => 'Glorification — the dhikr of declaring Allah free from any imperfection',
-		'breath_s'  => 7,
-	],
-	[
-		'key'       => 'alhamdulillah',
-		'arabic'    => 'ٱلْحَمْدُ لِلَّٰه',
-		'translit'  => 'Alḥamdulillāh',
-		'meaning'   => 'All praise is for Allah',
-		'inhale'    => 'Alḥamdu',
-		'exhale'    => 'lillāh',
-		'note'      => 'Gratitude — the dhikr that fills the scales',
-		'breath_s'  => 7,
-	],
-	[
-		'key'       => 'allahuakbar',
-		'arabic'    => 'ٱللَّٰهُ أَكْبَر',
-		'translit'  => 'Allāhu akbar',
-		'meaning'   => 'Allah is greater',
-		'inhale'    => 'Allāhu',
-		'exhale'    => 'akbar',
-		'note'      => 'Magnification — the dhikr that puts every other concern in its place',
-		'breath_s'  => 7,
-	],
-	[
-		'key'       => 'astaghfirullah',
-		'arabic'    => 'أَسْتَغْفِرُ ٱللَّٰه',
-		'translit'  => 'Astaghfirullāh',
-		'meaning'   => 'I seek forgiveness of Allah',
-		'inhale'    => 'Astaghfi',
-		'exhale'    => 'rullāh',
-		'note'      => 'The polish — the Prophet ﷺ sought forgiveness 70+ times a day',
-		'breath_s'  => 8,
-	],
-	[
-		'key'       => 'salawat',
-		'arabic'    => 'صَلَّى ٱللَّٰهُ عَلَيْهِ وَسَلَّم',
-		'translit'  => 'Ṣalla-llāhu ʿalayhi wa sallam',
-		'meaning'   => 'Peace and blessings upon the Prophet ﷺ',
-		'inhale'    => 'Ṣalla-llāhu',
-		'exhale'    => 'ʿalayhi wa sallam',
-		'note'      => 'Salawat — every blessing on him returns to you tenfold',
-		'breath_s'  => 9,
-	],
+	[ 'key' => 'kalimah',        'arabic' => 'لَا إِلَهَ إِلَّا ٱللَّٰه',           'translit' => 'Lā ilāha illa-llāh',
+	  'meaning' => 'There is no god but Allah', 'inhale' => 'Lā ilāha', 'exhale' => 'illa-llāh',
+	  'note' => 'The kalimah — the testimony and the highest dhikr', 'breath_s' => 10 ],
+	[ 'key' => 'allah',          'arabic' => 'ٱللَّٰه',                               'translit' => 'Allāh',
+	  'meaning' => 'The Divine Name', 'inhale' => 'Al-', 'exhale' => 'lāh',
+	  'note' => 'The singular Name — the dhikr of the gnostics', 'breath_s' => 10 ],
+	[ 'key' => 'subhanallah',    'arabic' => 'سُبْحَانَ ٱللَّٰه',                   'translit' => 'Subḥān Allāh',
+	  'meaning' => 'Glory be to Allah', 'inhale' => 'Subḥān', 'exhale' => 'Allāh',
+	  'note' => 'Glorification — the dhikr that frees Allah from imperfection', 'breath_s' => 10 ],
+	[ 'key' => 'alhamdulillah',  'arabic' => 'ٱلْحَمْدُ لِلَّٰه',                   'translit' => 'Alḥamdulillāh',
+	  'meaning' => 'All praise is for Allah', 'inhale' => 'Alḥamdu', 'exhale' => 'lillāh',
+	  'note' => 'Gratitude — the dhikr that fills the scales', 'breath_s' => 10 ],
+	[ 'key' => 'allahuakbar',    'arabic' => 'ٱللَّٰهُ أَكْبَر',                     'translit' => 'Allāhu akbar',
+	  'meaning' => 'Allah is greater', 'inhale' => 'Allāhu', 'exhale' => 'akbar',
+	  'note' => 'Magnification — the dhikr that puts every concern in its place', 'breath_s' => 10 ],
+	[ 'key' => 'astaghfirullah', 'arabic' => 'أَسْتَغْفِرُ ٱللَّٰه',                 'translit' => 'Astaghfirullāh',
+	  'meaning' => 'I seek forgiveness of Allah', 'inhale' => 'Astaghfi', 'exhale' => 'rullāh',
+	  'note' => 'The polish — the Prophet ﷺ sought forgiveness 70+ times a day', 'breath_s' => 11 ],
+	[ 'key' => 'salawat',        'arabic' => 'صَلَّى ٱللَّٰهُ عَلَيْهِ وَسَلَّم',     'translit' => 'Ṣalla-llāhu ʿalayhi wa sallam',
+	  'meaning' => 'Peace and blessings upon the Prophet ﷺ', 'inhale' => 'Ṣalla-llāhu', 'exhale' => 'ʿalayhi wa sallam',
+	  'note' => 'Salawat — every blessing on him returns to you tenfold', 'breath_s' => 12 ],
 ];
 
 // Durations (minutes)
