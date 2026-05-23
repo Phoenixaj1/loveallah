@@ -54,13 +54,21 @@ button { font-family: inherit; }
    Row 1: masjid label + actions
    Row 2: brand + prayer cells
    ============================================================ */
+/* Maghrib-sky gradient instead of flat magenta — gives the sense of
+ * sunset / evening adhaan instead of a marketing strip. */
 .la-header {
 	display: flex; flex-direction: column;
 	padding: 4px 10px;
-	background: var(--la-primary);
-	border-bottom: 1px solid var(--la-primary-dark);
+	background:
+		linear-gradient(180deg, #2C1338 0%, #6B1846 45%, #ED1C6C 100%);
+	border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+	box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset;
 	position: sticky; top: 0; z-index: 50;
 }
+/* Tighten the prayer-cell text now that the surrounding tone is darker */
+.la-prayer-cell-name { font-size: 10px; }
+.la-prayer-cell-time { font-size: 14px; }
+.la-prayer-cell-eta  { font-size: 10px; }
 .la-header-row {
 	display: flex; align-items: center; gap: 8px;
 }
@@ -255,40 +263,43 @@ button { font-family: inherit; }
 	text-align: center;
 	padding: 24px;
 }
+/* Subtle ghost-grey overline — was pink pill that out-shouted the Arabic */
 .la-snap-overline {
 	display: inline-block;
-	font-size: 11px;
-	font-weight: 800;
-	color: var(--la-primary);
-	letter-spacing: 0.14em;
+	font-size: 10px;
+	font-weight: 700;
+	color: rgba(15, 15, 30, 0.42);
+	letter-spacing: 0.18em;
 	text-transform: uppercase;
-	margin-bottom: 28px;
-	padding: 6px 14px;
-	background: var(--la-primary-soft);
-	border-radius: 999px;
+	margin-bottom: 32px;
+	padding: 0;
+	background: transparent;
+	border-radius: 0;
 }
+/* Arabic dominates now: bigger, contemplative weight, breathing letter-spacing */
 .la-snap-arabic {
 	font-family: var(--la-font-arabic);
-	font-size: clamp(56px, 16vw, 96px);
-	font-weight: 700;
-	line-height: 1.4;
-	margin: 0 0 26px;
-	color: var(--la-ink-dark);
+	font-size: clamp(64px, 17vw, 108px);
+	font-weight: 400;
+	line-height: 1.55;
+	letter-spacing: 0.01em;
+	margin: 0 0 32px;
+	color: #0F0F1E;
 	transition: transform 0.4s var(--la-spring);
 }
-.la-snap--dhikr.is-tapped .la-snap-arabic { transform: scale(1.06); }
+.la-snap--dhikr.is-tapped .la-snap-arabic { transform: scale(1.04); }
 .la-snap-translit {
-	font-size: clamp(20px, 5vw, 28px);
-	font-weight: 800;
-	color: var(--la-ink-dark);
-	letter-spacing: -0.02em;
+	font-size: clamp(17px, 4vw, 20px);
+	font-weight: 500;
+	color: #6B6B7E;
+	letter-spacing: 0;
 	margin: 0 0 8px;
 }
 .la-snap-translation {
-	font-size: 15px;
-	color: var(--la-ink-soft);
+	font-size: 14px;
+	color: rgba(15, 15, 30, 0.55);
 	font-style: italic;
-	margin: 0 0 22px;
+	margin: 0 0 24px;
 }
 .la-snap-body {
 	font-size: 14px;
@@ -1183,7 +1194,7 @@ button { font-family: inherit; }
 }
 
 /* ============================================================
-   AFFIRMATION OVERLAY
+   AFFIRMATION OVERLAY (per-dhikr quick confirm)
    ============================================================ */
 .la-affirmation-overlay {
 	position: fixed; inset: 0;
@@ -1205,6 +1216,52 @@ button { font-family: inherit; }
 	padding: 0 32px;
 	line-height: 1.0;
 	animation: la-fade-up 0.6s var(--la-easing);
+}
+
+/* ============================================================
+   SACRED-PAUSE OVERLAY — fires once after the 5th dhikr.
+   A 2.5s held silence on deep-night ink with a single ayah.
+   No motion, no chime — just breath before the feed unlocks.
+   ============================================================ */
+.la-sacred-pause {
+	position: fixed; inset: 0;
+	background: radial-gradient(ellipse at 50% 35%, #1A0B2E 0%, #0F0716 70%, #050308 100%);
+	display: flex; flex-direction: column; align-items: center; justify-content: center;
+	z-index: 250;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 1.1s ease-in-out;
+	padding: 32px;
+}
+.la-sacred-pause.is-visible { opacity: 1; pointer-events: auto; }
+.la-sacred-pause-ayah {
+	font-family: var(--la-font-arabic);
+	font-size: clamp(28px, 7vw, 44px);
+	font-weight: 400;
+	letter-spacing: 0.015em;
+	line-height: 1.7;
+	color: rgba(255, 255, 255, 0.92);
+	text-align: center;
+	max-width: 18ch;
+	margin-bottom: 24px;
+	opacity: 0;
+	animation: la-sacred-in 1.4s 0.4s ease-out forwards;
+}
+.la-sacred-pause-meaning {
+	font-size: 13px;
+	font-weight: 400;
+	color: rgba(255, 255, 255, 0.55);
+	font-style: italic;
+	text-align: center;
+	max-width: 28ch;
+	letter-spacing: 0.01em;
+	line-height: 1.55;
+	opacity: 0;
+	animation: la-sacred-in 1.4s 1.0s ease-out forwards;
+}
+@keyframes la-sacred-in {
+	from { opacity: 0; transform: translateY(8px); }
+	to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes la-fade-up {
 	from { opacity: 0; transform: translateY(20px); }
@@ -1581,6 +1638,8 @@ button { font-family: inherit; }
 /* 5-tab variant — slightly tighter on narrow screens */
 .la-tabbar--5 .la-tab { font-size: 9.5px; padding: 8px 2px; }
 .la-tabbar--5 .la-tab svg { width: 21px; height: 21px; }
+.la-tabbar--6 .la-tab { font-size: 9px; padding: 8px 1px; }
+.la-tabbar--6 .la-tab svg { width: 19px; height: 19px; }
 
 /* ============================================================
    FOOTER (minimal)

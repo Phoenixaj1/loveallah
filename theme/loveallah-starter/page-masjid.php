@@ -8,7 +8,10 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 $la_mosque  = la_chosen_mosque();
-$la_timings = $la_mosque ? LA_Prayer_Times::for_mosque( $la_mosque ) : [];
+$la_tz_msj  = wp_timezone_string() ?: 'Europe/London';
+$la_timings = $la_mosque
+	? LA_Prayer_Times::for_lat_lng( (float) $la_mosque->latitude, (float) $la_mosque->longitude, (int) $la_mosque->id, $la_tz_msj )
+	: [];
 $la_next    = $la_timings ? LA_Prayer_Times::next_prayer( $la_timings ) : [];
 $la_events  = $la_mosque ? LA_Events::upcoming( (int) $la_mosque->id, 6 ) : [];
 

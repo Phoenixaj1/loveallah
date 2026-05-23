@@ -15,8 +15,16 @@ if ( ! empty( $_COOKIE['wordpress_la_geo'] ) ) {
 	}
 }
 
+// Resolve a sensible IANA timezone for SSR: WP setting if valid, else
+// rough longitude→tz mapping, else Europe/London (our home market).
+$la_tz = wp_timezone_string();
+if ( empty( $la_tz ) || $la_tz === 'UTC' ) {
+	$la_tz = ( $la_geo_lng > -0.5 && $la_geo_lng < 0.5 && $la_geo_lat > 49 && $la_geo_lat < 61 )
+		? 'Europe/London'
+		: 'Europe/London';  // safe default — JS will re-fetch with browser tz on hydration
+}
 $la_timings = class_exists( 'LA_Prayer_Times' )
-	? LA_Prayer_Times::for_lat_lng( $la_geo_lat, $la_geo_lng )
+	? LA_Prayer_Times::for_lat_lng( $la_geo_lat, $la_geo_lng, null, $la_tz )
 	: [];
 $la_next   = $la_timings ? LA_Prayer_Times::next_prayer( $la_timings ) : [];
 $la_streak = function_exists( 'la_unlock_state_for_view' ) ? la_unlock_state_for_view()['streak'] : 0;

@@ -20,9 +20,9 @@ class LA_Prayer_Times {
 	 * Compute prayer times for any lat/lng — used by the global geo strip
 	 * (visitor's own location) and for_mosque() (a specific masjid's GPS).
 	 */
-	public static function for_lat_lng( float $lat, float $lng, ?int $mosque_id = null ) : array {
+	public static function for_lat_lng( float $lat, float $lng, ?int $mosque_id = null, string $timezone = '' ) : array {
 		$today = gmdate( 'd-m-Y' );
-		$cache_key = 'la_prayer_' . md5( $lat . '|' . $lng . '|' . $today );
+		$cache_key = 'la_prayer_' . md5( $lat . '|' . $lng . '|' . $today . '|' . $timezone );
 		$cached = get_transient( $cache_key );
 		if ( false !== $cached && is_array( $cached ) ) {
 			return $cached;
@@ -30,7 +30,7 @@ class LA_Prayer_Times {
 
 		// PRIMARY: local astronomical computation (no network, always works).
 		if ( class_exists( 'LA_Prayer_Compute' ) ) {
-			$timings = LA_Prayer_Compute::times_for( $lat, $lng );
+			$timings = LA_Prayer_Compute::times_for( $lat, $lng, $timezone );
 			if ( ! empty( $timings['Dhuhr'] ) ) {
 				set_transient( $cache_key, $timings, 12 * HOUR_IN_SECONDS );
 				return $timings;

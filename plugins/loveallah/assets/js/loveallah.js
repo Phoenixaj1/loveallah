@@ -321,9 +321,61 @@
 		if (data.unlocked) {
 			unlockChime();
 			haptic([40, 60, 40]);
-			setTimeout(() => showAffirmation('Today\'s remembrance is complete', 2400), 250);
+			// Sacred-pause: 2.5s of held silence on deep night before unlock affirmation.
+			// This is the moment that separates "I unlocked content" from "I just did something."
+			setTimeout(() => showSacredPause(), 350);
 		}
 		card.dataset.busy = '0';
+	}
+
+	// ─── Sacred-pause overlay (post-5th-dhikr held silence) ───
+	function showSacredPause() {
+		// Pool of ayat suited to the moment of completed dhikr
+		const verses = [
+			{
+				arabic: 'ٱللَّهُ نُورُ ٱلسَّمَـٰوَٰتِ وَٱلْأَرْضِ',
+				meaning: 'Allah is the Light of the heavens and the earth — al-Nur 24:35',
+			},
+			{
+				arabic: 'فَٱذْكُرُونِىٓ أَذْكُرْكُمْ',
+				meaning: 'So remember Me — I will remember you — al-Baqarah 2:152',
+			},
+			{
+				arabic: 'إِنَّ مَعَ ٱلْعُسْرِ يُسْرًۭا',
+				meaning: 'Indeed, with hardship comes ease — al-Sharh 94:6',
+			},
+			{
+				arabic: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+				meaning: 'In the name of Allah, the Most Gracious, the Most Merciful',
+			},
+			{
+				arabic: 'وَهُوَ مَعَكُمْ أَيْنَ مَا كُنتُمْ',
+				meaning: 'And He is with you wherever you are — al-Hadid 57:4',
+			},
+		];
+		const pick = verses[Math.floor(Math.random() * verses.length)];
+
+		let overlay = document.querySelector('.la-sacred-pause');
+		if (!overlay) {
+			overlay = document.createElement('div');
+			overlay.className = 'la-sacred-pause';
+			overlay.innerHTML = `
+				<div class="la-sacred-pause-ayah" dir="rtl" lang="ar"></div>
+				<div class="la-sacred-pause-meaning"></div>
+			`;
+			document.body.appendChild(overlay);
+		}
+		overlay.querySelector('.la-sacred-pause-ayah').textContent = pick.arabic;
+		overlay.querySelector('.la-sacred-pause-meaning').textContent = pick.meaning;
+
+		// Fade in → hold → fade out → then trigger the regular affirmation toast briefly
+		requestAnimationFrame(() => overlay.classList.add('is-visible'));
+		setTimeout(() => {
+			overlay.classList.remove('is-visible');
+			setTimeout(() => {
+				showAffirmation('Your feed has been unlocked', 1600);
+			}, 1100);
+		}, 3200);
 	}
 
 	// ─── Toast notifications ───
