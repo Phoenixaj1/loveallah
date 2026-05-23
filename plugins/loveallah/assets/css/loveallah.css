@@ -1746,6 +1746,230 @@ button { font-family: inherit; }
 	.la-hijri-pill { display: none; }
 }
 
+/* ============================================================
+   TASBEEH COUNTER — /dhikr page interactive bead
+   ============================================================ */
+.la-app--dhikr { padding-bottom: 0; min-height: auto; background: var(--la-bg); }
+
+.la-tasbeeh {
+	padding: 18px 18px 26px;
+	background:
+		radial-gradient(ellipse at 50% 0%, rgba(237,28,108,0.06) 0%, transparent 60%),
+		#fff;
+	border-bottom: 1px solid var(--la-line);
+}
+.la-tasbeeh-head {
+	display: flex; align-items: flex-end; justify-content: space-between;
+	margin-bottom: 14px;
+}
+.la-tasbeeh-overline {
+	font-size: 10px; font-weight: 800; letter-spacing: 0.16em;
+	text-transform: uppercase; color: var(--la-primary);
+}
+.la-tasbeeh-stats {
+	display: flex; align-items: baseline; gap: 6px;
+	font-size: 12px; color: var(--la-ink-soft);
+}
+.la-tasbeeh-stats [data-stat-total] {
+	font-weight: 900; font-size: 18px; color: var(--la-ink-dark);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Phrase pills */
+.la-tasbeeh-pills {
+	display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+	margin-bottom: 22px;
+}
+.la-tasbeeh-pill {
+	display: flex; flex-direction: column; align-items: center; gap: 2px;
+	padding: 8px 4px;
+	background: rgba(15, 15, 30, 0.04);
+	border: 1.5px solid transparent;
+	border-radius: 12px;
+	font-family: inherit; cursor: pointer;
+	transition: all 0.2s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-tasbeeh-pill-name {
+	font-size: 11px; font-weight: 700; color: var(--la-ink-dark);
+}
+.la-tasbeeh-pill-count {
+	font-size: 10px; font-weight: 600; color: var(--la-ink-soft);
+	font-variant-numeric: tabular-nums;
+}
+.la-tasbeeh-pill.is-active {
+	background: rgba(237, 28, 108, 0.08);
+	border-color: rgba(237, 28, 108, 0.35);
+}
+.la-tasbeeh-pill.is-active .la-tasbeeh-pill-name { color: var(--la-primary); }
+.la-tasbeeh-pill.is-complete {
+	background: rgba(30, 142, 62, 0.10);
+	border-color: rgba(30, 142, 62, 0.30);
+}
+.la-tasbeeh-pill.is-complete .la-tasbeeh-pill-name { color: #1e8e3e; }
+
+/* The big bead — circular tap target */
+.la-tasbeeh-stage {
+	display: flex; justify-content: center;
+	padding: 20px 0;
+}
+.la-tasbeeh-bead {
+	position: relative;
+	width: min(78vw, 320px);
+	height: min(78vw, 320px);
+	max-height: 56vh;
+	border-radius: 50%;
+	background:
+		radial-gradient(circle at 35% 30%, rgba(255,255,255,0.95) 0%, rgba(255,235,245,0.85) 50%, rgba(237,28,108,0.06) 100%);
+	border: none;
+	cursor: pointer;
+	font-family: inherit;
+	box-shadow:
+		0 1px 0 rgba(255,255,255,0.9) inset,
+		0 -2px 8px rgba(237,28,108,0.08) inset,
+		0 14px 36px rgba(15,15,30,0.10),
+		0 4px 12px rgba(237,28,108,0.18);
+	-webkit-tap-highlight-color: transparent;
+	user-select: none;
+	transition: transform 0.18s var(--la-spring), box-shadow 0.18s var(--la-easing);
+	overflow: hidden;
+}
+.la-tasbeeh-bead:active {
+	transform: scale(0.96);
+	box-shadow:
+		0 1px 0 rgba(255,255,255,0.9) inset,
+		0 -2px 8px rgba(237,28,108,0.08) inset,
+		0 8px 24px rgba(15,15,30,0.12);
+}
+.la-tasbeeh-ring {
+	position: absolute; inset: 0;
+	width: 100%; height: 100%;
+}
+.la-tasbeeh-ring-progress {
+	transition: stroke-dashoffset 0.28s cubic-bezier(0.2, 0.9, 0.4, 1);
+}
+.la-tasbeeh-bead-inner {
+	position: relative; z-index: 2;
+	height: 100%;
+	display: flex; flex-direction: column; align-items: center; justify-content: center;
+	padding: 24px;
+	text-align: center;
+}
+.la-tasbeeh-arabic {
+	font-family: var(--la-font-arabic);
+	font-size: clamp(36px, 9vw, 56px);
+	font-weight: 400;
+	color: #0F0F1E;
+	line-height: 1.4;
+	letter-spacing: 0.01em;
+	margin-bottom: 10px;
+}
+.la-tasbeeh-translit {
+	font-size: 14px; font-weight: 600;
+	color: var(--la-ink-soft);
+	margin-bottom: 16px;
+}
+.la-tasbeeh-count {
+	display: inline-flex; align-items: baseline; gap: 4px;
+	padding: 6px 14px;
+	background: rgba(237, 28, 108, 0.08);
+	border-radius: 999px;
+	font-variant-numeric: tabular-nums;
+	font-weight: 800;
+	color: var(--la-primary-dark);
+}
+.la-tasbeeh-count [data-current] { font-size: 22px; }
+.la-tasbeeh-count [data-target]  { font-size: 14px; opacity: 0.7; }
+.la-tasbeeh-count-sep { font-size: 12px; color: var(--la-primary-soft); }
+
+/* Tap ripple */
+.la-tasbeeh-ripple {
+	position: absolute; inset: 0;
+	border-radius: 50%; pointer-events: none;
+	background: radial-gradient(circle at 50% 50%, rgba(237,28,108,0.35), transparent 50%);
+	opacity: 0;
+	transform: scale(0.5);
+}
+.la-tasbeeh-bead.is-tapped .la-tasbeeh-ripple {
+	animation: la-tasbeeh-ripple 0.6s ease-out;
+}
+@keyframes la-tasbeeh-ripple {
+	0%   { opacity: 0.7; transform: scale(0.6); }
+	100% { opacity: 0;   transform: scale(1.15); }
+}
+.la-tasbeeh-bead.is-tapped .la-tasbeeh-arabic {
+	animation: la-tasbeeh-pulse 0.35s var(--la-spring);
+}
+@keyframes la-tasbeeh-pulse {
+	0%, 100% { transform: scale(1); }
+	50%      { transform: scale(1.08); }
+}
+
+/* Phrase complete (33/33) flash */
+.la-tasbeeh-bead.is-complete .la-tasbeeh-count {
+	background: rgba(30,142,62,0.14);
+	color: #1e8e3e;
+	animation: la-tasbeeh-complete 0.7s var(--la-spring);
+}
+@keyframes la-tasbeeh-complete {
+	0%, 100% { transform: scale(1); }
+	30%      { transform: scale(1.18); }
+	60%      { transform: scale(0.96); }
+}
+
+.la-tasbeeh-meaning {
+	text-align: center;
+	font-size: 13px; font-style: italic;
+	color: var(--la-ink-soft);
+	margin: 4px 0 20px;
+	min-height: 18px;
+}
+
+.la-tasbeeh-controls {
+	display: flex; align-items: center; gap: 10px;
+	max-width: 360px; margin: 0 auto;
+}
+.la-tasbeeh-spacer { flex: 1; }
+.la-tasbeeh-control {
+	display: inline-flex; align-items: center; gap: 6px;
+	padding: 8px 14px;
+	background: transparent;
+	border: 1px solid var(--la-line);
+	border-radius: 999px;
+	font-size: 12px; font-weight: 700;
+	color: var(--la-ink-soft);
+	font-family: inherit; cursor: pointer;
+	transition: all 0.15s var(--la-easing);
+}
+.la-tasbeeh-control:active { transform: scale(0.95); }
+.la-tasbeeh-control.is-active {
+	background: rgba(237,28,108,0.10);
+	border-color: rgba(237,28,108,0.30);
+	color: var(--la-primary-dark);
+}
+
+/* Divider above the dhikr video feed */
+.la-tasbeeh-divider {
+	display: flex; align-items: center; justify-content: center;
+	padding: 14px 18px 18px;
+	background: var(--la-bg);
+}
+.la-tasbeeh-divider span {
+	font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+	text-transform: uppercase; color: var(--la-ink-soft);
+	padding: 0 12px;
+	position: relative;
+}
+.la-tasbeeh-divider span::before,
+.la-tasbeeh-divider span::after {
+	content: '';
+	position: absolute; top: 50%;
+	width: 30px; height: 1px;
+	background: var(--la-line);
+}
+.la-tasbeeh-divider span::before { right: 100%; }
+.la-tasbeeh-divider span::after  { left: 100%; }
+
 /* ───── Saved library page ───── */
 .la-saved-head { padding: 28px 24px 18px; text-align: center; }
 .la-saved-tag {

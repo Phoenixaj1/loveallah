@@ -846,6 +846,167 @@
 		);
 	});
 
+	// ─── Tasbeeh counter (only on /dhikr) ───
+	function initTasbeeh(root) {
+		const cfgEl = root.querySelector('#la-tasbeeh-config');
+		if (!cfgEl) return;
+		let phrases = [];
+		try { phrases = JSON.parse(cfgEl.textContent); } catch (_) { return; }
+		if (!Array.isArray(phrases) || !phrases.length) return;
+
+		const bead     = root.querySelector('[data-tasbeeh-bead]');
+		const arabicEl = root.querySelector('[data-tasbeeh-arabic]');
+		const trEl     = root.querySelector('[data-tasbeeh-translit]');
+		const meaningEl= root.querySelector('[data-tasbeeh-meaning]');
+		const curEl    = root.querySelector('[data-current]');
+		const tgtEl    = root.querySelector('[data-target]');
+		const ring     = root.querySelector('.la-tasbeeh-ring-progress');
+		const totalEl  = root.querySelector('[data-stat-total]');
+		const pills    = root.querySelectorAll('.la-tasbeeh-pill');
+		const resetBtn = root.querySelector('[data-tasbeeh-action="reset"]');
+		const vibBtn   = root.querySelector('[data-tasbeeh-action="vibrate-toggle"]');
+
+		// localStorage daily state keyed by date
+		const todayKey = 'la_tasbeeh_' + new Date().toISOString().slice(0,10);
+		let state = {};
+		try { state = JSON.parse(localStorage.getItem(todayKey) || '{}'); } catch (_) {}
+		// shape: { current: 0, counts: {subhanallah: 0, alhamdulillah: 0, allahuakbar: 0} }
+		if (typeof state.current !== 'number') state.current = 0;
+		if (typeof state.counts !== 'object') state.counts = {};
+		phrases.forEach(p => { if (!(p.key in state.counts)) state.counts[p.key] = 0; });
+
+		let vibrateEnabled = localStorage.getItem('la_tasbeeh_vibrate') !== '0';
+		if (vibrateEnabled) vibBtn?.classList.add('is-active');
+
+		// Pending batch to sync to server (avoid one fetch per tap)
+		const pending = {};
+		let syncTimer = null;
+		function scheduleSync() {
+			if (syncTimer) clearTimeout(syncTimer);
+			syncTimer = setTimeout(syncToServer, 1200);
+		}
+		async function syncToServer() {
+			const entries = Object.entries(pending).filter(([_, n]) => n > 0);
+			if (!entries.length) return;
+			Object.keys(pending).forEach(k => pending[k] = 0); // clear before request
+			for (const [phrase, count] of entries) {
+				try {
+					await fetch(LA.apiRoot + 'tasbeeh/increment', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': LA.nonce },
+						credentials: 'include',
+						body: JSON.stringify({ phrase, count }),
+					});
+				} catch (_) {}
+			}
+		}
+
+		function render() {
+			const phrase = phrases[state.current];
+			const cnt = state.counts[phrase.key] || 0;
+			arabicEl.textContent = phrase.arabic;
+			trEl.textContent = phrase.translit;
+			meaningEl.textContent = phrase.meaning;
+			curEl.textContent = cnt;
+			tgtEl.textContent = phrase.target;
+			// Ring progress (circumference 2πr, r=92 → ~578)
+			const circ = 2 * Math.PI * 92;
+			const progress = Math.min(1, cnt / phrase.target);
+			ring.setAttribute('stroke-dasharray', String(circ));
+			ring.setAttribute('stroke-dashoffset', String(circ * (1 - progress)));
+			ring.setAttribute('stroke', phrase.color || '#ED1C6C');
+			// Pills state
+			pills.forEach((pill, i) => {
+				pill.classList.toggle('is-active', i === state.current);
+				const k = pill.getAttribute('data-key');
+				const c = state.counts[k] || 0;
+				const t = phrases[i].target;
+				pill.classList.toggle('is-complete', c >= t);
+				const countEl = pill.querySelector('[data-pill-count]');
+				if (countEl) countEl.textContent = c + '/' + t;
+			});
+			// Total
+			const total = Object.values(state.counts).reduce((a, b) => a + b, 0);
+			if (totalEl) totalEl.textContent = total;
+			// Save
+			localStorage.setItem(todayKey, JSON.stringify(state));
+		}
+
+		function tap() {
+			const phrase = phrases[state.current];
+			state.counts[phrase.key] = (state.counts[phrase.key] || 0) + 1;
+			pending[phrase.key] = (pending[phrase.key] || 0) + 1;
+
+			// Haptic + visual tick
+			if (vibrateEnabled && navigator.vibrate) navigator.vibrate(12);
+			bead.classList.remove('is-tapped');
+			void bead.offsetWidth;
+			bead.classList.add('is-tapped');
+
+			// Auto-advance when reaching target
+			if (state.counts[phrase.key] >= phrase.target) {
+				bead.classList.add('is-complete');
+				if (vibrateEnabled && navigator.vibrate) navigator.vibrate([30, 60, 30]);
+				setTimeout(() => {
+					bead.classList.remove('is-complete');
+					// Move to next incomplete phrase
+					const nextIdx = phrases.findIndex((p, i) => state.counts[p.key] < p.target);
+					if (nextIdx >= 0) state.current = nextIdx;
+					render();
+				}, 700);
+			}
+			render();
+			scheduleSync();
+		}
+
+		bead.addEventListener('click', tap);
+		// Keyboard accessibility
+		bead.addEventListener('keydown', (e) => {
+			if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); tap(); }
+		});
+
+		// Tap a pill to switch active phrase
+		pills.forEach((pill, i) => {
+			pill.addEventListener('click', () => {
+				state.current = i;
+				render();
+			});
+		});
+
+		// Reset — single tap = confirm prompt (no long-press shortcut for now)
+		resetBtn?.addEventListener('click', () => {
+			if (!confirm("Reset today's tasbeeh? Your count will return to zero.")) return;
+			phrases.forEach(p => { state.counts[p.key] = 0; });
+			state.current = 0;
+			localStorage.removeItem(todayKey);
+			render();
+		});
+
+		// Vibration toggle
+		vibBtn?.addEventListener('click', () => {
+			vibrateEnabled = !vibrateEnabled;
+			localStorage.setItem('la_tasbeeh_vibrate', vibrateEnabled ? '1' : '0');
+			vibBtn.classList.toggle('is-active', vibrateEnabled);
+			if (vibrateEnabled && navigator.vibrate) navigator.vibrate(20);
+		});
+
+		render();
+		// Hydrate counts from server (in case user used tasbeeh on another device)
+		fetch(LA.apiRoot + 'tasbeeh/today', { credentials: 'include' })
+			.then(r => r.ok ? r.json() : null)
+			.then(data => {
+				if (!data || !data.counts) return;
+				let changed = false;
+				Object.entries(data.counts).forEach(([k, v]) => {
+					if ((state.counts[k] || 0) < v) { state.counts[k] = v; changed = true; }
+				});
+				if (changed) render();
+			})
+			.catch(() => {});
+	}
+	const tasbeehEl = document.querySelector('[data-tasbeeh]');
+	if (tasbeehEl) initTasbeeh(tasbeehEl);
+
 	// ─── Prayer tracking — tap a prayer cell to mark prayed today ───
 	header.addEventListener('click', async (e) => {
 		const cell = e.target.closest('.la-prayer-cell[data-action="toggle-prayed"]');
