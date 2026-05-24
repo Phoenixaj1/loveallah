@@ -25,13 +25,23 @@ class LA_Algorithm {
 	/** Positions where signup cards interrupt for non-captured anonymous users */
 	const SIGNUP_POSITIONS = [ 7, 16 ];
 
-	/** Engagement weights for affinity scoring */
+	/** Engagement weights for affinity scoring.
+	 *
+	 * Wave 29: 'view' dropped from 2 → 0. The old weight quietly turned every
+	 * scroll-past into +2 affinity for that scholar (×3 within 24h = +6 per
+	 * view). Binge-scroll 30 reels from one channel and the affinity would
+	 * pull the next visit straight back to that same channel — exactly the
+	 * "same content twice" loop we're trying to break. Affinity should only
+	 * grow from active intent (like, save, share, complete), not from passive
+	 * scrolling. Views are still recorded; they drive the seen-tracking and
+	 * binge-exclusion, just no longer the affinity score.
+	 */
 	const ENGAGEMENT_WEIGHTS = [
 		'like'     => 25,
 		'save'     => 35,
 		'share'    => 40,
 		'complete' => 15,
-		'view'     => 2,
+		'view'     => 0,
 	];
 
 	/**
@@ -45,11 +55,22 @@ class LA_Algorithm {
 	 */
 	public static function for_user( ?int $user_id, ?string $session_id, int $limit = 20, int $page = 0, ?string $type_filter = null ) : array {
 		$affinities = self::scholar_affinities( $user_id, $session_id );
-		// Widened from 60 → 250 so the seen-penalty remembers further back,
-		// keeping the feed feeling fresh across many return visits even on
-		// devices/sessions that scroll deep in one sitting.
-		$seen_ids   = self::recently_seen_post_ids( $user_id, $session_id, 250 );
-		$all        = self::ranked_content_full( $affinities, $seen_ids, $user_id, $session_id, $page, $type_filter );
+
+		// Tiered seen-tracking (Wave 29). "Saw this already" is the #1 reason
+		// users close the app, so we treat repeat-views as the strongest
+		// negative signal:
+		//   $seen_once = 1-2 views in 30d → -800 penalty applied in score_post()
+		//   $binged    = 3+ views in 30d  → HARD excluded from the SQL pool
+		//                                   (with cold-start fallback below).
+		[ $seen_once, $binged ] = self::seen_tiered( $user_id, $session_id );
+		$all = self::ranked_content_full( $affinities, $seen_once, $binged, $user_id, $session_id, $page, $type_filter );
+
+		// Cold-start fallback: if the binge exclusion drained the pool below
+		// what we need to fill one page, retry WITHOUT the exclusion. Better
+		// to occasionally repeat than to ship a half-empty feed.
+		if ( count( $all ) < $limit ) {
+			$all = self::ranked_content_full( $affinities, $seen_once, [], $user_id, $session_id, $page, $type_filter );
+		}
 
 		// Dhikr only mixed in on page 0 AND only when not filtering (filtered views = pure content)
 		$dhikr = ( $page === 0 && empty( $type_filter ) ) ? self::today_remaining_dhikr( $user_id, $session_id ) : [];
@@ -190,7 +211,7 @@ class LA_Algorithm {
 	 * For larger pools we'd add a cap, but with curated content (10s-100s of posts)
 	 * we want all of them in scoring rotation.
 	 */
-	private static function ranked_content_full( array $affinities, array $seen_ids, ?int $user_id, ?string $session_id, int $page, ?string $type_filter = null ) : array {
+	private static function ranked_content_full( array $affinities, array $seen_ids, array $binged_ids, ?int $user_id, ?string $session_id, int $page, ?string $type_filter = null ) : array {
 		global $wpdb;
 		$t = LA_DB::tables();
 
@@ -202,6 +223,18 @@ class LA_Algorithm {
 			if ( in_array( $type_filter, $allowed, true ) ) {
 				$type_where = " AND p.type = %s";
 				$type_args[] = $type_filter;
+			}
+		}
+
+		// HARD exclusion of binge-seen posts (3+ views in 30d). Done inline
+		// in the SQL with an int-sanitized list so a user who's looped a
+		// favourite to death actually stops seeing it — even if their scholar
+		// affinity for the channel is sky-high.
+		$binged_where = '';
+		if ( ! empty( $binged_ids ) ) {
+			$safe_ids = array_map( 'intval', array_keys( $binged_ids ) );
+			if ( $safe_ids ) {
+				$binged_where = ' AND p.id NOT IN (' . implode( ',', $safe_ids ) . ')';
 			}
 		}
 
@@ -223,6 +256,7 @@ class LA_Algorithm {
 			        p.published_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
 			        OR p.created_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
 			   )
+			   {$binged_where}
 			   {$type_where}
 			 ORDER BY GREATEST(p.published_at, p.created_at) DESC";
 		$rows = $type_args ? $wpdb->get_results( $wpdb->prepare( $sql, $type_args ) ) : $wpdb->get_results( $sql );
@@ -238,6 +272,7 @@ class LA_Algorithm {
 				 FROM {$t['feed_posts']} p
 				 LEFT JOIN {$t['scholars']} s ON s.id = p.scholar_id
 				 WHERE ( p.expires_at IS NULL OR p.expires_at > NOW() )
+				   {$binged_where}
 				   {$type_where}
 				 ORDER BY p.published_at DESC";
 			$rows = $type_args ? $wpdb->get_results( $wpdb->prepare( $sql_all, $type_args ) ) : $wpdb->get_results( $sql_all );
@@ -303,11 +338,15 @@ class LA_Algorithm {
 			$score += min( 450, $affinities[ (int) $post->scholar_id ] );
 		}
 
-		// Already-seen penalty — push down posts the user has scrolled past
-		// recently so the feed feels fresh on every visit. Strong penalty,
-		// but not -1000 so they can still appear if the pool is small.
+		// Already-seen penalty (Wave 29 strengthened −400 → −800).
+		//
+		// The old −400 could be beaten by a strong scholar affinity (up to
+		// +450), which meant a binge-watched favourite kept resurfacing the
+		// same videos. −800 puts seen content firmly below any unseen
+		// alternative from the same channel, while still letting it appear
+		// before truly-stale (>30d) content as a last-resort.
 		if ( isset( $seen_ids[ (int) $post->id ] ) ) {
-			$score -= 400;
+			$score -= 800;
 		}
 
 		// Popularity nudge
@@ -375,28 +414,55 @@ class LA_Algorithm {
 
 	/**
 	 * Posts this identity has seen in the last N interactions.
-	 * Returns map [post_id => true] for O(1) lookup.
-	 * 'view' interactions are written client-side when a card scrolls into focus.
+	 * Kept for back-compat / legacy callers. Returns the 1-or-more-views set.
 	 */
 	private static function recently_seen_post_ids( ?int $user_id, ?string $session_id, int $limit = 60 ) : array {
+		[ $once, $_binged ] = self::seen_tiered( $user_id, $session_id );
+		return $once;
+	}
+
+	/**
+	 * Tiered seen-tracking. "Seeing the same thing twice" is the #1 reason
+	 * users close the app and switch to another, so we treat repeat-views
+	 * as the strongest negative signal in the algorithm.
+	 *
+	 *   seen_once = posts viewed 1-2 times in last 30 days → −800 score penalty
+	 *   binged    = posts viewed 3+ times in last 30 days  → HARD excluded
+	 *
+	 * Returns [ once_map, binged_map ] both keyed by post_id for O(1) lookup.
+	 *
+	 * 30-day window (was 250 most-recent interactions, which a single deep
+	 * scroll could blow past — leaving no memory by the next visit).
+	 */
+	private static function seen_tiered( ?int $user_id, ?string $session_id ) : array {
 		global $wpdb;
 		$t = LA_DB::tables();
 		$col = $user_id ? 'user_id' : 'session_id';
 		$val = $user_id ?: $session_id;
-		if ( ! $val ) return [];
+		if ( ! $val ) return [ [], [] ];
 
-		$rows = $wpdb->get_col( $wpdb->prepare(
-			"SELECT DISTINCT post_id
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT post_id, COUNT(*) AS views
 			 FROM {$t['feed_interactions']}
 			 WHERE {$col} = %s
-			 ORDER BY id DESC
-			 LIMIT %d",
-			(string) $val,
-			(int) $limit
+			   AND occurred_at >= DATE_SUB( NOW(), INTERVAL 30 DAY )
+			 GROUP BY post_id
+			 ORDER BY views DESC, MAX(id) DESC
+			 LIMIT 1000",
+			(string) $val
 		) );
-		$map = [];
-		foreach ( $rows as $id ) { $map[ (int) $id ] = true; }
-		return $map;
+
+		$once   = [];
+		$binged = [];
+		foreach ( $rows as $r ) {
+			$pid = (int) $r->post_id;
+			if ( (int) $r->views >= 3 ) {
+				$binged[ $pid ] = true;
+			} else {
+				$once[ $pid ] = true;
+			}
+		}
+		return [ $once, $binged ];
 	}
 
 	/**
