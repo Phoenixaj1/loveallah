@@ -205,7 +205,11 @@ class LA_Algorithm {
 			}
 		}
 
-		// Prefer last 60 days of content
+		// Prefer last 60 days BY EITHER PUBLICATION OR INGESTION.
+		// For the visual /videos ingest path, published_at carries the real
+		// YouTube upload date (potentially years old). Without OR-ing in
+		// created_at, freshly-ingested long-form lectures would be silently
+		// filtered out of the feed even though we just pulled them.
 		$sql = "SELECT p.*,
 				s.username as scholar_username,
 				s.display_name as scholar_display_name,
@@ -215,9 +219,12 @@ class LA_Algorithm {
 			 FROM {$t['feed_posts']} p
 			 LEFT JOIN {$t['scholars']} s ON s.id = p.scholar_id
 			 WHERE ( p.expires_at IS NULL OR p.expires_at > NOW() )
-			   AND p.published_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
+			   AND (
+			        p.published_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
+			        OR p.created_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
+			   )
 			   {$type_where}
-			 ORDER BY p.published_at DESC";
+			 ORDER BY GREATEST(p.published_at, p.created_at) DESC";
 		$rows = $type_args ? $wpdb->get_results( $wpdb->prepare( $sql, $type_args ) ) : $wpdb->get_results( $sql );
 
 		// Fallback to all if no recent content (cold start)
@@ -268,6 +275,22 @@ class LA_Algorithm {
 			$score -= ( 11 * 15 ) + ( $age_days - 14 ) * 30;
 		} else {
 			$score -= 1000; // archived — only surfaces if nothing else
+		}
+
+		// INGESTION freshness boost — separate from published_at because /videos
+		// inserts carry the real YouTube upload date (could be years old), while
+		// `created_at` is WHEN we pulled it into our pool. This lifts brand-new
+		// arrivals from the hourly cron so the feed feels alive on every visit
+		// even when the underlying scholar uploaded the video long ago.
+		//   ≤ 1h   → +250  (cron-fresh — show this first)
+		//   ≤ 24h  → +200
+		//   ≤ 7d   → +80
+		//   > 7d   → no boost
+		if ( ! empty( $post->created_at ) ) {
+			$age_h_ingest = ( time() - strtotime( $post->created_at ) ) / 3600;
+			if ( $age_h_ingest <= 1 )       $score += 250;
+			elseif ( $age_h_ingest <= 24 )  $score += 200;
+			elseif ( $age_h_ingest <= 168 ) $score += 80;
 		}
 
 		// Scholar affinity boost: rewards what this user has engaged with

@@ -29,7 +29,8 @@ class LA_Admin {
 		add_action( 'admin_post_la_save_mosque',  [ __CLASS__, 'handle_save_mosque' ] );
 		add_action( 'admin_post_la_save_event',   [ __CLASS__, 'handle_save_event' ] );
 		add_action( 'admin_post_la_delete',       [ __CLASS__, 'handle_delete' ] );
-		add_action( 'admin_post_la_yt_sync',      [ __CLASS__, 'handle_yt_sync' ] );
+		add_action( 'admin_post_la_yt_sync',       [ __CLASS__, 'handle_yt_sync' ] );
+		add_action( 'admin_post_la_yt_sync_batch', [ __CLASS__, 'handle_yt_sync_batch' ] );
 		add_action( 'admin_notices',      [ __CLASS__, 'flash_notice' ] );
 	}
 
@@ -86,6 +87,14 @@ class LA_Admin {
 		$subscribers  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t['subscribers']} WHERE unsubscribed_at IS NULL" );
 		$last_sync    = $wpdb->get_var( "SELECT MAX(last_synced_at) FROM {$t['scholars']}" );
 		$next_cron    = wp_next_scheduled( 'la_youtube_sync' );
+		$schedule     = wp_get_schedule( 'la_youtube_sync' ) ?: 'unscheduled';
+		$last_tick    = (array) ( get_option( 'la_yt_last_tick' ) ?: [] );
+		$due_count    = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$t['scholars']}
+			 WHERE source_url IS NOT NULL AND source_url <> ''
+			   AND ( last_synced_at IS NULL OR last_synced_at < DATE_SUB(NOW(), INTERVAL 6 HOUR) )"
+		);
+		$fresh_24h    = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t['feed_posts']} WHERE created_at >= DATE_SUB( NOW(), INTERVAL 24 HOUR )" );
 		?>
 		<div class="wrap la-admin">
 			<h1><?php esc_html_e( 'Love Allah · Dashboard', 'loveallah' ); ?></h1>
@@ -101,26 +110,59 @@ class LA_Admin {
 			</div>
 
 			<h2 style="margin-top:32px;"><?php esc_html_e( 'YouTube sync', 'loveallah' ); ?></h2>
+
+			<div class="la-stats" style="margin-bottom:12px;">
+				<?php self::stat_card( __( 'Channels due (>6h)', 'loveallah' ), $due_count ); ?>
+				<?php self::stat_card( __( 'Ingested last 24h',  'loveallah' ), $fresh_24h ); ?>
+				<?php self::stat_card( __( 'Cron schedule',      'loveallah' ), $schedule === 'la_one_hour' ? '1 hr' : esc_html( $schedule ) ); ?>
+			</div>
+
 			<p>
 				<?php
 				if ( $last_sync ) {
 					/* translators: %s: time ago string */
-					printf( esc_html__( 'Last sync: %s', 'loveallah' ), esc_html( human_time_diff( strtotime( $last_sync ) ) . ' ago' ) );
+					printf( esc_html__( 'Most recent scholar sync: %s', 'loveallah' ), esc_html( human_time_diff( strtotime( $last_sync ) ) . ' ago' ) );
 				} else {
 					esc_html_e( 'Never synced yet.', 'loveallah' );
 				}
 				echo ' · ';
 				if ( $next_cron ) {
 					/* translators: %s: time until next cron */
-					printf( esc_html__( 'Next scheduled in %s', 'loveallah' ), esc_html( human_time_diff( time(), $next_cron ) ) );
+					printf( esc_html__( 'Next cron tick in %s', 'loveallah' ), esc_html( human_time_diff( time(), $next_cron ) ) );
 				}
 				?>
 			</p>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:10px;">
+
+			<?php if ( ! empty( $last_tick['at'] ) ) : ?>
+				<p style="color:#5e6c84; font-size:13px;">
+					<?php
+					printf(
+						/* translators: 1: time ago, 2: scholars count, 3: posts count */
+						esc_html__( 'Last cron tick: %1$s · checked %2$d channels · inserted %3$d new posts', 'loveallah' ),
+						esc_html( human_time_diff( strtotime( $last_tick['at'] ) ) . ' ago' ),
+						(int) ( $last_tick['synced']   ?? 0 ),
+						(int) ( $last_tick['inserted'] ?? 0 )
+					);
+					if ( ! empty( $last_tick['errors'] ) ) {
+						echo ' · <span style="color:#a94442;">' . esc_html( count( $last_tick['errors'] ) ) . ' channel(s) had errors</span>';
+					}
+					?>
+				</p>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:10px; display:inline-block;">
+				<?php wp_nonce_field( 'la_yt_sync_batch' ); ?>
+				<input type="hidden" name="action" value="la_yt_sync_batch">
+				<?php submit_button( __( 'Sync next batch (fast)', 'loveallah' ), 'primary', '', false ); ?>
+			</form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:10px; display:inline-block; margin-left:8px;">
 				<?php wp_nonce_field( 'la_yt_sync' ); ?>
 				<input type="hidden" name="action" value="la_yt_sync">
-				<?php submit_button( __( 'Sync YouTube now', 'loveallah' ), 'primary', '', false ); ?>
+				<?php submit_button( __( 'Sync full roster (slow)', 'loveallah' ), 'secondary', '', false ); ?>
 			</form>
+			<p class="description" style="margin-top:8px;">
+				<?php esc_html_e( 'Batch syncs the 8 oldest channels and matches what the hourly cron does — completes in seconds. Full roster checks every channel and can time out the browser, run only when you really need to backfill everything.', 'loveallah' ); ?>
+			</p>
 
 			<h2 style="margin-top:32px;"><?php esc_html_e( 'Quick actions', 'loveallah' ); ?></h2>
 			<p>
@@ -738,10 +780,39 @@ class LA_Admin {
 	public static function handle_yt_sync() : void {
 		check_admin_referer( 'la_yt_sync' );
 		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+		// Lift execution caps — full sync across 55+ channels in one request
+		// can run 5+ minutes when yt-dlp is slow on cold IPs.
+		@set_time_limit( 0 );
 		$result = LA_YouTube::sync_all();
 		set_transient( 'la_admin_notice', sprintf(
 			/* translators: 1: synced count, 2: inserted count */
-			__( 'YouTube sync complete: %1$d scholars checked, %2$d new posts.', 'loveallah' ),
+			__( 'Full sync complete: %1$d channels checked, %2$d new posts.', 'loveallah' ),
+			$result['synced'], $result['inserted']
+		), 30 );
+		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah' ) );
+		exit;
+	}
+
+	/**
+	 * Same code path as the hourly cron — process the next batch of
+	 * oldest-synced channels. Fast (8 channels × ~3s each = ~25s typical),
+	 * safe to invoke from the browser without hitting timeouts.
+	 */
+	public static function handle_yt_sync_batch() : void {
+		check_admin_referer( 'la_yt_sync_batch' );
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+		$result = LA_YouTube::sync_next_batch();
+		// Mirror cron_tick — persist last-tick stats so the dashboard reflects
+		// the manual run (otherwise the panel still shows the old cron numbers).
+		update_option( 'la_yt_last_tick', [
+			'at'       => current_time( 'mysql' ),
+			'synced'   => (int) $result['synced'],
+			'inserted' => (int) $result['inserted'],
+			'errors'   => array_slice( (array) $result['errors'], 0, 5 ),
+		], false );
+		set_transient( 'la_admin_notice', sprintf(
+			/* translators: 1: synced count, 2: inserted count */
+			__( 'Batch sync: %1$d channels checked, %2$d new posts.', 'loveallah' ),
 			$result['synced'], $result['inserted']
 		), 30 );
 		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah' ) );

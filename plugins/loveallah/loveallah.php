@@ -15,8 +15,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'LA_VERSION',  '0.13.2' );
-define( 'LA_DB_VERSION', 13 );
+define( 'LA_VERSION',  '0.14.0' );
+define( 'LA_DB_VERSION', 14 );
 define( 'LA_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LA_URL', plugin_dir_url( __FILE__ ) );
 define( 'LA_FILE', __FILE__ );
@@ -47,8 +47,10 @@ register_activation_hook( __FILE__, function() {
 	LA_DB::install();
 	LA_Caps::install();
 	LA_PWA::on_activate();
+	// Hourly sync — round-robin 8 scholars per tick via LA_YouTube::cron_tick().
+	// Cheap & scalable: scales with channel count, not with frequency.
 	if ( ! wp_next_scheduled( 'la_youtube_sync' ) ) {
-		wp_schedule_event( time() + 60, 'la_six_hours', 'la_youtube_sync' );
+		wp_schedule_event( time() + 60, 'la_one_hour', 'la_youtube_sync' );
 	}
 } );
 register_deactivation_hook( __FILE__, function() {
@@ -116,14 +118,33 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 }
 
 // ── YouTube sync schedule ──
+// Hourly cron + round-robin (process N scholars per tick by last_synced_at ASC)
+// gives us "always-fresh content" without hammering yt-dlp. With ~55 channels and
+// 8 per tick, every scholar syncs ~every 7 hours; new uploads surface within an
+// hour at the top of the feed thanks to the freshness boost in the algorithm.
 add_action( 'la_youtube_sync', [ 'LA_YouTube', 'cron_tick' ] );
 add_filter( 'cron_schedules', function( $s ) {
-	$s['la_six_hours'] = [ 'interval' => 6 * HOUR_IN_SECONDS, 'display' => __( 'Every 6 hours (Love Allah)', 'loveallah' ) ];
+	$s['la_one_hour']  = [ 'interval' => HOUR_IN_SECONDS,     'display' => __( 'Every hour (Love Allah)', 'loveallah' ) ];
+	// Kept registered so any legacy stored event still resolves (we unschedule
+	// it below, but a stale row in cron options could try to dispatch once).
+	$s['la_six_hours'] = [ 'interval' => 6 * HOUR_IN_SECONDS, 'display' => __( 'Every 6 hours (Love Allah, legacy)', 'loveallah' ) ];
 	return $s;
 } );
 add_action( 'plugins_loaded', function() {
-	if ( get_option( 'la_yt_sync_enabled', 1 ) && ! wp_next_scheduled( 'la_youtube_sync' ) ) {
-		wp_schedule_event( time() + 60, 'la_six_hours', 'la_youtube_sync' );
+	if ( ! get_option( 'la_yt_sync_enabled', 1 ) ) return;
+
+	// One-time migration: if we previously scheduled the 6-hourly variant,
+	// unschedule it so we don't end up with two parallel sync events.
+	$next = wp_next_scheduled( 'la_youtube_sync' );
+	if ( $next ) {
+		$schedule = wp_get_schedule( 'la_youtube_sync' );
+		if ( $schedule === 'la_six_hours' ) {
+			wp_clear_scheduled_hook( 'la_youtube_sync' );
+			$next = false;
+		}
+	}
+	if ( ! $next ) {
+		wp_schedule_event( time() + 60, 'la_one_hour', 'la_youtube_sync' );
 	}
 }, 20 );
 

@@ -1,15 +1,21 @@
 <?php
 /**
- * YouTube ingestion via yt-dlp — Shorts only.
+ * YouTube ingestion via yt-dlp — Shorts + Videos.
  *
  * Strategy:
  *   1. yt-dlp --flat-playlist  →  fast list of video IDs from /shorts tab
  *   2. For each NEW video (not in DB), yt-dlp single-video fetch  →  duration, upload_date, description
- *   3. Filter to videos ≤ 180s (so we never accidentally ingest long-form)
+ *   3. Filter to videos ≤ max_duration_for(type)
  *   4. Insert with full metadata, dedup by source URL
  *
- * Runs on a 6-hourly WP-Cron. After the first sync, subsequent runs
- * only do metadata fetches for newly-discovered IDs — cheap.
+ * SCALABLE HOURLY CRON (Wave 28):
+ *   Runs every hour via `la_youtube_sync` action. Each tick processes
+ *   only BATCH_PER_TICK scholars, ordered by `last_synced_at ASC NULLS FIRST`.
+ *   With ~55 channels and 8 per tick, every channel still syncs every ~7 hours,
+ *   but newly-published content appears at the top of the feed within an hour
+ *   thanks to the +200 freshness boost in LA_Algorithm. No single tick ever
+ *   hammers yt-dlp with 55 sequential subprocess calls — that pattern would
+ *   hit Cloudways' shell timeout and silently break the cron.
  *
  * Requires yt-dlp binary at /usr/local/bin/yt-dlp (production Dockerfile
  * should install Python 3 + yt-dlp).
@@ -21,8 +27,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class LA_YouTube {
 
-	const MAX_PER_SYNC = 15;          // Items to consider per scholar per run
-	const TIMEOUT_SEC  = 30;
+	const MAX_PER_SYNC    = 15;       // Items to consider per scholar per run
+	const TIMEOUT_SEC     = 30;       // Per-subprocess timeout
+	const BATCH_PER_TICK  = 8;        // Scholars processed per hourly cron tick
 
 	/**
 	 * Locate yt-dlp binary. Cloudways installs it under ~/bin, others under /usr/local/bin.
@@ -73,6 +80,32 @@ class LA_YouTube {
 
 	public static function sync_all() : array {
 		$scholars = LA_Scholars::all();
+		return self::sync_list( $scholars );
+	}
+
+	/**
+	 * Round-robin sync: pick the N least-recently-synced scholars and
+	 * process only those. NULL last_synced_at sorts first so newly-seeded
+	 * channels get pulled on the very next cron tick.
+	 *
+	 * This is what the hourly cron calls — keeps each tick under the shell
+	 * timeout while still rotating the entire roster every few hours.
+	 */
+	public static function sync_next_batch( int $batch = self::BATCH_PER_TICK ) : array {
+		global $wpdb;
+		$t = LA_DB::tables();
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT * FROM {$t['scholars']}
+			 WHERE source_url IS NOT NULL AND source_url <> ''
+			 ORDER BY (last_synced_at IS NULL) DESC, last_synced_at ASC, id ASC
+			 LIMIT %d",
+			$batch
+		) );
+		return self::sync_list( $rows ?: [] );
+	}
+
+	/** Shared inner loop — sync a given list of scholar rows. */
+	private static function sync_list( array $scholars ) : array {
 		$result = [ 'synced' => 0, 'inserted' => 0, 'errors' => [] ];
 		foreach ( $scholars as $s ) {
 			try {
@@ -85,6 +118,13 @@ class LA_YouTube {
 			} catch ( Throwable $e ) {
 				$result['errors'][] = $s->username . ': ' . $e->getMessage();
 			}
+		}
+		// Notify the rest of the plugin so it can invalidate caches
+		// (e.g. wp_cache_delete( 'la_ranked_content' ) wired up in loveallah.php).
+		// Only fire when something actually changed — otherwise we'd thrash the cache
+		// every hour with no benefit.
+		if ( $result['inserted'] > 0 ) {
+			do_action( 'la_after_feed_sync', $result );
 		}
 		return $result;
 	}
@@ -101,10 +141,16 @@ class LA_YouTube {
 		$max_dur   = self::max_duration_for( $type );
 		$tabs      = self::tabs_for( $type );
 
+		// Detect search-URL channels so we don't pointlessly call yt-dlp
+		// twice with the same URL (the /shorts and /videos suffixes are
+		// stripped for query-string URLs in url_for_tab).
+		$is_search = strpos( (string) $scholar->source_url, '?' ) !== false;
+
 		// Try each tab in order until we get a list
 		$list     = [];
 		$used_tab = null;
-		foreach ( $tabs as $tab ) {
+		$tabs_to_try = $is_search ? [ 'search' ] : $tabs;
+		foreach ( $tabs_to_try as $tab ) {
 			$url  = self::url_for_tab( $scholar->source_url, $tab );
 			$list = self::flat_list( $url, self::MAX_PER_SYNC );
 			if ( ! empty( $list ) ) { $used_tab = $tab; break; }
@@ -117,6 +163,8 @@ class LA_YouTube {
 
 		$inserted = 0;
 		foreach ( $list as $v ) {
+			// search-derived items go through watch?v= since we can't know
+			// whether they're shorts or longform.
 			$source_url = $used_tab === 'shorts'
 				? "https://www.youtube.com/shorts/{$v['id']}"
 				: "https://www.youtube.com/watch?v={$v['id']}";
@@ -130,7 +178,12 @@ class LA_YouTube {
 			// Audio-first types (qirat, dhikr, lecture, mindfulness) don't need
 			// portrait orientation — the content IS the voice, the visual is
 			// static or backdrop. Accept any orientation from /videos for those.
-			$audio_first = in_array( $type, [ 'qirat', 'dhikr', 'lecture', 'mindfulness' ], true );
+			// Also treat search-derived items as audio-first: the user explicitly
+			// chose a search URL because there's no canonical channel (typically
+			// classical qaris or curated cross-channel topical search), so the
+			// portrait check makes no sense there.
+			$audio_first = in_array( $type, [ 'qirat', 'dhikr', 'lecture', 'mindfulness' ], true )
+			            || $used_tab === 'search';
 
 			if ( $used_tab === 'shorts' ) {
 				// FAST PATH: portrait is guaranteed by YouTube's Shorts format.
@@ -171,6 +224,11 @@ class LA_YouTube {
 				'original_source_url' => $source_url,
 				'duration_sec'        => $duration,
 				'published_at'        => $published_at,
+				// `created_at` is when WE ingested it (drives the +200 freshness
+				// boost in LA_Algorithm). MySQL's CURRENT_TIMESTAMP default would
+				// work too, but stamping explicitly keeps the value identical
+				// across sites with non-UTC server timezones.
+				'created_at'          => current_time( 'mysql', true ),
 			] );
 			$inserted++;
 		}
@@ -179,9 +237,18 @@ class LA_YouTube {
 		return [ 'inserted' => $inserted, 'fetched' => count( $list ), 'tab' => $used_tab ];
 	}
 
-	/** Build a tab URL (/shorts or /videos) from a channel source URL */
+	/** Build a tab URL (/shorts or /videos) from a channel source URL.
+	 *
+	 * For search-query URLs (`youtube.com/results?search_query=...`) and any
+	 * URL containing a query string we return as-is — appending /shorts to a
+	 * search URL would land inside the query value and break yt-dlp. The
+	 * search extractor returns whatever the query matches, which is what we
+	 * want for deceased classical qaris with no official channel.
+	 */
 	private static function url_for_tab( ?string $source_url, string $tab ) : ?string {
 		if ( empty( $source_url ) ) return null;
+		// Search URLs or any URL with a query string: return raw, no tab suffix.
+		if ( strpos( $source_url, '?' ) !== false ) return $source_url;
 		$source_url = preg_replace( '#/(shorts|videos|featured|streams)/?$#', '', $source_url );
 		return rtrim( $source_url, '/' ) . '/' . $tab;
 	}
@@ -276,8 +343,19 @@ class LA_YouTube {
 		return mb_substr( $clean, 0, 220 );
 	}
 
-	/** Cron tick — runs every 6 hours */
+	/** Cron tick — runs every hour. Processes BATCH_PER_TICK scholars,
+	 * oldest-synced-first. Light enough to fit inside Cloudways' PHP timeout
+	 * even when yt-dlp is slow.
+	 */
 	public static function cron_tick() : void {
-		self::sync_all();
+		$r = self::sync_next_batch();
+		// Persist last-tick stats so the admin "Sync status" panel can show
+		// what happened on the most recent run without us hunting the log.
+		update_option( 'la_yt_last_tick', [
+			'at'       => current_time( 'mysql' ),
+			'synced'   => (int) $r['synced'],
+			'inserted' => (int) $r['inserted'],
+			'errors'   => array_slice( (array) $r['errors'], 0, 5 ),
+		], false );
 	}
 }
