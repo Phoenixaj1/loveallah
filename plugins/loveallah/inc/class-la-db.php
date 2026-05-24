@@ -1263,6 +1263,27 @@ class LA_DB {
 			  'source_url' => 'https://www.youtube.com/channel/UC_XBvg5tAxRGxkc0lXahwJg',
 			  'default_content_type' => 'qirat' ],
 
+			// ─── WAVE 45 — real dhikr-circle channels ─────────────────────
+			// Dedicated dhikr-loop content: long-form La ilaha illa Allah
+			// recitations, Sufi-traditional heart-soothing dhikr sessions.
+			// Seeded as default_content_type='dhikr' so they populate the
+			// Witness mode's pure-dhikr feed.
+			[ 'username' => 'alfalaah',   'display_name' => 'Alfalaah',
+			  'bio' => 'UK-based Islamic media — long-form dhikr sessions and lectures by Shaykh Hasan Ali.',
+			  'account_type' => 'curated',
+			  'source_url' => 'https://www.youtube.com/@Alfalaahmedia',
+			  'default_content_type' => 'dhikr' ],
+			[ 'username' => 'sajjadyaseen','display_name' => 'Sajjad Yaseen',
+			  'bio' => 'Dedicated dhikr-loop channel — La ilaha illa Allah and other heart-soothing recitations.',
+			  'account_type' => 'curated',
+			  'source_url' => 'https://www.youtube.com/@SajjadYaseenofficial',
+			  'default_content_type' => 'dhikr' ],
+			[ 'username' => 'fadael',     'display_name' => 'Fadael',
+			  'bio' => 'Lofi-style dhikr meditation — extended loops for tasbih, contemplation, and sleep.',
+			  'account_type' => 'curated',
+			  'source_url' => 'https://www.youtube.com/@fadael2299',
+			  'default_content_type' => 'dhikr' ],
+
 			// ─── WAVE 34 — mega-expansion (~120 channels) ──────────────────
 			// Mosque channels post Jumu'ah weekly + classes daily = huge
 			// constant supply. Major institutions cover history/tafsir.
