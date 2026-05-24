@@ -35,6 +35,7 @@ class LA_Admin {
 		// Wave 70: bulk re-tag scholar content type + dhikr-video CRUD
 		add_action( 'admin_post_la_scholar_set_type',   [ __CLASS__, 'handle_scholar_set_type' ] );
 		add_action( 'admin_post_la_scholar_set_status', [ __CLASS__, 'handle_scholar_set_status' ] );
+		add_action( 'admin_post_la_scholar_sync_now',   [ __CLASS__, 'handle_scholar_sync_now' ] );
 		add_action( 'admin_post_la_dhikr_save',         [ __CLASS__, 'handle_dhikr_save' ] );
 		add_action( 'admin_post_la_dhikr_delete',       [ __CLASS__, 'handle_dhikr_delete' ] );
 		add_action( 'admin_notices',      [ __CLASS__, 'flash_notice' ] );
@@ -440,6 +441,16 @@ class LA_Admin {
 						<td style="white-space:nowrap;">
 							<a href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit', 'loveallah' ); ?></a>
 							<?php
+							// Wave 78: per-scholar "Sync now" — runs sync_scholar()
+							// immediately in deep mode and streams the result so
+							// the admin can verify a specific channel pulls.
+							$sync_url = wp_nonce_url(
+								admin_url( 'admin-post.php?action=la_scholar_sync_now&id=' . (int) $s->id ),
+								'la_scholar_sync_now_' . $s->id
+							);
+							?>
+							· <a href="<?php echo esc_url( $sync_url ); ?>" style="color:#1A8A7B; font-weight:700;" title="<?php esc_attr_e( 'Fetch the latest videos from this channel right now (RSS + scrape, up to ~30 videos)', 'loveallah' ); ?>"><?php esc_html_e( 'Sync now', 'loveallah' ); ?></a>
+							<?php
 							// Hide/show toggle — single-click to flip status
 							$next_status = $is_hidden ? 'active' : 'hidden';
 							$toggle_label = $is_hidden ? __( 'Show', 'loveallah' ) : __( 'Hide', 'loveallah' );
@@ -480,6 +491,85 @@ class LA_Admin {
 			set_transient( 'la_admin_notice', sprintf( __( 'Channel %s.', 'loveallah' ), $label ), 10 );
 		}
 		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah-scholars' ) );
+		exit;
+	}
+
+	/**
+	 * Wave 78: Force-sync a single scholar right now. Streams progress.
+	 * Used when the priority queue hasn't gotten around to a high-value
+	 * channel yet, or when verifying a fix on a specific scholar's
+	 * source_url. Runs in deep mode so up to 500 videos get pulled.
+	 */
+	public static function handle_scholar_sync_now() : void {
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+		$id = (int) ( $_GET['id'] ?? 0 );
+		check_admin_referer( 'la_scholar_sync_now_' . $id );
+
+		global $wpdb;
+		$t = LA_DB::tables();
+		$scholar = $wpdb->get_row( $wpdb->prepare(
+			"SELECT * FROM {$t['scholars']} WHERE id = %d LIMIT 1",
+			$id
+		) );
+		if ( ! $scholar ) wp_die( 'Scholar not found' );
+
+		ignore_user_abort( true );
+		@set_time_limit( 120 );
+		nocache_headers();
+		header( 'Content-Type: text/html; charset=utf-8' );
+		header( 'X-Accel-Buffering: no' );
+		echo str_repeat( ' ', 1024 );
+		flush();
+
+		$before = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$t['feed_posts']} WHERE scholar_id = %d",
+			$id
+		) );
+		?>
+		<!doctype html>
+		<html><head><meta charset="utf-8">
+		<title>Syncing <?php echo esc_html( $scholar->display_name ); ?>…</title>
+		<style>
+			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1A0D26; color: #F8ECD0; padding: 32px; max-width: 720px; margin: 0 auto; line-height: 1.5; }
+			h1 { color: #F4D982; font-weight: 800; }
+			.box { padding: 14px 18px; background: rgba(255,255,255,0.06); border-left: 3px solid #C9A961; margin: 12px 0; border-radius: 6px; font-variant-numeric: tabular-nums; }
+			.done { border-left-color: #4ade80; font-size: 16px; font-weight: 700; }
+			.err  { border-left-color: #f87171; }
+			a { color: #F4D982; }
+			code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+		</style>
+		</head><body>
+		<h1>⚡ Sync now: <?php echo esc_html( $scholar->display_name ); ?></h1>
+		<div class="box">Source: <code><?php echo esc_html( $scholar->source_url ); ?></code></div>
+		<div class="box">Videos before: <strong><?php echo $before; ?></strong></div>
+		<?php flush();
+		$start = microtime( true );
+		$result = [];
+		try {
+			$result = LA_YouTube::sync_scholar( $scholar, [ 'deep' => true ] );
+		} catch ( Throwable $e ) {
+			$result = [ 'inserted' => 0, 'reason' => 'exception: ' . $e->getMessage() ];
+		}
+		$after = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$t['feed_posts']} WHERE scholar_id = %d",
+			$id
+		) );
+		$elapsed = number_format( microtime( true ) - $start, 1 );
+		$cls = ( ! empty( $result['inserted'] ) ) ? 'done' : 'err';
+		?>
+		<div class="box <?php echo $cls; ?>">
+			Inserted: <strong><?php echo (int) ( $result['inserted'] ?? 0 ); ?></strong>
+			· Fetched: <?php echo (int) ( $result['fetched'] ?? 0 ); ?>
+			· Via: <?php echo esc_html( $result['via'] ?? '—' ); ?>
+			· Elapsed: <?php echo esc_html( $elapsed ); ?>s
+		</div>
+		<div class="box">Total videos now: <strong><?php echo $after; ?></strong> (was <?php echo $before; ?>)</div>
+		<?php if ( ! empty( $result['reason'] ) ) : ?>
+			<div class="box err">Reason: <code><?php echo esc_html( $result['reason'] ); ?></code></div>
+		<?php endif; ?>
+		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>">← Back to scholars</a></p>
+		</body></html>
+		<?php
 		exit;
 	}
 
