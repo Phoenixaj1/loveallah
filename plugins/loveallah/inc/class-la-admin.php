@@ -1414,7 +1414,28 @@ class LA_Admin {
 		$diag_sample = $wpdb->get_results( $diag_priority_sql );
 		$diag_sample_count = is_array( $diag_sample ) ? count( $diag_sample ) : 0;
 		$diag_last_error = $wpdb->last_error;
+		// Wave 74: shell availability check — Cloudways disabled escapeshellcmd
+		// in their default policy which silently killed every yt-dlp call. We
+		// polyfill those now, but confirm shell_exec itself still works.
+		$diag_disabled_funcs = (string) ini_get( 'disable_functions' );
+		$diag_shell_exec     = function_exists( 'shell_exec' );
+		$diag_escape_cmd     = function_exists( 'escapeshellcmd' );
+		$diag_escape_arg     = function_exists( 'escapeshellarg' );
+		$diag_shell_smoke    = '';
+		if ( $diag_shell_exec ) {
+			$smoke = @shell_exec( 'echo loveallah_shell_ok 2>&1' );
+			$diag_shell_smoke = trim( (string) $smoke ) === 'loveallah_shell_ok' ? 'WORKS' : ( 'returned: ' . substr( (string) $smoke, 0, 40 ) );
+		}
 		echo '<div class="diag"><h2>🔬 Pre-flight diagnostics</h2>';
+		echo '<div>shell_exec available: <strong>' . ( $diag_shell_exec ? 'YES' : 'NO (sync impossible)' ) . '</strong></div>';
+		if ( $diag_shell_exec ) {
+			echo '<div>shell_exec smoke test: <strong>' . esc_html( $diag_shell_smoke ) . '</strong></div>';
+		}
+		echo '<div>escapeshellcmd available: <strong>' . ( $diag_escape_cmd ? 'YES' : 'NO (using polyfill)' ) . '</strong></div>';
+		echo '<div>escapeshellarg available: <strong>' . ( $diag_escape_arg ? 'YES' : 'NO (using polyfill)' ) . '</strong></div>';
+		if ( $diag_disabled_funcs ) {
+			echo '<div style="opacity:0.7; font-size:11px;">disable_functions: <code>' . esc_html( $diag_disabled_funcs ) . '</code></div>';
+		}
 		echo '<div>Total scholars with source_url: <strong>' . $diag_total_scholars . '</strong></div>';
 		echo '<div>Status column exists: <strong>' . ( $diag_has_status_col ? 'YES' : 'NO' ) . '</strong></div>';
 		if ( $diag_has_status_col ) {

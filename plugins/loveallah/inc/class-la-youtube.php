@@ -395,9 +395,9 @@ class LA_YouTube {
 		// Extractor args bypass YouTube's bot detection on cloud server IPs.
 		$cmd = sprintf(
 			'%s --flat-playlist --no-warnings --no-cache-dir --playlist-end %d --extractor-args "youtube:player_client=web,player_skip=configs" --print "%%(id)s|||%%(title)s|||%%(view_count)s" %s 2>&1',
-			escapeshellcmd( self::ytdlp() ),
+			self::shell_cmd( self::ytdlp() ),
 			(int) $limit,
-			escapeshellarg( $shorts_url )
+			self::shell_arg( $shorts_url )
 		);
 		$output = self::run( $cmd );
 		if ( empty( $output ) ) return [];
@@ -424,8 +424,8 @@ class LA_YouTube {
 		$url = "https://www.youtube.com/watch?v={$video_id}";
 		$cmd = sprintf(
 			'%s --no-warnings --no-cache-dir --skip-download --print "%%(duration)s|||%%(upload_date)s|||%%(description).400s|||%%(view_count)s|||%%(width)s|||%%(height)s" %s 2>&1',
-			escapeshellcmd( self::ytdlp() ),
-			escapeshellarg( $url )
+			self::shell_cmd( self::ytdlp() ),
+			self::shell_arg( $url )
 		);
 		$output = trim( self::run( $cmd ) );
 		if ( empty( $output ) || strpos( $output, 'ERROR' ) === 0 ) return [];
@@ -463,9 +463,46 @@ class LA_YouTube {
 
 	/** Shell exec with timeout */
 	private static function run( string $cmd ) : string {
+		if ( ! function_exists( 'shell_exec' ) ) {
+			// Surface a clear reason so the catch-up diagnostic page can
+			// flag this — otherwise we silently return empty and the channel
+			// gets marked as "no_content_tabs".
+			throw new \RuntimeException( 'shell_exec disabled by php.ini disable_functions — YouTube sync cannot run' );
+		}
 		// Prefix with `timeout` to prevent hung processes
 		$wrapped = 'timeout ' . self::TIMEOUT_SEC . ' ' . $cmd;
 		return (string) @shell_exec( $wrapped );
+	}
+
+	/**
+	 * Polyfills for escapeshellcmd / escapeshellarg.
+	 *
+	 * Some shared hosts (Cloudways included for a stretch around mid-2026)
+	 * disable these in php.ini's disable_functions, even while shell_exec
+	 * itself remains available. Without polyfills the whole YouTube sync
+	 * dies with "Call to undefined function ..." and every catch-up pass
+	 * silently reports 0 channels checked.
+	 *
+	 * The polyfills reproduce PHP core semantics closely enough for our
+	 * usage — we only ever pass our own yt-dlp binary path + YouTube URLs
+	 * (never user input), so we don't need 100% byte-identical output, just
+	 * shell-safe quoting that won't break command parsing.
+	 */
+	private static function shell_cmd( string $cmd ) : string {
+		if ( function_exists( 'escapeshellcmd' ) ) return escapeshellcmd( $cmd );
+		// Drop nulls (PHP core strips these). Backslash-escape shell
+		// metacharacters so the command can't be hijacked even if a
+		// malicious URL ever slipped through.
+		$cmd = str_replace( "\x00", '', $cmd );
+		return preg_replace( '/([#&;`|*?~<>^()\[\]{}$\\\\\x0A\xFF\'\"\s])/', '\\\\$1', $cmd );
+	}
+
+	private static function shell_arg( string $arg ) : string {
+		if ( function_exists( 'escapeshellarg' ) ) return escapeshellarg( $arg );
+		// Single-quote-wrap. Embedded single quotes get closed, escaped,
+		// and reopened — the canonical POSIX trick: '\'' inside ' ... '.
+		$arg = str_replace( "\x00", '', $arg );
+		return "'" . str_replace( "'", "'\\''", $arg ) . "'";
 	}
 
 	private static function parse_ytdlp_date( string $yyyymmdd ) : ?string {
