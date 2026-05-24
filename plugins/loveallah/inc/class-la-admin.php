@@ -32,6 +32,10 @@ class LA_Admin {
 		add_action( 'admin_post_la_yt_sync',         [ __CLASS__, 'handle_yt_sync' ] );
 		add_action( 'admin_post_la_yt_sync_batch',   [ __CLASS__, 'handle_yt_sync_batch' ] );
 		add_action( 'admin_post_la_yt_sync_catchup', [ __CLASS__, 'handle_yt_sync_catchup' ] );
+		// Wave 70: bulk re-tag scholar content type + dhikr-video CRUD
+		add_action( 'admin_post_la_scholar_set_type', [ __CLASS__, 'handle_scholar_set_type' ] );
+		add_action( 'admin_post_la_dhikr_save',       [ __CLASS__, 'handle_dhikr_save' ] );
+		add_action( 'admin_post_la_dhikr_delete',     [ __CLASS__, 'handle_dhikr_delete' ] );
 		add_action( 'admin_notices',      [ __CLASS__, 'flash_notice' ] );
 	}
 
@@ -50,6 +54,7 @@ class LA_Admin {
 		);
 		add_submenu_page( self::SLUG, __( 'Dashboard',  'loveallah' ), __( 'Dashboard',  'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG,                  [ __CLASS__, 'page_dashboard'  ] );
 		add_submenu_page( self::SLUG, __( 'Scholars',   'loveallah' ), __( 'Scholars',   'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-scholars',   [ __CLASS__, 'page_scholars'   ] );
+		add_submenu_page( self::SLUG, __( 'Dhikr videos', 'loveallah' ), __( 'Dhikr videos', 'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-dhikr',      [ __CLASS__, 'page_dhikr_videos' ] );
 		add_submenu_page( self::SLUG, __( 'Mosques',    'loveallah' ), __( 'Mosques',    'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-mosques',    [ __CLASS__, 'page_mosques'    ] );
 		add_submenu_page( self::SLUG, __( 'Events',     'loveallah' ), __( 'Events',     'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-events',     [ __CLASS__, 'page_events'     ] );
 		add_submenu_page( self::SLUG, __( 'Content',    'loveallah' ), __( 'Content',    'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-content',    [ __CLASS__, 'page_content'    ] );
@@ -216,18 +221,140 @@ class LA_Admin {
 	private static function list_scholars() : void {
 		global $wpdb;
 		$t = LA_DB::tables();
-		$rows = $wpdb->get_results( "SELECT * FROM {$t['scholars']} ORDER BY display_name ASC" );
+
+		// Wave 70: filters + search + per-channel metrics
+		$filter_type = sanitize_key( $_GET['type'] ?? '' );
+		$search      = sanitize_text_field( $_GET['q'] ?? '' );
+		$orderby     = sanitize_key( $_GET['orderby'] ?? 'videos' );
+		$valid_order = [ 'name', 'videos', 'views_30d', 'last_sync' ];
+		if ( ! in_array( $orderby, $valid_order, true ) ) $orderby = 'videos';
+
+		// Single query: scholars LEFT JOIN aggregated counts + 30-day views
+		$where  = "WHERE 1=1";
+		$args   = [];
+		if ( $filter_type ) {
+			$where .= " AND s.default_content_type = %s";
+			$args[] = $filter_type;
+		}
+		if ( $search ) {
+			$where .= " AND (s.display_name LIKE %s OR s.username LIKE %s)";
+			$args[] = '%' . $wpdb->esc_like( $search ) . '%';
+			$args[] = '%' . $wpdb->esc_like( $search ) . '%';
+		}
+
+		$sql = "
+			SELECT s.*,
+			       COALESCE(p.video_count, 0)  AS video_count,
+			       COALESCE(v.views_30d,   0)  AS views_30d
+			FROM {$t['scholars']} s
+			LEFT JOIN (
+			  SELECT scholar_id, COUNT(*) AS video_count
+			  FROM {$t['feed_posts']}
+			  GROUP BY scholar_id
+			) p ON p.scholar_id = s.id
+			LEFT JOIN (
+			  SELECT fp.scholar_id, COUNT(*) AS views_30d
+			  FROM {$t['feed_interactions']} fi
+			  JOIN {$t['feed_posts']} fp ON fp.id = fi.post_id
+			  WHERE fi.action = 'view'
+			    AND fi.occurred_at >= DATE_SUB( NOW(), INTERVAL 30 DAY )
+			  GROUP BY fp.scholar_id
+			) v ON v.scholar_id = s.id
+			$where
+			ORDER BY ";
+		switch ( $orderby ) {
+			case 'name':      $sql .= "s.display_name ASC"; break;
+			case 'views_30d': $sql .= "views_30d DESC, video_count DESC"; break;
+			case 'last_sync': $sql .= "s.last_synced_at DESC, s.display_name ASC"; break;
+			case 'videos':
+			default:          $sql .= "video_count DESC, s.display_name ASC"; break;
+		}
+
+		$rows = $args
+			? $wpdb->get_results( $wpdb->prepare( $sql, ...$args ) )
+			: $wpdb->get_results( $sql );
+
+		// Category counts for the filter chips (always show all categories)
+		$type_counts = [];
+		foreach ( $wpdb->get_results(
+			"SELECT default_content_type AS t, COUNT(*) AS c
+			 FROM {$t['scholars']}
+			 GROUP BY default_content_type"
+		) as $r ) {
+			$type_counts[ $r->t ?: 'unset' ] = (int) $r->c;
+		}
+
+		$type_options = [
+			''            => __( 'All categories', 'loveallah' ),
+			'reminder'    => __( 'Reminder / short lecture', 'loveallah' ),
+			'nasheed'     => __( 'Nasheed', 'loveallah' ),
+			'dhikr'       => __( 'Dhikr', 'loveallah' ),
+			'mindfulness' => __( 'Mindfulness', 'loveallah' ),
+			'qirat'       => __( "Qira'at", 'loveallah' ),
+			'lecture'     => __( 'Long-form lecture', 'loveallah' ),
+		];
+
+		$total_videos = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t['feed_posts']}" );
+		$total_views_30d = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$t['feed_interactions']}
+			 WHERE action = 'view' AND occurred_at >= DATE_SUB( NOW(), INTERVAL 30 DAY )"
+		);
 		?>
 		<div class="wrap la-admin">
 			<h1 class="wp-heading-inline"><?php esc_html_e( 'Scholars', 'loveallah' ); ?></h1>
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars&action=add' ) ); ?>" class="page-title-action"><?php esc_html_e( 'Add new', 'loveallah' ); ?></a>
 			<hr class="wp-header-end">
+
+			<div class="la-stat-row" style="display:flex; gap:14px; margin:14px 0 18px;">
+				<div style="padding:10px 14px; background:#fff; border:1px solid #ccd0d4; border-radius:8px;">
+					<div style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Channels</div>
+					<div style="font-size:22px; font-weight:800;"><?php echo number_format( count( $rows ) ); ?></div>
+				</div>
+				<div style="padding:10px 14px; background:#fff; border:1px solid #ccd0d4; border-radius:8px;">
+					<div style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Videos (total)</div>
+					<div style="font-size:22px; font-weight:800;"><?php echo number_format( $total_videos ); ?></div>
+				</div>
+				<div style="padding:10px 14px; background:#fff; border:1px solid #ccd0d4; border-radius:8px;">
+					<div style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Views (30 d)</div>
+					<div style="font-size:22px; font-weight:800;"><?php echo number_format( $total_views_30d ); ?></div>
+				</div>
+			</div>
+
+			<form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+				<input type="hidden" name="page" value="loveallah-scholars">
+				<label>
+					<span style="font-weight:600; margin-right:4px;">Category:</span>
+					<select name="type" onchange="this.form.submit()">
+						<?php foreach ( $type_options as $val => $label ) :
+							$cnt = $type_counts[ $val ?: '' ] ?? null; ?>
+							<option value="<?php echo esc_attr( $val ); ?>" <?php selected( $filter_type, $val ); ?>>
+								<?php echo esc_html( $label ); ?><?php echo ( $val && isset( $type_counts[ $val ] ) ) ? ' (' . (int) $type_counts[ $val ] . ')' : ''; ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</label>
+				<input type="search" name="q" value="<?php echo esc_attr( $search ); ?>" placeholder="Search name or username…" style="min-width:220px;">
+				<label>
+					<span style="font-weight:600; margin-right:4px;">Sort:</span>
+					<select name="orderby" onchange="this.form.submit()">
+						<option value="videos"    <?php selected( $orderby, 'videos' ); ?>>Most videos</option>
+						<option value="views_30d" <?php selected( $orderby, 'views_30d' ); ?>>Most viewed (30 d)</option>
+						<option value="last_sync" <?php selected( $orderby, 'last_sync' ); ?>>Recently synced</option>
+						<option value="name"      <?php selected( $orderby, 'name' ); ?>>Name (A→Z)</option>
+					</select>
+				</label>
+				<button class="button" type="submit">Apply</button>
+				<?php if ( $filter_type || $search ) : ?>
+					<a class="button-link" href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>">Clear filters</a>
+				<?php endif; ?>
+			</form>
+
 			<table class="widefat striped">
 				<thead><tr>
-					<th><?php esc_html_e( 'Name', 'loveallah' ); ?></th>
-					<th><?php esc_html_e( 'Username', 'loveallah' ); ?></th>
-					<th><?php esc_html_e( 'Type', 'loveallah' ); ?></th>
-					<th><?php esc_html_e( 'YouTube channel', 'loveallah' ); ?></th>
+					<th><?php esc_html_e( 'Channel', 'loveallah' ); ?></th>
+					<th><?php esc_html_e( 'Category', 'loveallah' ); ?></th>
+					<th style="text-align:right;"><?php esc_html_e( 'Videos', 'loveallah' ); ?></th>
+					<th style="text-align:right;"><?php esc_html_e( 'Views (30d)', 'loveallah' ); ?></th>
 					<th><?php esc_html_e( 'Last synced', 'loveallah' ); ?></th>
 					<th></th>
 				</tr></thead>
@@ -235,13 +362,41 @@ class LA_Admin {
 				<?php foreach ( $rows as $s ) :
 					$edit_url = admin_url( 'admin.php?page=loveallah-scholars&action=edit&id=' . (int) $s->id );
 					$del_url  = wp_nonce_url( admin_url( 'admin-post.php?action=la_delete&type=scholar&id=' . (int) $s->id ), 'la_delete_scholar_' . $s->id );
+					$verified_badge = $s->account_type === 'verified' ? ' <span style="color:#1A8A7B;" title="Verified — partnered">✓</span>' : '';
 				?>
 					<tr>
-						<td><strong><a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $s->display_name ); ?></a></strong></td>
-						<td><code>@<?php echo esc_html( $s->username ); ?></code></td>
-						<td><?php echo esc_html( $s->account_type ); ?></td>
-						<td><?php echo $s->youtube_channel_id ? '<code>' . esc_html( $s->youtube_channel_id ) . '</code>' : '—'; ?></td>
-						<td><?php echo $s->last_synced_at ? esc_html( human_time_diff( strtotime( $s->last_synced_at ) ) . ' ago' ) : '—'; ?></td>
+						<td>
+							<strong><a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $s->display_name ); ?></a></strong><?php echo $verified_badge; ?><br>
+							<code style="font-size:11px; color:#666;">@<?php echo esc_html( $s->username ); ?></code>
+							<?php if ( $s->source_url ) : ?>
+								· <a href="<?php echo esc_url( $s->source_url ); ?>" target="_blank" style="font-size:11px;">YouTube ↗</a>
+							<?php endif; ?>
+						</td>
+						<td>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:0;">
+								<?php wp_nonce_field( 'la_scholar_set_type_' . $s->id ); ?>
+								<input type="hidden" name="action" value="la_scholar_set_type">
+								<input type="hidden" name="id" value="<?php echo (int) $s->id; ?>">
+								<select name="default_content_type" onchange="this.form.submit()" style="min-width:140px;">
+									<?php foreach ( [
+										'reminder', 'nasheed', 'dhikr', 'mindfulness', 'qirat', 'lecture'
+									] as $val ) : ?>
+										<option value="<?php echo esc_attr( $val ); ?>" <?php selected( $s->default_content_type, $val ); ?>>
+											<?php echo esc_html( ucfirst( $val ) ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</form>
+						</td>
+						<td style="text-align:right; font-variant-numeric:tabular-nums; font-weight:600;">
+							<?php echo number_format( (int) $s->video_count ); ?>
+						</td>
+						<td style="text-align:right; font-variant-numeric:tabular-nums;">
+							<?php echo number_format( (int) $s->views_30d ); ?>
+						</td>
+						<td style="font-size:12px; color:#666;">
+							<?php echo $s->last_synced_at ? esc_html( human_time_diff( strtotime( $s->last_synced_at ) ) . ' ago' ) : '<span style="color:#a00;">never</span>'; ?>
+						</td>
 						<td>
 							<a href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit', 'loveallah' ); ?></a> ·
 							<a href="<?php echo esc_url( $del_url ); ?>" style="color:#a00;" onclick="return confirm('<?php esc_attr_e( 'Delete this scholar? Their posts stay but become orphaned.', 'loveallah' ); ?>');"><?php esc_html_e( 'Delete', 'loveallah' ); ?></a>
@@ -249,12 +404,193 @@ class LA_Admin {
 					</tr>
 				<?php endforeach; ?>
 				<?php if ( empty( $rows ) ) : ?>
-					<tr><td colspan="6"><em><?php esc_html_e( 'No scholars yet.', 'loveallah' ); ?></em></td></tr>
+					<tr><td colspan="6"><em><?php esc_html_e( 'No scholars match — try clearing filters.', 'loveallah' ); ?></em></td></tr>
 				<?php endif; ?>
 				</tbody>
 			</table>
 		</div>
 		<?php self::admin_css();
+	}
+
+	// Wave 70: inline category re-tag (dropdown on the scholars list)
+	public static function handle_scholar_set_type() : void {
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+		$id = (int) ( $_POST['id'] ?? 0 );
+		check_admin_referer( 'la_scholar_set_type_' . $id );
+		$type = sanitize_key( $_POST['default_content_type'] ?? '' );
+		$allowed = [ 'reminder', 'nasheed', 'dhikr', 'mindfulness', 'qirat', 'lecture' ];
+		if ( $id && in_array( $type, $allowed, true ) ) {
+			global $wpdb;
+			$t = LA_DB::tables();
+			$wpdb->update( $t['scholars'], [ 'default_content_type' => $type ], [ 'id' => $id ] );
+			set_transient( 'la_admin_notice', __( 'Channel category updated.', 'loveallah' ), 10 );
+		}
+		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah-scholars' ) );
+		exit;
+	}
+
+	// ────────────────────────────────────────────────────────────
+	// WAVE 70: Dhikr videos admin (Witness mode curated content)
+	// ────────────────────────────────────────────────────────────
+	public static function page_dhikr_videos() : void {
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( __( 'Forbidden', 'loveallah' ) );
+		$action = sanitize_key( $_GET['action'] ?? '' );
+		if ( $action === 'add' || $action === 'edit' ) {
+			self::form_dhikr_video( (int) ( $_GET['id'] ?? 0 ) );
+			return;
+		}
+		self::list_dhikr_videos();
+	}
+
+	private static function list_dhikr_videos() : void {
+		global $wpdb;
+		$t = LA_DB::tables();
+		$rows = $wpdb->get_results( "SELECT * FROM {$t['dhikr_videos']} ORDER BY sort_order ASC, id ASC" );
+		?>
+		<div class="wrap la-admin">
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'Dhikr videos', 'loveallah' ); ?></h1>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-dhikr&action=add' ) ); ?>" class="page-title-action"><?php esc_html_e( 'Add new', 'loveallah' ); ?></a>
+			<hr class="wp-header-end">
+			<p class="description" style="margin:14px 0;">
+				<?php esc_html_e( "These are the curated videos shown in Dhikr → Witness mode. Hand-picked dhikr loops (kalimah, salawat, takbir, etc.) — not algorithmic. Each row maps to one YouTube video. Lower sort_order shows first.", 'loveallah' ); ?>
+			</p>
+			<table class="widefat striped">
+				<thead><tr>
+					<th style="width:60px;">#</th>
+					<th><?php esc_html_e( 'Thumbnail', 'loveallah' ); ?></th>
+					<th><?php esc_html_e( 'Title', 'loveallah' ); ?></th>
+					<th><?php esc_html_e( 'Scholar / channel', 'loveallah' ); ?></th>
+					<th><?php esc_html_e( 'Phrase', 'loveallah' ); ?></th>
+					<th style="text-align:right;"><?php esc_html_e( 'Duration', 'loveallah' ); ?></th>
+					<th><?php esc_html_e( 'YouTube ID', 'loveallah' ); ?></th>
+					<th></th>
+				</tr></thead>
+				<tbody>
+				<?php foreach ( $rows as $v ) :
+					$edit_url = admin_url( 'admin.php?page=loveallah-dhikr&action=edit&id=' . (int) $v->id );
+					$del_url  = wp_nonce_url( admin_url( 'admin-post.php?action=la_dhikr_delete&id=' . (int) $v->id ), 'la_dhikr_delete_' . $v->id );
+					$thumb = 'https://i.ytimg.com/vi/' . urlencode( $v->youtube_id ) . '/default.jpg';
+					$watch = 'https://www.youtube.com/watch?v=' . urlencode( $v->youtube_id );
+					$dur_m = (int) ( $v->duration_sec / 60 );
+				?>
+					<tr>
+						<td><?php echo (int) $v->sort_order; ?></td>
+						<td><a href="<?php echo esc_url( $watch ); ?>" target="_blank"><img src="<?php echo esc_url( $thumb ); ?>" width="80" height="60" style="border-radius:4px;"></a></td>
+						<td><strong><a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $v->title ); ?></a></strong></td>
+						<td><?php echo esc_html( $v->scholar_name ?: '—' ); ?><?php echo $v->channel_handle ? '<br><small style="color:#666;">@' . esc_html( $v->channel_handle ) . '</small>' : ''; ?></td>
+						<td><code><?php echo esc_html( $v->phrase ?: '—' ); ?></code></td>
+						<td style="text-align:right; font-variant-numeric:tabular-nums;"><?php echo $dur_m ? $dur_m . 'm' : '—'; ?></td>
+						<td><code><?php echo esc_html( $v->youtube_id ); ?></code></td>
+						<td>
+							<a href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit', 'loveallah' ); ?></a> ·
+							<a href="<?php echo esc_url( $watch ); ?>" target="_blank"><?php esc_html_e( 'Preview', 'loveallah' ); ?></a> ·
+							<a href="<?php echo esc_url( $del_url ); ?>" style="color:#a00;" onclick="return confirm('Delete this dhikr video?');"><?php esc_html_e( 'Delete', 'loveallah' ); ?></a>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+				<?php if ( empty( $rows ) ) : ?>
+					<tr><td colspan="8"><em><?php esc_html_e( 'No dhikr videos yet. Add one to populate the Witness feed.', 'loveallah' ); ?></em></td></tr>
+				<?php endif; ?>
+				</tbody>
+			</table>
+		</div>
+		<?php self::admin_css();
+	}
+
+	private static function form_dhikr_video( int $id ) : void {
+		global $wpdb;
+		$t = LA_DB::tables();
+		$v = $id ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$t['dhikr_videos']} WHERE id = %d", $id ) ) : null;
+		?>
+		<div class="wrap la-admin">
+			<h1><?php echo $v ? esc_html__( 'Edit dhikr video', 'loveallah' ) : esc_html__( 'Add dhikr video', 'loveallah' ); ?></h1>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<?php wp_nonce_field( 'la_dhikr_save' ); ?>
+				<input type="hidden" name="action" value="la_dhikr_save">
+				<input type="hidden" name="id" value="<?php echo (int) ( $v->id ?? 0 ); ?>">
+				<table class="form-table"><tbody>
+					<tr><th><label for="youtube_id">YouTube ID *</label></th>
+						<td><input class="regular-text" required type="text" id="youtube_id" name="youtube_id" value="<?php echo esc_attr( $v->youtube_id ?? '' ); ?>" placeholder="e.g. psN1gCbTgLc">
+						<p class="description"><?php esc_html_e( 'The 11-character ID from the YouTube URL (after watch?v=).', 'loveallah' ); ?></p></td></tr>
+					<tr><th><label for="title">Title *</label></th>
+						<td><input class="regular-text" required type="text" id="title" name="title" value="<?php echo esc_attr( $v->title ?? '' ); ?>"></td></tr>
+					<tr><th><label for="scholar_name">Scholar / reciter</label></th>
+						<td><input class="regular-text" type="text" id="scholar_name" name="scholar_name" value="<?php echo esc_attr( $v->scholar_name ?? '' ); ?>" placeholder="e.g. Shaykh Hasan Ali"></td></tr>
+					<tr><th><label for="channel_handle">Channel handle</label></th>
+						<td><input class="regular-text" type="text" id="channel_handle" name="channel_handle" value="<?php echo esc_attr( $v->channel_handle ?? '' ); ?>" placeholder="e.g. Alfalaah"></td></tr>
+					<tr><th><label for="phrase">Phrase tag</label></th>
+						<td><select id="phrase" name="phrase">
+							<?php $phrases = [
+								''               => '— Any / unspecified —',
+								'la_ilaha'       => 'La ilaha illa Allah',
+								'subhanallah'    => 'Subhanallah',
+								'alhamdulillah'  => 'Alhamdulillah',
+								'allahuakbar'    => 'Allahu Akbar',
+								'astaghfirullah' => 'Astaghfirullah',
+								'salawat'        => 'Salawat',
+								'mixed'          => 'Mixed dhikr',
+							]; foreach ( $phrases as $val => $label ) : ?>
+								<option value="<?php echo esc_attr( $val ); ?>" <?php selected( ( $v->phrase ?? '' ), $val ); ?>><?php echo esc_html( $label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<p class="description"><?php esc_html_e( 'Used for filtering inside Witness mode (future feature).', 'loveallah' ); ?></p></td></tr>
+					<tr><th><label for="duration_sec">Duration (seconds)</label></th>
+						<td><input class="small-text" type="number" id="duration_sec" name="duration_sec" value="<?php echo (int) ( $v->duration_sec ?? 0 ); ?>" min="0">
+						<p class="description"><?php esc_html_e( 'e.g. 3600 for a 1-hour loop.', 'loveallah' ); ?></p></td></tr>
+					<tr><th><label for="sort_order">Sort order</label></th>
+						<td><input class="small-text" type="number" id="sort_order" name="sort_order" value="<?php echo (int) ( $v->sort_order ?? 0 ); ?>">
+						<p class="description"><?php esc_html_e( 'Lower numbers show first in the Witness feed. Use 10, 20, 30… to leave space for inserts.', 'loveallah' ); ?></p></td></tr>
+				</tbody></table>
+				<?php submit_button( $v ? __( 'Update dhikr video', 'loveallah' ) : __( 'Add dhikr video', 'loveallah' ) ); ?>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-dhikr' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'loveallah' ); ?></a>
+			</form>
+		</div>
+		<?php self::admin_css();
+	}
+
+	public static function handle_dhikr_save() : void {
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+		check_admin_referer( 'la_dhikr_save' );
+		global $wpdb;
+		$t = LA_DB::tables();
+		$id   = (int) ( $_POST['id'] ?? 0 );
+		$data = [
+			'youtube_id'     => preg_replace( '/[^a-zA-Z0-9_-]/', '', (string) ( $_POST['youtube_id'] ?? '' ) ),
+			'title'          => sanitize_text_field( $_POST['title'] ?? '' ),
+			'scholar_name'   => sanitize_text_field( $_POST['scholar_name'] ?? '' ) ?: null,
+			'channel_handle' => sanitize_text_field( $_POST['channel_handle'] ?? '' ) ?: null,
+			'phrase'         => sanitize_key( $_POST['phrase'] ?? '' ) ?: null,
+			'duration_sec'   => max( 0, (int) ( $_POST['duration_sec'] ?? 0 ) ),
+			'sort_order'     => (int) ( $_POST['sort_order'] ?? 0 ),
+		];
+		if ( ! $data['youtube_id'] || ! $data['title'] ) {
+			set_transient( 'la_admin_notice', __( 'YouTube ID and title are required.', 'loveallah' ), 10 );
+			wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah-dhikr' ) );
+			exit;
+		}
+		if ( $id ) {
+			$wpdb->update( $t['dhikr_videos'], $data, [ 'id' => $id ] );
+			set_transient( 'la_admin_notice', __( 'Dhikr video updated.', 'loveallah' ), 10 );
+		} else {
+			$wpdb->insert( $t['dhikr_videos'], $data );
+			set_transient( 'la_admin_notice', __( 'Dhikr video added — appears in Witness mode immediately.', 'loveallah' ), 10 );
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=loveallah-dhikr' ) );
+		exit;
+	}
+
+	public static function handle_dhikr_delete() : void {
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+		$id = (int) ( $_GET['id'] ?? 0 );
+		check_admin_referer( 'la_dhikr_delete_' . $id );
+		if ( $id ) {
+			global $wpdb;
+			$t = LA_DB::tables();
+			$wpdb->delete( $t['dhikr_videos'], [ 'id' => $id ] );
+			set_transient( 'la_admin_notice', __( 'Dhikr video deleted.', 'loveallah' ), 10 );
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=loveallah-dhikr' ) );
+		exit;
 	}
 
 	private static function form_scholar( int $id ) : void {
