@@ -1361,6 +1361,11 @@ class LA_Admin {
 				h1 { color: #F4D982; font-weight: 800; }
 				.pass { padding: 10px 14px; background: rgba(255,255,255,0.06); border-left: 3px solid #C9A961; margin: 8px 0; border-radius: 6px; font-variant-numeric: tabular-nums; }
 				.done { border-left-color: #4ade80; }
+				.pass.err { border-left-color: #f87171; }
+				.diag { background: rgba(244, 217, 130, 0.08); border: 1px solid rgba(244, 217, 130, 0.3); padding: 14px 18px; margin: 14px 0; border-radius: 8px; font-size: 13px; }
+				.diag h2 { margin: 0 0 8px 0; font-size: 14px; color: #F4D982; letter-spacing: 0.04em; text-transform: uppercase; }
+				.diag pre { white-space: pre-wrap; word-break: break-word; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; margin: 6px 0; font-size: 12px; }
+				.diag .row { font-family: ui-monospace, monospace; font-size: 12px; opacity: 0.85; }
 				.totals { font-size: 18px; font-weight: 700; color: #F4D982; margin-top: 20px; padding: 14px 18px; background: rgba(232, 199, 111, 0.10); border-radius: 10px; }
 				a { color: #F4D982; }
 			</style>
@@ -1370,15 +1375,85 @@ class LA_Admin {
 		<?php
 		flush();
 
+		// ── Wave 74 PRE-FLIGHT DIAGNOSTICS ──────────────────────────
+		// Before we run any passes, dump enough state to definitively
+		// tell what's wrong if sync_next_batch keeps returning 0 rows.
+		global $wpdb;
+		$t = LA_DB::tables();
+		$diag_total_scholars = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t['scholars']} WHERE source_url IS NOT NULL AND source_url <> ''" );
+		$diag_has_status_col = (bool) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = 'status'",
+			$t['scholars']
+		) );
+		$diag_status_breakdown = $diag_has_status_col
+			? $wpdb->get_results( "SELECT COALESCE(NULLIF(status,''),'(empty/null)') AS s, COUNT(*) AS n FROM {$t['scholars']} GROUP BY s ORDER BY n DESC" )
+			: [];
+		$diag_status_where = $diag_has_status_col
+			? " AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )"
+			: '';
+		$diag_priority_sql = $wpdb->prepare(
+			"SELECT s.id, s.username, s.last_synced_at, COALESCE(p.video_count, 0) AS video_count
+			 FROM {$t['scholars']} s
+			 LEFT JOIN (
+			   SELECT scholar_id, COUNT(*) AS video_count
+			   FROM {$t['feed_posts']}
+			   GROUP BY scholar_id
+			 ) p ON p.scholar_id = s.id
+			 WHERE s.source_url IS NOT NULL AND s.source_url <> ''
+			   {$diag_status_where}
+			 ORDER BY
+			   (s.last_synced_at IS NULL) DESC,
+			   (COALESCE(p.video_count, 0) < %d) DESC,
+			   COALESCE(p.video_count, 0) ASC,
+			   s.last_synced_at ASC,
+			   s.id ASC
+			 LIMIT 5",
+			LA_YouTube::CATCH_UP_THRESHOLD
+		);
+		$diag_sample = $wpdb->get_results( $diag_priority_sql );
+		$diag_sample_count = is_array( $diag_sample ) ? count( $diag_sample ) : 0;
+		$diag_last_error = $wpdb->last_error;
+		echo '<div class="diag"><h2>🔬 Pre-flight diagnostics</h2>';
+		echo '<div>Total scholars with source_url: <strong>' . $diag_total_scholars . '</strong></div>';
+		echo '<div>Status column exists: <strong>' . ( $diag_has_status_col ? 'YES' : 'NO' ) . '</strong></div>';
+		if ( $diag_has_status_col ) {
+			echo '<div>Status breakdown:</div>';
+			foreach ( $diag_status_breakdown as $sb ) {
+				echo '<div class="row">&nbsp;&nbsp;' . esc_html( $sb->s ) . ' → ' . (int) $sb->n . '</div>';
+			}
+		}
+		echo '<div>Priority query returned: <strong>' . $diag_sample_count . ' row(s)</strong></div>';
+		if ( $diag_last_error ) {
+			echo '<div style="color:#f87171">Last SQL error: <code>' . esc_html( $diag_last_error ) . '</code></div>';
+		}
+		if ( $diag_sample_count > 0 ) {
+			echo '<div>Sample (top-priority) rows:</div>';
+			foreach ( $diag_sample as $r ) {
+				echo '<div class="row">&nbsp;&nbsp;#' . (int) $r->id . ' ' . esc_html( $r->username )
+					. ' · videos=' . (int) $r->video_count
+					. ' · last_synced=' . esc_html( $r->last_synced_at ?? 'NULL' )
+					. '</div>';
+			}
+		}
+		echo '<div style="margin-top:8px; opacity:0.7">Prepared SQL:</div>';
+		echo '<pre>' . esc_html( $diag_priority_sql ) . '</pre>';
+		echo '</div>';
+		flush();
+
 		$MAX_PASSES = 25;
 		$total_synced   = 0;
 		$total_inserted = 0;
+		$all_errors     = [];
 		$start_at       = microtime( true );
 
 		for ( $i = 0; $i < $MAX_PASSES; $i++ ) {
 			$res = LA_YouTube::sync_next_batch();
 			$total_synced   += (int) $res['synced'];
 			$total_inserted += (int) $res['inserted'];
+			if ( ! empty( $res['errors'] ) ) {
+				$all_errors = array_merge( $all_errors, (array) $res['errors'] );
+			}
 
 			// Persist per-pass so the main admin dashboard reflects progress
 			update_option( 'la_yt_last_tick', [
@@ -1389,10 +1464,18 @@ class LA_Admin {
 			], false );
 
 			$elapsed = (int) ( microtime( true ) - $start_at );
+			$err_cls = ( (int) $res['synced'] === 0 ) ? ' err' : '';
 			printf(
-				'<div class="pass">Pass %d/%d · %d channels checked · %d new posts · running total: %d new · elapsed %ds</div>',
-				$i + 1, $MAX_PASSES, (int) $res['synced'], (int) $res['inserted'], $total_inserted, $elapsed
+				'<div class="pass%s">Pass %d/%d · %d channels checked · %d new posts · running total: %d new · elapsed %ds</div>',
+				$err_cls, $i + 1, $MAX_PASSES, (int) $res['synced'], (int) $res['inserted'], $total_inserted, $elapsed
 			);
+			// First few errors from this pass surface inline so we can see WHY
+			// sync_scholar returned a reason / threw.
+			if ( ! empty( $res['errors'] ) ) {
+				foreach ( array_slice( (array) $res['errors'], 0, 3 ) as $err_line ) {
+					echo '<div class="pass err" style="margin-left:14px; font-size:12px;">↳ ' . esc_html( $err_line ) . '</div>';
+				}
+			}
 			flush();
 
 			// Early-exit check: every channel meets the threshold?
@@ -1419,8 +1502,6 @@ class LA_Admin {
 		}
 
 		// Final stats
-		global $wpdb;
-		$t = LA_DB::tables();
 		$total_videos    = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t['feed_posts']}" );
 		$total_channels  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t['scholars']} WHERE source_url IS NOT NULL AND source_url <> ''" );
 		$elapsed = (int) ( microtime( true ) - $start_at );
@@ -1429,6 +1510,25 @@ class LA_Admin {
 			'<div class="totals">✅ Done in %ds<br>Catch-up added <strong>%d new videos</strong> across %d channel-checks.<br>Catalog now has <strong>%d videos</strong> across %d channels.</div>',
 			$elapsed, $total_inserted, $total_synced, $total_videos, $total_channels
 		);
+
+		// Wave 74: if there were errors, show a roll-up so we can see WHY
+		// the catch-up didn't produce results. The per-pass list only shows
+		// the first 3 per pass, this dumps the unique reasons across all passes.
+		if ( ! empty( $all_errors ) ) {
+			$counts = [];
+			foreach ( $all_errors as $line ) {
+				// Group by the "reason" portion after the colon
+				$reason = trim( preg_replace( '/^[^:]+:\s*/', '', $line ) );
+				$counts[ $reason ] = ( $counts[ $reason ] ?? 0 ) + 1;
+			}
+			arsort( $counts );
+			echo '<div class="diag"><h2>⚠️ Errors / reasons (' . count( $all_errors ) . ' total)</h2>';
+			foreach ( $counts as $reason => $n ) {
+				echo '<div class="row">' . (int) $n . '× — ' . esc_html( $reason ) . '</div>';
+			}
+			echo '</div>';
+		}
+
 		printf(
 			'<p style="margin-top:20px;"><a href="%s">← Back to Love Allah admin</a></p>',
 			esc_url( admin_url( 'admin.php?page=loveallah' ) )
