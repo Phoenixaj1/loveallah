@@ -558,11 +558,20 @@ button { font-family: inherit; }
    The old version was four floating ghost-icons that felt scattered.
    This wraps them in a single glass pill anchored to the bottom-right
    above the scholar overlay, so the column reads as one piece of UI
-   rather than four loose buttons. */
+   rather than four loose buttons.
+
+   Wave 37b: bumped `bottom` so the pill sits CLEAR of both the tabbar
+   (with its safe-area inset on iOS) AND the scholar info overlay that
+   sits above the tabbar. Formula:
+     tabbar (64px) + safe-area + scholar overlay (~100px) + breathing
+     room (24px) = ~190px clearance from the viewport bottom.
+   The pill itself is ~200px tall so its TOP edge lands above the fold
+   on small phones while staying out of the way of every fixed UI
+   element below. */
 .la-snap-actions {
 	position: absolute;
 	right: 10px;
-	bottom: 120px;          /* clear of scholar overlay; phone-safe */
+	bottom: calc(var(--la-tabbar-h) + 124px + var(--la-safe-bottom));
 	top: auto;
 	z-index: 3;
 }
@@ -594,7 +603,7 @@ button { font-family: inherit; }
 	.la-snap-overlay .la-snap-caption { max-width: 100%; }
 	.la-snap-actions {
 		right: max(20px, calc(50% - 320px));
-		bottom: 96px;
+		bottom: calc(var(--la-tabbar-h) + 100px + var(--la-safe-bottom));
 	}
 }
 @media (min-width: 1024px) {
