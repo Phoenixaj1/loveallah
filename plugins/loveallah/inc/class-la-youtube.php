@@ -125,10 +125,22 @@ class LA_YouTube {
 		global $wpdb;
 		$t = LA_DB::tables();
 
+		// Wave 71 hotfix: only include the status filter if the column
+		// has actually been migrated. Otherwise the SQL fails and the
+		// catch-up silently returns 0 channels.
+		$has_status_col = (bool) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA = DATABASE()
+			   AND TABLE_NAME = %s
+			   AND COLUMN_NAME = 'status'",
+			$t['scholars']
+		) );
+		$status_where = $has_status_col
+			? " AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )"
+			: '';
+
 		// Compute per-channel video counts in one query so we can
 		// surface undersized channels first.
-		// Wave 71: skip hidden/archived channels — they're not part of
-		// the catalog and we shouldn't waste yt-dlp calls on them.
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT s.*,
 			        COALESCE(p.video_count, 0) AS video_count
@@ -139,7 +151,7 @@ class LA_YouTube {
 			   GROUP BY scholar_id
 			 ) p ON p.scholar_id = s.id
 			 WHERE s.source_url IS NOT NULL AND s.source_url <> ''
-			   AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )
+			   {$status_where}
 			 ORDER BY
 			   (s.last_synced_at IS NULL) DESC,
 			   (COALESCE(p.video_count, 0) < %d) DESC,
@@ -221,12 +233,13 @@ class LA_YouTube {
 
 		if ( empty( $list ) ) {
 			// Wave 71: record WHY the channel returned nothing so the
-			// admin diagnostic page can show the reason (bot-blocked,
-			// channel-not-found, no /shorts tab, etc).
-			$wpdb->update( $t['scholars'], [
-				'last_synced_at'  => current_time( 'mysql' ),
-				'last_sync_error' => 'No videos returned by yt-dlp (channel may be empty, bot-blocked, or have no /shorts or /videos tab)',
-			], [ 'id' => (int) $scholar->id ] );
+			// admin diagnostic page can show the reason. Defensive: only
+			// write last_sync_error if the column exists.
+			$update_data = [ 'last_synced_at' => current_time( 'mysql' ) ];
+			if ( self::has_sync_error_column() ) {
+				$update_data['last_sync_error'] = 'No videos returned by yt-dlp (channel may be empty, bot-blocked, or have no /shorts or /videos tab)';
+			}
+			$wpdb->update( $t['scholars'], $update_data, [ 'id' => (int) $scholar->id ] );
 			return [ 'inserted' => 0, 'reason' => 'no_content_tabs' ];
 		}
 
@@ -332,11 +345,28 @@ class LA_YouTube {
 			$inserted++;
 		}
 
-		$wpdb->update( $t['scholars'], [
-			'last_synced_at'  => current_time( 'mysql' ),
-			'last_sync_error' => null,
-		], [ 'id' => (int) $scholar->id ] );
+		$update_data = [ 'last_synced_at' => current_time( 'mysql' ) ];
+		if ( self::has_sync_error_column() ) {
+			$update_data['last_sync_error'] = null;
+		}
+		$wpdb->update( $t['scholars'], $update_data, [ 'id' => (int) $scholar->id ] );
 		return [ 'inserted' => $inserted, 'fetched' => count( $list ), 'tab' => $used_tab ];
+	}
+
+	/** Cached column-existence check for last_sync_error. */
+	private static function has_sync_error_column() : bool {
+		static $cached = null;
+		if ( $cached !== null ) return $cached;
+		global $wpdb;
+		$t = LA_DB::tables();
+		$cached = (bool) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA = DATABASE()
+			   AND TABLE_NAME = %s
+			   AND COLUMN_NAME = 'last_sync_error'",
+			$t['scholars']
+		) );
+		return $cached;
 	}
 
 	/** Build a tab URL (/shorts or /videos) from a channel source URL.

@@ -258,6 +258,22 @@ class LA_Algorithm {
 			}
 		}
 
+		// Wave 71 hotfix: filter out hidden/archived scholars ONLY IF the
+		// status column exists. The dbDelta migration may not have applied
+		// yet on production (opcache + breeze cache) — without this check
+		// the SQL silently returns empty if the column is missing.
+		$status_where = '';
+		$has_status_col = (bool) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA = DATABASE()
+			   AND TABLE_NAME = %s
+			   AND COLUMN_NAME = 'status'",
+			$t['scholars']
+		) );
+		if ( $has_status_col ) {
+			$status_where = " AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )";
+		}
+
 		// Prefer last 60 days BY EITHER PUBLICATION OR INGESTION.
 		// For the visual /videos ingest path, published_at carries the real
 		// YouTube upload date (potentially years old). Without OR-ing in
@@ -276,11 +292,7 @@ class LA_Algorithm {
 			        p.published_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
 			        OR p.created_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
 			   )
-			   -- Wave 71: hide all content from non-active scholars
-			   -- (status = 'hidden' or 'archived'). NULL or '' is treated
-			   -- as active for back-compat with rows that pre-date the
-			   -- column.
-			   AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )
+			   {$status_where}
 			   {$binged_where}
 			   {$type_where}
 			 ORDER BY GREATEST(p.published_at, p.created_at) DESC";
@@ -297,7 +309,7 @@ class LA_Algorithm {
 				 FROM {$t['feed_posts']} p
 				 LEFT JOIN {$t['scholars']} s ON s.id = p.scholar_id
 				 WHERE ( p.expires_at IS NULL OR p.expires_at > NOW() )
-				   AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )
+				   {$status_where}
 				   {$binged_where}
 				   {$type_where}
 				 ORDER BY p.published_at DESC";

@@ -238,9 +238,16 @@ class LA_Admin {
 			$where .= " AND s.default_content_type = %s";
 			$args[] = $filter_type;
 		}
-		if ( $filter_status && $filter_status !== 'all' ) {
+		// Wave 71 hotfix: only apply status filter if column exists
+		$has_status_col = (bool) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA = DATABASE()
+			   AND TABLE_NAME = %s
+			   AND COLUMN_NAME = 'status'",
+			$t['scholars']
+		) );
+		if ( $has_status_col && $filter_status && $filter_status !== 'all' ) {
 			if ( $filter_status === 'active' ) {
-				// Treat NULL / '' / 'active' as active (back-compat)
 				$where .= " AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )";
 			} else {
 				$where .= " AND s.status = %s";
