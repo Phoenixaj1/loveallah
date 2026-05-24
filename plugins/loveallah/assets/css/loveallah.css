@@ -6384,13 +6384,17 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
    Falls back to a dark gradient if the image is missing. */
 .la-pulse-bg-image {
 	position: absolute;
-	left: 50%; top: 48%;
+	left: 50%; top: 40%;
 	z-index: 0;
 	width: 380px; height: 380px;
 	transform: translate(-50%, -50%);
 	background-image: url('../img/pulse-heart-bg.jpg');
 	background-size: cover;
-	background-position: center 42%;
+	/* Anchor the heart's chambers (the "main part") at the visual
+	   centre of the container — pushes the flower-bouquet top up
+	   slightly so the pulse rings beat over the chambers, not the
+	   bouquet. */
+	background-position: center 60%;
 	background-repeat: no-repeat;
 	/* Radial mask: solid at centre, fades to transparent at edges so
 	   the heart blends seamlessly into the midnight backdrop rather
