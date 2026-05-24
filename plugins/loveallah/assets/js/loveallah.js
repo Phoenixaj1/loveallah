@@ -674,10 +674,15 @@
 		}).catch(() => {});
 	}
 
-	// Local seen-ids ring buffer (~200 most recent ids). Keeps the feed
-	// repeat-free even when cookie identity is unstable.
+	// Local seen-ids ring buffer (Wave 81: bumped 200 → 500 to cover the
+	// 90-day server-side seen window — a heavy viewer can rack up 200 ids
+	// in a single session, which would push older ids out of the buffer
+	// before the server's 90-day exclusion expires for them. 500 ids ≈
+	// 3-4 KB in localStorage and ~3 KB in the X-LA-Seen request header,
+	// well under the 8 KB header ceiling). Keeps the feed repeat-free even
+	// when cookie identity is unstable.
 	const SEEN_KEY = 'la_seen_ids_v1';
-	const SEEN_CAP = 200;
+	const SEEN_CAP = 500;
 	function rememberSeenLocal(id) {
 		try {
 			const n = parseInt(id, 10);

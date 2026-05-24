@@ -75,11 +75,14 @@ class LA_Algorithm {
 		}
 		$all = self::ranked_content_full( $affinities, $seen_once, $binged, $user_id, $session_id, $page, $type_filter );
 
-		// Wave 77: tiered cold-start fallback. The first pass excludes ANY
-		// post seen in the last 30 days (Wave 77 strictness). If that drains
-		// the pool below one page, soften: still exclude binged (≥3 views)
-		// but allow once-seen back. If THAT still leaves us short, drop all
-		// exclusion — we'd rather repeat than ship empty.
+		// Wave 77 / 81: tiered cold-start fallback. The first pass excludes
+		// ANY post seen in the last 90 days (Wave 81 widened the window
+		// from 30 → 90 days at user request — top creators stick around
+		// longer so a casual viewer shouldn't see Menk's Friday clip again
+		// for three months). If that drains the pool below one page, soften:
+		// still exclude binged (≥3 views) but allow once-seen back. If THAT
+		// still leaves us short, drop all exclusion — we'd rather repeat
+		// than ship empty.
 		if ( count( $all ) < $limit ) {
 			$all = self::ranked_content_full( $affinities, [], $binged, $user_id, $session_id, $page, $type_filter );
 		}
@@ -261,13 +264,14 @@ class LA_Algorithm {
 			}
 		}
 
-		// Wave 77: HARD-exclude ANY post the user has seen in the last 30 days
-		// (was: only 3+ view "binged" rows). With 3,800+ videos in the catalog
-		// and content arriving daily, repeats are unacceptable — the −800
-		// penalty alone left low-quality unseen content losing to a seen
-		// favourite. Merge once-seen + binged IDs into the SQL NOT IN list.
-		// The fallback at the bottom of this function re-includes seen content
-		// if the exclusion list leaves us with nothing to show.
+		// Wave 77 / 81: HARD-exclude ANY post the user has seen in the last
+		// 90 days (Wave 81 widened the seen window from 30 → 90 days at
+		// user request). With 4,600+ videos in the catalog and content
+		// arriving daily, repeats are unacceptable — the −800 penalty alone
+		// left low-quality unseen content losing to a seen favourite.
+		// Merge once-seen + binged IDs into the SQL NOT IN list.
+		// The tiered fallback in for_user() re-includes seen content if
+		// the strict exclusion leaves us with nothing to show.
 		$all_seen_ids = array_unique( array_merge(
 			array_map( 'intval', array_keys( (array) $seen_ids ) ),
 			array_map( 'intval', array_keys( (array) $binged_ids ) )
@@ -556,13 +560,20 @@ class LA_Algorithm {
 	 * users close the app and switch to another, so we treat repeat-views
 	 * as the strongest negative signal in the algorithm.
 	 *
-	 *   seen_once = posts viewed 1-2 times in last 30 days → −800 score penalty
-	 *   binged    = posts viewed 3+ times in last 30 days  → HARD excluded
+	 * Wave 81: window widened 30 → 90 days. Wave 77 already hard-excluded
+	 * any seen post (was −800 penalty). The 90-day window means a user who
+	 * watches a Mufti Menk clip in March doesn't see it again until June,
+	 * even if their interaction history is sparse in between. Pairs with
+	 * the localStorage 500-id ring buffer that survives cookie clears.
+	 *
+	 *   seen_once = posts viewed 1-2 times in last 90 days → HARD excluded
+	 *   binged    = posts viewed 3+ times in last 90 days  → HARD excluded
+	 *
+	 * Both buckets feed into the SQL NOT IN list now (Wave 77 algorithm
+	 * change), so the once/binged distinction only affects the tiered
+	 * cold-start fallback in for_user().
 	 *
 	 * Returns [ once_map, binged_map ] both keyed by post_id for O(1) lookup.
-	 *
-	 * 30-day window (was 250 most-recent interactions, which a single deep
-	 * scroll could blow past — leaving no memory by the next visit).
 	 */
 	private static function seen_tiered( ?int $user_id, ?string $session_id ) : array {
 		global $wpdb;
@@ -575,10 +586,10 @@ class LA_Algorithm {
 			"SELECT post_id, COUNT(*) AS views
 			 FROM {$t['feed_interactions']}
 			 WHERE {$col} = %s
-			   AND occurred_at >= DATE_SUB( NOW(), INTERVAL 30 DAY )
+			   AND occurred_at >= DATE_SUB( NOW(), INTERVAL 90 DAY )
 			 GROUP BY post_id
 			 ORDER BY views DESC, MAX(id) DESC
-			 LIMIT 1000",
+			 LIMIT 5000",
 			(string) $val
 		) );
 
