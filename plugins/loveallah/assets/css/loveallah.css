@@ -5380,7 +5380,7 @@ body.is-dhikr-active .la-header {
 @media (min-width: 600px) {
 	.la-dhikr-hub-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
 }
-.la-dhikr-card {
+.la-dhikr-hub-card {
 	display: flex; flex-direction: column;
 	gap: 6px;
 	padding: 22px 20px;
@@ -5394,33 +5394,33 @@ body.is-dhikr-active .la-header {
 	position: relative;
 	overflow: hidden;
 }
-.la-dhikr-card:hover {
+.la-dhikr-hub-card:hover {
 	transform: translateY(-2px);
 	box-shadow: 0 12px 32px rgba(0,0,0,0.08);
 	text-decoration: none;
 }
-.la-dhikr-card:active { transform: translateY(0) scale(0.99); }
-.la-dhikr-card-icon {
+.la-dhikr-hub-card:active { transform: translateY(0) scale(0.99); }
+.la-dhikr-hub-card-icon {
 	width: 52px; height: 52px;
 	display: flex; align-items: center; justify-content: center;
 	border-radius: 16px;
 	margin-bottom: 6px;
 }
-.la-dhikr-card-icon svg { width: 32px; height: 32px; }
-.la-dhikr-card--solitude .la-dhikr-card-icon { background: linear-gradient(135deg, #fce4ec, #f8bbd9); color: #c2185b; }
-.la-dhikr-card--witness  .la-dhikr-card-icon { background: linear-gradient(135deg, #e3f2fd, #bbdefb); color: #1565c0; }
-.la-dhikr-card--pulse    .la-dhikr-card-icon { background: linear-gradient(135deg, #ffe0b2, #ffcc80); color: #e65100; }
-.la-dhikr-card--names    .la-dhikr-card-icon { background: linear-gradient(135deg, #e0f2f1, #b2dfdb); color: #00695c; }
-.la-dhikr-card-name {
+.la-dhikr-hub-card-icon svg { width: 32px; height: 32px; }
+.la-dhikr-hub-card--solitude .la-dhikr-hub-card-icon { background: linear-gradient(135deg, #fce4ec, #f8bbd9); color: #c2185b; }
+.la-dhikr-hub-card--witness  .la-dhikr-hub-card-icon { background: linear-gradient(135deg, #e3f2fd, #bbdefb); color: #1565c0; }
+.la-dhikr-hub-card--pulse    .la-dhikr-hub-card-icon { background: linear-gradient(135deg, #ffe0b2, #ffcc80); color: #e65100; }
+.la-dhikr-hub-card--names    .la-dhikr-hub-card-icon { background: linear-gradient(135deg, #e0f2f1, #b2dfdb); color: #00695c; }
+.la-dhikr-hub-card-name {
 	font-size: 22px; font-weight: 900; letter-spacing: -0.02em;
 	color: var(--la-ink-dark);
 }
-.la-dhikr-card-tag {
+.la-dhikr-hub-card-tag {
 	font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
 	color: var(--la-primary);
 	margin-bottom: 4px;
 }
-.la-dhikr-card-desc {
+.la-dhikr-hub-card-desc {
 	font-size: 14px; line-height: 1.55; color: var(--la-ink-muted);
 	margin: 0;
 }
