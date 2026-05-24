@@ -6371,10 +6371,59 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	position: relative;
 	height: calc(100dvh - var(--la-tabbar-h));
 	display: flex; flex-direction: column;
+	overflow: hidden;
+	isolation: isolate;
 }
+
+/* Wave 63: blossoming-heart backdrop.
+   Two layered divs:
+     1. .la-pulse-bg-image — the actual artwork, cover-sized, gently
+        scaled and floated up by 4% so the heart sits a touch above
+        the optical centre (the pulse rings overlay the chambers).
+     2. .la-pulse-bg-vignette — radial dim that fades the edges toward
+        midnight so the rings + arabic + HUD stay clearly readable.
+   Image lives at /assets/img/pulse-heart-bg.jpg (the user supplies
+   the file). Falls back to a dark gradient if the image is missing. */
+.la-pulse-bg-image {
+	position: absolute;
+	inset: -2% -2%;
+	z-index: 0;
+	background-color: #0B0316;
+	background-image: url('../img/pulse-heart-bg.jpg');
+	background-size: cover;
+	background-position: center 42%;
+	background-repeat: no-repeat;
+	opacity: 0.85;
+	filter: saturate(0.92) brightness(0.78);
+	animation: la-pulse-bg-breathe 14s ease-in-out infinite;
+}
+@keyframes la-pulse-bg-breathe {
+	0%, 100% { transform: scale(1.00); }
+	50%      { transform: scale(1.04); }
+}
+.la-pulse-bg-vignette {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	background:
+		/* Light bloom from the centre — picks up the divine light from
+		   the artwork and makes the pulse rings feel luminous */
+		radial-gradient(ellipse 60% 50% at center 46%, rgba(232, 199, 111, 0.16), transparent 70%),
+		/* Edge darkening — fades the bottom for HUD readability, top
+		   for the back-button area, sides for typography focus */
+		radial-gradient(ellipse 130% 100% at center 50%,
+			transparent 30%,
+			rgba(11, 3, 22, 0.35) 65%,
+			rgba(11, 3, 22, 0.75) 100%),
+		/* Bottom hud reading band */
+		linear-gradient(0deg, rgba(11, 3, 22, 0.85), transparent 35%);
+	pointer-events: none;
+}
+
 .la-pulse-stage {
 	flex: 1;
 	position: relative;
+	z-index: 2;
 	display: flex; align-items: center; justify-content: center;
 	min-height: 0;
 }

@@ -105,6 +105,12 @@ $la_pulse_phrases = [
 
 	<!-- ─── SESSION screen: pulse + counter ─── -->
 	<section class="la-pulse-session" data-pulse-scene="session" hidden>
+		<!-- Wave 63: blossoming-heart backdrop. The image lives at
+		     /assets/img/pulse-heart-bg.jpg. CSS layers a radial
+		     vignette on top so the pulse rings + arabic stay clear. -->
+		<div class="la-pulse-bg-image" aria-hidden="true"></div>
+		<div class="la-pulse-bg-vignette" aria-hidden="true"></div>
+
 		<!-- Background pulse rings (3 expanding circles, staggered) -->
 		<div class="la-pulse-stage">
 			<div class="la-pulse-ring la-pulse-ring--3" data-pulse-ring="3"></div>
