@@ -3597,3 +3597,60 @@
 	}
 })();
 
+
+// ============================================================
+// WAVE 67 — Bismillah blessing overlay
+// First-time visitor → show بسم الله over the first feed video for
+// ~4.5s, then fade out. Returning visitors never see it again.
+// Optimised for Meta thruplay-ad landings: the moment they arrive
+// feels sacred, not "another app".
+// ============================================================
+(function initBismillahOverlay() {
+	const overlay = document.querySelector('[data-bismillah-overlay]');
+	if (!overlay) return;
+
+	// Only show on the main feed (not /dhikr/, /duas/ etc — they
+	// have their own sacred entrances).
+	const isMainFeed = document.querySelector('.la-app--feed');
+	if (!isMainFeed) return;
+
+	// Honour the once-per-device rule. Anyone who's seen it before
+	// gets straight to the feed.
+	try {
+		if (localStorage.getItem('la_seen_bismillah') === '1') return;
+	} catch (_) {}
+
+	// Show it
+	overlay.removeAttribute('hidden');
+	overlay.removeAttribute('aria-hidden');
+	requestAnimationFrame(() => overlay.classList.add('is-visible'));
+
+	let dismissed = false;
+	function dismiss() {
+		if (dismissed) return;
+		dismissed = true;
+		try { localStorage.setItem('la_seen_bismillah', '1'); } catch (_) {}
+		overlay.classList.add('is-leaving');
+		setTimeout(() => {
+			overlay.setAttribute('hidden', '');
+			overlay.setAttribute('aria-hidden', 'true');
+		}, 750);
+	}
+
+	// Auto-dismiss after 4.5s — long enough to read the calligraphy
+	// and feel the moment, short enough that thruplay-ad visitors
+	// don't bounce thinking the page is stuck.
+	const autoTimer = setTimeout(dismiss, 4500);
+
+	// Tap anywhere on the overlay region OR on the feed to skip early.
+	// We listen on document so even a swipe-start dismisses it without
+	// the user having to aim for the (pointer-events: none) overlay.
+	function earlyDismiss() {
+		clearTimeout(autoTimer);
+		dismiss();
+	}
+	document.addEventListener('touchstart', earlyDismiss, { once: true, passive: true });
+	document.addEventListener('click',      earlyDismiss, { once: true });
+	document.addEventListener('keydown',    earlyDismiss, { once: true });
+	document.addEventListener('wheel',      earlyDismiss, { once: true, passive: true });
+})();

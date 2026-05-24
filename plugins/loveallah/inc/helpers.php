@@ -192,6 +192,22 @@ function la_render_feed_main( string $type_filter = '' ) : void {
 			<div class="la-affirmation-text"></div>
 		</div>
 
+		<?php
+		// Wave 67: Bismillah blessing overlay — appears over the first
+		// feed video for first-time visitors, fades after 4.5s. Built
+		// for Meta thruplay-ad landings so the moment they arrive feels
+		// sacred, not "another app". Hidden by default; JS shows it
+		// once per device based on localStorage 'la_seen_bismillah'.
+		// SSR-rendered so it paints with the page (no flash gap).
+		?>
+		<div class="la-bismillah-overlay" data-bismillah-overlay hidden aria-hidden="true">
+			<div class="la-bismillah-overlay-glow" aria-hidden="true"></div>
+			<div class="la-bismillah-overlay-inner">
+				<div class="la-bismillah-overlay-arabic" lang="ar" dir="rtl">بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>
+				<div class="la-bismillah-overlay-meaning">In the name of Allah, the Most Gracious, the Most Merciful</div>
+			</div>
+		</div>
+
 		<!-- Events bottom sheet (reusable across all feed pages) -->
 		<div class="la-sheet-backdrop" data-sheet-backdrop hidden></div>
 		<aside class="la-sheet" data-sheet="events" hidden aria-label="Upcoming masjid events" aria-modal="true" role="dialog">

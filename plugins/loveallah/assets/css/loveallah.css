@@ -7555,3 +7555,102 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	box-shadow: 0 0 0 2px rgba(255,255,255,0.30);
 	flex-shrink: 0;
 }
+
+/* ============================================================
+   WAVE 67 — Bismillah blessing overlay (first-feed-load only)
+   Shows over the first video for first-time visitors, then
+   gracefully dissolves so the feed takes over. Sacred entrance.
+   ============================================================ */
+.la-bismillah-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 700;
+	display: flex; align-items: center; justify-content: center;
+	pointer-events: none; /* feed underneath stays scrollable if they swipe */
+	background:
+		radial-gradient(ellipse 80% 60% at center 48%, rgba(11, 3, 22, 0.92), rgba(11, 3, 22, 0.55) 60%, transparent 90%);
+	opacity: 0;
+	transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+	will-change: opacity;
+}
+.la-bismillah-overlay[hidden] { display: none; }
+.la-bismillah-overlay.is-visible { opacity: 1; }
+
+.la-bismillah-overlay-glow {
+	position: absolute;
+	left: 50%; top: 50%;
+	transform: translate(-50%, -50%);
+	width: 560px; height: 560px;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(232, 199, 111, 0.28) 0%, rgba(232, 199, 111, 0.10) 30%, transparent 70%);
+	filter: blur(24px);
+	animation: la-bismillah-halo 6s ease-in-out infinite;
+}
+@keyframes la-bismillah-halo {
+	0%, 100% { opacity: 0.9;  transform: translate(-50%, -50%) scale(1); }
+	50%      { opacity: 0.65; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+.la-bismillah-overlay-inner {
+	position: relative;
+	z-index: 1;
+	max-width: 86%;
+	text-align: center;
+	color: #F8ECD0;
+	animation: la-bismillah-rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes la-bismillah-rise {
+	0%   { opacity: 0; transform: translateY(12px) scale(0.96); filter: blur(4px); }
+	100% { opacity: 1; transform: translateY(0)   scale(1);    filter: blur(0); }
+}
+
+.la-bismillah-overlay-arabic {
+	font-family: 'Amiri', 'Scheherazade', 'Noto Naskh Arabic', Georgia, serif;
+	font-size: 38px; line-height: 1.55;
+	font-weight: 500;
+	letter-spacing: 0.01em;
+	color: #F4D982;
+	text-shadow:
+		0 0 36px rgba(232, 199, 111, 0.55),
+		0 0 12px rgba(232, 199, 111, 0.35);
+	background: linear-gradient(110deg,
+		#E8C76F 0%,
+		#FFE9B0 30%,
+		#F4D982 50%,
+		#FFE9B0 70%,
+		#E8C76F 100%);
+	background-size: 200% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: la-bismillah-shimmer 4.5s ease-in-out infinite;
+}
+@keyframes la-bismillah-shimmer {
+	0%, 100% { background-position: 0% 50%; }
+	50%      { background-position: 200% 50%; }
+}
+@media (min-width: 600px) { .la-bismillah-overlay-arabic { font-size: 52px; } }
+@media (max-width: 360px) { .la-bismillah-overlay-arabic { font-size: 30px; } }
+
+.la-bismillah-overlay-meaning {
+	margin-top: 18px;
+	font-size: 13px; font-weight: 600;
+	letter-spacing: 0.08em;
+	color: rgba(244, 228, 193, 0.75);
+	font-style: italic;
+	line-height: 1.5;
+}
+@media (min-width: 600px) {
+	.la-bismillah-overlay-meaning { font-size: 14.5px; margin-top: 22px; }
+}
+
+/* When dismissing: fade everything, lift the inner slightly so it
+   "ascends" rather than just blinking out */
+.la-bismillah-overlay.is-leaving { opacity: 0; }
+.la-bismillah-overlay.is-leaving .la-bismillah-overlay-inner {
+	animation: la-bismillah-ascend 0.7s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes la-bismillah-ascend {
+	0%   { opacity: 1; transform: translateY(0)    scale(1); }
+	100% { opacity: 0; transform: translateY(-14px) scale(1.02); filter: blur(4px); }
+}
