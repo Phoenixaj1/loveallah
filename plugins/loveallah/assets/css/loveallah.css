@@ -1020,13 +1020,33 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 }
 .la-prayer-cell.is-next .la-prayer-cell-time { color: var(--la-primary-deep); }
 .la-prayer-cell-eta {
-	font-size: 9px;
+	/* Wave 83c: wrap the countdown in a rounded-rectangle pill so it
+	   reads as a live tag rather than floating text. Sits under the
+	   prayer time inside the .is-next cell. White-translucent fill +
+	   dark text reads cleanly on both the glass header (feed page)
+	   and the solid sticky gradient (other pages). */
+	display: inline-block;
+	font-size: 10px;
 	font-weight: 800;
-	color: var(--la-primary-dark);
+	color: var(--la-primary-deep);
 	font-variant-numeric: tabular-nums;
 	letter-spacing: 0;
 	line-height: 1;
-	margin-top: 1px;
+	margin-top: 3px;
+	padding: 3px 7px;
+	background: rgba(255, 255, 255, 0.92);
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	border-radius: 8px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+@media (max-width: 600px) {
+	.la-prayer-cell.is-next .la-prayer-cell-eta {
+		/* Smaller pill on mobile so it doesn't overflow the cell width */
+		font-size: 9px;
+		padding: 2px 5px;
+		border-radius: 6px;
+		margin-top: 2px;
+	}
 }
 
 /* Legacy strip — kept for fallback/other pages */
