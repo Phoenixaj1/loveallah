@@ -41,6 +41,17 @@ class LA_DB {
 	public static function maybe_upgrade() {
 		$current = (int) get_option( 'la_db_version', 0 );
 		if ( $current < LA_DB_VERSION ) {
+			// Wave 48: Cloudways production has opcache.validate_timestamps=0
+			// for performance, meaning .php files can be updated on disk but
+			// opcache keeps serving the OLD bytecode forever — until PHP-FPM
+			// restarts or opcache_reset() runs. The auto-deploy pipeline
+			// doesn't always reset opcache, so a new wave's algorithm tweak
+            // might not take effect.
+			// Calling opcache_reset() here on EVERY DB version bump means
+			// any future wave that bumps LA_DB_VERSION automatically purges
+			// stale bytecode. One-line insurance against the whole class of
+			// "deploy ran but new code isn't running" bugs.
+			if ( function_exists( 'opcache_reset' ) ) @opcache_reset();
 			self::create_tables();
 			// Re-seed on every DB version bump. All of these are idempotent
 			// (insert-or-update by unique key, or count-and-skip-if-exists)
