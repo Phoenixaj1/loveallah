@@ -1866,6 +1866,88 @@
 		// Apply on first paint
 		applyScene(selected.scene);
 
+		// ─── Wave 60: in-session scene switcher + audio toggle ───────
+		// Bottom-left floating control on the session screen. The scene
+		// chip opens a strip of all available scenes; tap one to swap
+		// the background video without ending the session. The speaker
+		// chip mutes/unmutes the ambient audio (state persists).
+		const sessionControls = root.querySelector('[data-session-controls]');
+		const toggleScenesBtn = sessionControls?.querySelector('[data-toggle-scenes]');
+		const toggleAudioBtn  = sessionControls?.querySelector('[data-toggle-audio]');
+		const sessionScenes   = sessionControls?.querySelector('[data-session-scenes]');
+		const currentEmojiEl  = sessionControls?.querySelector('[data-current-scene-emoji]');
+		// Pull initial mute state from localStorage so the user's last
+		// choice carries between sessions.
+		let audioOn = localStorage.getItem('la_dhikr_audio') !== 'off';
+
+		function refreshSessionAudio() {
+			if (!toggleAudioBtn) return;
+			toggleAudioBtn.classList.toggle('is-on', audioOn);
+			toggleAudioBtn.classList.toggle('is-off', !audioOn);
+			toggleAudioBtn.setAttribute('aria-pressed', audioOn ? 'true' : 'false');
+			// bgYtPlayer is defined later in the same IIFE — null-safe.
+			if (typeof bgYtPlayer !== 'undefined' && bgYtPlayer) {
+				try {
+					if (audioOn) { bgYtPlayer.unMute?.(); bgYtPlayer.setVolume?.(30); }
+					else         { bgYtPlayer.mute?.();   bgYtPlayer.setVolume?.(0); }
+				} catch (_) {}
+			}
+		}
+
+		function refreshSessionSceneEmoji(sceneKey) {
+			if (!currentEmojiEl) return;
+			const chip = sessionScenes?.querySelector(`[data-session-scene="${sceneKey}"]`);
+			if (chip) currentEmojiEl.textContent = chip.getAttribute('data-session-scene-emoji') || '✨';
+		}
+
+		// Initial render — pick up the landing's selected scene
+		refreshSessionSceneEmoji(selected.scene);
+		// Sync session scene radios with the landing's choice
+		sessionScenes?.querySelectorAll('[data-session-scene]').forEach((b) => {
+			const isSel = b.getAttribute('data-session-scene') === selected.scene;
+			b.classList.toggle('is-selected', isSel);
+			b.setAttribute('aria-checked', isSel ? 'true' : 'false');
+		});
+
+		toggleScenesBtn?.addEventListener('click', () => {
+			if (!sessionScenes) return;
+			const hidden = sessionScenes.hasAttribute('hidden');
+			if (hidden) sessionScenes.removeAttribute('hidden');
+			else        sessionScenes.setAttribute('hidden', '');
+			toggleScenesBtn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+		});
+
+		toggleAudioBtn?.addEventListener('click', () => {
+			audioOn = !audioOn;
+			localStorage.setItem('la_dhikr_audio', audioOn ? 'on' : 'off');
+			refreshSessionAudio();
+		});
+
+		sessionScenes?.querySelectorAll('[data-session-scene]').forEach((btn) => {
+			btn.addEventListener('click', () => {
+				const newScene = btn.getAttribute('data-session-scene');
+				if (!newScene || newScene === selected.scene) return;
+				selected.scene = newScene;
+				persistPrefs();
+				// Update radio state
+				sessionScenes.querySelectorAll('[data-session-scene]').forEach((b) => {
+					const isSel = b === btn;
+					b.classList.toggle('is-selected', isSel);
+					b.setAttribute('aria-checked', isSel ? 'true' : 'false');
+				});
+				refreshSessionSceneEmoji(newScene);
+				applyScene(newScene);
+				loadBackgroundVideo(newScene);
+				// Apply current audio preference to the new iframe (slight
+				// delay since the player needs to be ready)
+				setTimeout(refreshSessionAudio, 1500);
+				// Auto-collapse the picker after a choice — keeps the
+				// session UI minimal
+				sessionScenes.setAttribute('hidden', '');
+				toggleScenesBtn?.setAttribute('aria-expanded', 'false');
+			});
+		});
+
 		// Begin session
 		beginBtn?.addEventListener('click', () => {
 			startSession();
@@ -2239,8 +2321,11 @@
 						events: {
 							onReady: (e) => {
 								try {
-									// Background ambient — never leading. 30% volume.
-									e.target.setVolume(30);
+									// Background ambient — never leading. 30% volume
+									// when audio is on, fully muted when user toggled
+									// it off. Wave 60: localStorage-backed preference.
+									if (audioOn) { e.target.unMute?.(); e.target.setVolume(30); }
+									else         { e.target.mute?.();   e.target.setVolume(0); }
 									e.target.seekTo(SCENE_START_SECONDS, true);
 									e.target.playVideo();
 								} catch (_) {}

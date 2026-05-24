@@ -398,6 +398,47 @@ get_header();
 		<div class="la-dhikr-progress" aria-hidden="true">
 			<div class="la-dhikr-progress-fill" data-progress-fill></div>
 		</div>
+
+		<!-- Wave 60: in-session controls (scene switcher + audio toggle).
+		     Floats above the bottom-left so it doesn't compete with the
+		     rhythm slider on the right. Picker is collapsed by default —
+		     tap the scene chip to reveal the full list, tap the speaker
+		     to mute/unmute the ambient audio. -->
+		<div class="la-dhikr-session-controls" data-session-controls>
+			<button type="button"
+				class="la-dhikr-session-ctrl la-dhikr-session-ctrl--scene"
+				data-toggle-scenes
+				aria-expanded="false"
+				aria-label="Change scene">
+				<span class="la-dhikr-session-ctrl-emoji" data-current-scene-emoji aria-hidden="true">✨</span>
+				<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+			</button>
+
+			<button type="button"
+				class="la-dhikr-session-ctrl la-dhikr-session-ctrl--audio is-on"
+				data-toggle-audio
+				aria-pressed="true"
+				aria-label="Toggle ambient audio">
+				<svg class="la-dhikr-session-ctrl-icon-on"  width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+				<svg class="la-dhikr-session-ctrl-icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+			</button>
+
+			<div class="la-dhikr-session-scenes" data-session-scenes hidden role="radiogroup" aria-label="Background scene">
+				<?php foreach ( $la_scenes as $i => $s ) : ?>
+					<button type="button"
+						class="la-dhikr-session-scene <?php echo $i === 0 ? 'is-selected' : ''; ?>"
+						role="radio"
+						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
+						data-session-scene="<?php echo esc_attr( $s['key'] ); ?>"
+						data-session-scene-video="<?php echo esc_attr( $s['video'] ?? '' ); ?>"
+						data-session-scene-emoji="<?php echo esc_attr( $s['emoji'] ); ?>"
+						title="<?php echo esc_attr( $s['label'] . ' — ' . $s['desc'] ); ?>">
+						<span class="la-dhikr-session-scene-emoji" aria-hidden="true"><?php echo $s['emoji']; ?></span>
+						<span class="la-dhikr-session-scene-label"><?php echo esc_html( $s['label'] ); ?></span>
+					</button>
+				<?php endforeach; ?>
+			</div>
+		</div>
 	</section>
 
 	<!-- ─── COMPLETION — reflection, not celebration ─── -->

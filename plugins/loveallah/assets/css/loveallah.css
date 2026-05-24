@@ -2961,6 +2961,117 @@ body.is-dhikr-active .la-header {
 	border-radius: 2px;
 	overflow: hidden;
 }
+
+/* ────────────────────────────────────────────────────────────
+   Wave 60 — In-session controls (scene + audio)
+   Floats bottom-left of the session so it doesn't interfere
+   with the rhythm slider on the right.
+   ──────────────────────────────────────────────────────────── */
+.la-dhikr-session-controls {
+	position: fixed;
+	left: 18px;
+	bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+	z-index: 12;
+	display: flex; align-items: center; gap: 8px;
+	flex-wrap: wrap;
+}
+@media (max-width: 480px) {
+	.la-dhikr-session-controls {
+		left: 14px;
+		bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+	}
+}
+
+.la-dhikr-session-ctrl {
+	display: inline-flex; align-items: center; gap: 6px;
+	padding: 8px 12px;
+	background: rgba(15, 15, 30, 0.55);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 999px;
+	color: rgba(255, 255, 255, 0.85);
+	font-family: inherit;
+	font-size: 13px; font-weight: 700;
+	cursor: pointer;
+	-webkit-backdrop-filter: blur(16px);
+	backdrop-filter: blur(16px);
+	transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s var(--la-spring);
+}
+.la-dhikr-session-ctrl:hover {
+	background: rgba(15, 15, 30, 0.72);
+	border-color: rgba(255, 255, 255, 0.26);
+}
+.la-dhikr-session-ctrl:active { transform: scale(0.95); }
+
+.la-dhikr-session-ctrl--scene .la-dhikr-session-ctrl-emoji {
+	font-size: 16px;
+	line-height: 1;
+}
+.la-dhikr-session-ctrl--scene svg { opacity: 0.6; }
+.la-dhikr-session-ctrl[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+.la-dhikr-session-ctrl--audio {
+	width: 38px; height: 38px;
+	padding: 0;
+	justify-content: center;
+}
+.la-dhikr-session-ctrl--audio .la-dhikr-session-ctrl-icon-off { display: none; }
+.la-dhikr-session-ctrl--audio.is-off {
+	color: rgba(255, 255, 255, 0.55);
+	border-color: rgba(255, 255, 255, 0.10);
+}
+.la-dhikr-session-ctrl--audio.is-off .la-dhikr-session-ctrl-icon-on  { display: none; }
+.la-dhikr-session-ctrl--audio.is-off .la-dhikr-session-ctrl-icon-off { display: inline-block; }
+
+.la-dhikr-session-scenes {
+	position: absolute;
+	bottom: calc(100% + 8px);
+	left: 0;
+	display: flex; flex-direction: column;
+	gap: 4px;
+	min-width: 180px;
+	padding: 6px;
+	background: rgba(15, 15, 30, 0.85);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 16px;
+	-webkit-backdrop-filter: blur(20px);
+	backdrop-filter: blur(20px);
+	box-shadow: 0 14px 40px rgba(0,0,0,0.45);
+	animation: la-dhikr-scenes-pop 0.22s var(--la-spring);
+}
+.la-dhikr-session-scenes[hidden] { display: none; }
+@keyframes la-dhikr-scenes-pop {
+	from { opacity: 0; transform: translateY(6px) scale(0.95); }
+	to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+.la-dhikr-session-scene {
+	display: flex; align-items: center; gap: 10px;
+	padding: 8px 12px;
+	background: transparent;
+	border: none;
+	border-radius: 10px;
+	color: rgba(255, 255, 255, 0.78);
+	font-family: inherit;
+	font-size: 13px; font-weight: 600;
+	cursor: pointer;
+	text-align: left;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+.la-dhikr-session-scene:hover {
+	background: rgba(255, 255, 255, 0.06);
+	color: #fff;
+}
+.la-dhikr-session-scene.is-selected {
+	background: rgba(232, 199, 111, 0.14);
+	color: #F4D982;
+	box-shadow: 0 0 0 1px rgba(232, 199, 111, 0.30) inset;
+}
+.la-dhikr-session-scene-emoji {
+	font-size: 18px;
+	line-height: 1;
+	flex-shrink: 0;
+}
+.la-dhikr-session-scene-label { flex: 1; }
 .la-dhikr-progress-fill {
 	height: 100%;
 	width: 0%;
