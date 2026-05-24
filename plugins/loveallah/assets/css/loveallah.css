@@ -5433,10 +5433,20 @@ body.is-dhikr-active .la-header {
 }
 
 /* ─── WITNESS — dhikr-only feed + tap counter ─────────── */
+/* Must be a column flex container so the inherited .la-feed-snap
+   (flex: 1 1 0) expands to fill — otherwise it collapses to 0 and
+   the feed cards stack invisibly inside a sliver. Mirrors what
+   .la-app--feed does for the main feed page. */
 .la-app--witness {
 	position: relative;
-	height: calc(100dvh - var(--la-tabbar-h));
+	padding: 0;
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
 	overflow: hidden;
+}
+@media (min-width: 720px) {
+	.la-app--witness { max-width: none; box-shadow: none; }
 }
 .la-witness-hud {
 	position: fixed;
