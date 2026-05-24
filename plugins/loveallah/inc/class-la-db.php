@@ -1959,32 +1959,56 @@ class LA_DB {
 	}
 
 	/**
-	 * Hard-remove channels we can no longer carry due to criminal
-	 * convictions or platform-safety concerns. Drops the scholar row AND
-	 * all their feed_posts so no orphaned content remains in rotation.
-	 * Idempotent — safe to run on every DB upgrade. The list is intentionally
-	 * narrow: this is for documented criminal/safety issues, not for matters
-	 * of theological disagreement.
+	 * Hard-remove channels we can no longer carry due to:
+	 *   • documented criminal convictions
+	 *   • platform-safety concerns
+	 *   • content-quality issues that violate the "draw closer to Allah"
+	 *     mission (e.g. clickbait "read caption" stub videos)
+	 *
+	 * Drops the scholar row AND all their feed_posts so no orphaned content
+	 * remains in rotation. Idempotent — safe to run on every DB upgrade.
+	 *
+	 * Match strategies in this order, all checked for each candidate:
+	 *   1. exact username slug
+	 *   2. case-insensitive URL substring (catches the channel even if it
+	 *      was seeded under a different slug, e.g. from admin or older waves)
+	 *   3. case-insensitive display_name substring
 	 *
 	 * Current list:
-	 *   - 'wisamsharieff' — Wisam Sharieff. Charged Oct 2024 (FBI, conspiracy
-	 *     to produce child pornography via Telegram). AlMaghrib dismissed
-	 *     him. Sentenced Feb 2026 to 80 years federal prison. Wave 32 had
-	 *     seeded him; Wave 34 removes the seed entry AND any data from
-	 *     production installs that still have his row.
+	 *   - 'wisamsharieff' (Wisam Sharieff). FBI Oct 2024, conspiracy to
+	 *     produce child pornography via Telegram. AlMaghrib dismissed him.
+	 *     Sentenced Feb 2026 to 80 years federal prison.
+	 *   - 'dawahconnect' (Dawah Connect / @DawahConnect). User-flagged for
+	 *     low-quality "read the caption" clickbait stub clips — fails the
+	 *     "draw closer to Allah" content bar.
 	 */
 	private static function purge_unsafe_scholars() {
 		global $wpdb;
 		$t = self::tables();
-		$unsafe = [ 'wisamsharieff' ];
-		foreach ( $unsafe as $u ) {
-			$id = (int) $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM {$t['scholars']} WHERE username = %s",
-				$u
+
+		// Each entry: [ slug, url_substring, display_substring ]
+		// Any match removes the scholar + all their feed_posts.
+		$rules = [
+			[ 'wisamsharieff',  'wisamsharieff', 'Wisam Sharieff' ],
+			[ 'dawahconnect',   'dawahconnect',  'Dawah Connect'  ],
+		];
+
+		foreach ( $rules as [ $slug, $url_sub, $name_sub ] ) {
+			$ids = $wpdb->get_col( $wpdb->prepare(
+				"SELECT id FROM {$t['scholars']}
+				 WHERE username = %s
+				    OR source_url LIKE %s
+				    OR display_name LIKE %s",
+				$slug,
+				'%' . $wpdb->esc_like( $url_sub )  . '%',
+				'%' . $wpdb->esc_like( $name_sub ) . '%'
 			) );
-			if ( ! $id ) continue;
-			$wpdb->delete( $t['feed_posts'], [ 'scholar_id' => $id ] );
-			$wpdb->delete( $t['scholars'],   [ 'id' => $id ] );
+			foreach ( $ids as $id ) {
+				$id = (int) $id;
+				if ( ! $id ) continue;
+				$wpdb->delete( $t['feed_posts'], [ 'scholar_id' => $id ] );
+				$wpdb->delete( $t['scholars'],   [ 'id' => $id ] );
+			}
 		}
 	}
 
