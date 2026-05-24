@@ -436,20 +436,36 @@ class LA_YouTube {
 		$url = preg_replace( '#/(shorts|videos|featured|streams|playlists|community|about)/?$#', '', $source_url );
 		$url = rtrim( (string) $url, '/' ) . '/videos';
 
-		$res = wp_remote_get( $url, [
+		// Wave 78b: YouTube was serving m.youtube.com (mobile) to our Cloudways
+		// server IP — the mobile page loads videos asynchronously via JS and has
+		// ZERO videoId tokens in initial HTML, so the scrape returned nothing
+		// for every top creator. Fix: append ?app=desktop AND send the
+		// `PREF=f6=4000000` cookie that opts the session out of mobile
+		// redirects. Also switched UA to Linux Chrome which YouTube reliably
+		// serves the desktop www.youtube.com response.
+		$url_with_app = $url . '?app=desktop&hl=en';
+
+		$res = wp_remote_get( $url_with_app, [
 			'timeout'     => 15,
 			'redirection' => 5,
-			'user-agent'  => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+			'user-agent'  => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 			'headers'     => [
 				'Accept'          => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
 				'Accept-Language' => 'en-GB,en;q=0.9',
-				'Cookie'          => 'CONSENT=YES+cb.20210328-17-p0.en+FX+999; SOCS=CAI',
+				// PREF=f6=4000000 disables mobile auto-redirect; CONSENT skips the EU consent wall.
+				'Cookie'          => 'CONSENT=YES+cb.20210328-17-p0.en+FX+999; SOCS=CAI; PREF=f6=4000000',
 			],
 		] );
 		if ( is_wp_error( $res ) ) return [];
 		if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) return [];
 		$body = (string) wp_remote_retrieve_body( $res );
 		if ( empty( $body ) ) return [];
+		// Safety guard: if YouTube STILL served us m.youtube.com (PREF didn't
+		// stick), the body has zero videoId tokens — bail early so we don't
+		// waste regex cycles on an empty page.
+		if ( strpos( $body, 'm.youtube.com' ) !== false && strpos( $body, '"videoId"' ) === false ) {
+			return [];
+		}
 
 		// Extract ytInitialData JSON blob — the channel page embeds it in a
 		// <script> tag. We don't fully parse the nested structure (it's
