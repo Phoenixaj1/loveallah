@@ -2614,3 +2614,445 @@
 		}
 	});
 })();
+
+// ============================================================
+// WAVE 40 — Dhikr WITNESS (feed + tap counter)
+// ============================================================
+(function initWitness() {
+	const root = document.querySelector('.la-app--witness');
+	if (!root) return;
+
+	const hudCount  = root.querySelector('[data-witness-count]');
+	const hudTarget = root.querySelector('[data-witness-target]');
+	const targetPick = root.querySelector('[data-witness-target-pick]');
+	const tapBtn   = root.querySelector('[data-witness-tap]');
+	const celebrate = root.querySelector('[data-witness-celebrate]');
+	const closeBtn  = root.querySelector('[data-witness-celebrate-close]');
+
+	let target = parseInt(localStorage.getItem('la_witness_target') || '33', 10);
+	let count  = 0;
+
+	if (hudTarget) hudTarget.textContent = String(target);
+	if (targetPick) targetPick.value = String(target);
+
+	targetPick?.addEventListener('change', (e) => {
+		target = parseInt(e.target.value, 10) || 33;
+		localStorage.setItem('la_witness_target', String(target));
+		if (hudTarget) hudTarget.textContent = String(target);
+	});
+
+	function spawnFloat(x, y) {
+		const f = document.createElement('div');
+		f.className = 'la-witness-float';
+		f.textContent = '+1';
+		f.style.left = x + 'px';
+		f.style.top  = y + 'px';
+		document.body.appendChild(f);
+		setTimeout(() => f.remove(), 1100);
+	}
+
+	tapBtn?.addEventListener('click', (e) => {
+		count++;
+		if (hudCount) hudCount.textContent = String(count);
+		tapBtn.classList.remove('is-popping');
+		void tapBtn.offsetWidth;
+		tapBtn.classList.add('is-popping');
+		if (navigator.vibrate) navigator.vibrate(12);
+		const rect = tapBtn.getBoundingClientRect();
+		spawnFloat(rect.left + rect.width / 2, rect.top + 10);
+
+		// Milestone reached → celebrate, log to server, ask if they want to continue
+		if (count >= target) {
+			setTimeout(() => {
+				celebrate.hidden = false;
+				if (navigator.vibrate) navigator.vibrate([18, 30, 18, 30, 40]);
+				// Log a tasbeeh-completion as a dhikr-completion server-side
+				try {
+					fetch(`${LA.apiRoot}dhikr/complete`, {
+						method: 'POST',
+						headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+						cache: 'no-store',
+					}).catch(() => {});
+				} catch (_) {}
+			}, 200);
+		}
+	});
+
+	closeBtn?.addEventListener('click', () => {
+		celebrate.hidden = true;
+		count = 0;
+		if (hudCount) hudCount.textContent = '0';
+	});
+})();
+
+// ============================================================
+// WAVE 40 — Dhikr PULSE (heart-rate-entrainment metronome)
+// ============================================================
+(function initPulse() {
+	const root = document.querySelector('.la-app--pulse');
+	if (!root) return;
+
+	const cfgEl = root.querySelector('#la-pulse-config');
+	const phrases = cfgEl ? JSON.parse(cfgEl.textContent || '[]') : [];
+	if (!phrases.length) return;
+
+	// State
+	let selectedPhrase = phrases[0];
+	let selectedCount  = 33;
+	let sessionTimer   = null;
+	let sessionStartMs = 0;
+	let currentBpm     = 80;
+	let beatCount      = 0;
+	let holding        = false;
+	let beatTimeoutId  = null;
+
+	// Setup screen elements
+	const phrasePills = root.querySelectorAll('[data-pulse-phrase]');
+	const countPills  = root.querySelectorAll('[data-pulse-count]');
+	const beginMeta   = root.querySelector('[data-pulse-begin-meta]');
+	const beginBtn    = root.querySelector('[data-pulse-begin]');
+
+	// Session screen elements
+	const sceneSetup    = root.querySelector('[data-pulse-scene="setup"]');
+	const sceneSession  = root.querySelector('[data-pulse-scene="session"]');
+	const sceneComplete = root.querySelector('[data-pulse-scene="complete"]');
+	const beginBar      = root.querySelector('.la-pulse-begin-bar');
+	const arabicEl      = root.querySelector('[data-pulse-arabic]');
+	const translitEl    = root.querySelector('[data-pulse-translit]');
+	const countDisplay  = root.querySelector('[data-pulse-count-display]');
+	const targetDisplay = root.querySelector('[data-pulse-target-display]');
+	const bpmDisplay    = root.querySelector('[data-pulse-bpm-display]');
+	const coreEl        = root.querySelector('[data-pulse-core]');
+	const ringEls       = root.querySelectorAll('[data-pulse-ring]');
+	const holdBtn       = root.querySelector('[data-pulse-hold]');
+	const deepenBtn     = root.querySelector('[data-pulse-deepen]');
+	const endBtn        = root.querySelector('[data-pulse-end]');
+	const againBtn      = root.querySelector('[data-pulse-again]');
+
+	function updateBeginMeta() {
+		if (beginMeta) {
+			beginMeta.textContent = `${selectedCount} × ${selectedPhrase.translit}`;
+		}
+	}
+
+	phrasePills.forEach(p => {
+		p.addEventListener('click', () => {
+			phrasePills.forEach(x => x.classList.remove('is-active'));
+			p.classList.add('is-active');
+			const key = p.dataset.pulsePhrase;
+			selectedPhrase = phrases.find(ph => ph.key === key) || phrases[0];
+			updateBeginMeta();
+		});
+	});
+	countPills.forEach(p => {
+		p.addEventListener('click', () => {
+			countPills.forEach(x => x.classList.remove('is-active'));
+			p.classList.add('is-active');
+			selectedCount = parseInt(p.dataset.pulseCount, 10) || 33;
+			updateBeginMeta();
+		});
+	});
+
+	// Exponential decay curve: bpm(t) = end + (start - end) * e^(-t/τ)
+	// τ = 90 seconds — by t=300s the BPM has converged on the end value.
+	// If the user taps "Hold", we freeze the descent at the current BPM.
+	// If they tap "Go deeper", we shrink τ to 45 (accelerate the descent).
+	let tauSeconds = 90;
+	function bpmAtTime(seconds) {
+		const start = selectedPhrase.startBpm;
+		const end   = selectedPhrase.endBpm;
+		if (holding) return currentBpm;
+		return end + (start - end) * Math.exp(-seconds / tauSeconds);
+	}
+
+	function scheduleNextBeat() {
+		if (!sceneSession || sceneSession.hidden) return;
+		const elapsed = (performance.now() - sessionStartMs) / 1000;
+		const bpm = bpmAtTime(elapsed);
+		currentBpm = bpm;
+		const intervalMs = 60000 / bpm;
+		beatTimeoutId = setTimeout(() => {
+			doBeat();
+			scheduleNextBeat();
+		}, intervalMs);
+	}
+
+	function doBeat() {
+		beatCount++;
+		// Fire visual pulse
+		ringEls.forEach(r => {
+			r.classList.remove('is-pulsing');
+			void r.offsetWidth;
+			r.classList.add('is-pulsing');
+			r.style.setProperty('--la-pulse-dur', (60000 / currentBpm * 0.9) + 'ms');
+		});
+		coreEl?.classList.remove('is-beating');
+		void coreEl?.offsetWidth;
+		coreEl?.classList.add('is-beating');
+		coreEl?.style.setProperty('--la-pulse-dur', (60000 / currentBpm * 0.9) + 'ms');
+
+		// Update displays
+		if (countDisplay) countDisplay.textContent = String(beatCount);
+		if (bpmDisplay) bpmDisplay.textContent = Math.round(currentBpm);
+
+		// Gentle haptic every beat
+		if (navigator.vibrate && beatCount > 0) navigator.vibrate(10);
+
+		// Target hit
+		if (beatCount >= selectedCount) {
+			endSession(true);
+		}
+	}
+
+	beginBtn?.addEventListener('click', () => {
+		// Switch to session
+		sceneSetup.hidden = true;
+		if (beginBar) beginBar.style.display = 'none';
+		sceneSession.hidden = false;
+		// Apply phrase to session
+		arabicEl.textContent = selectedPhrase.arabic;
+		translitEl.textContent = selectedPhrase.translit;
+		targetDisplay.textContent = String(selectedCount);
+		countDisplay.textContent = '0';
+		bpmDisplay.textContent = String(selectedPhrase.startBpm);
+		// Start ticking
+		beatCount = 0;
+		holding = false;
+		tauSeconds = 90;
+		currentBpm = selectedPhrase.startBpm;
+		sessionStartMs = performance.now();
+		// First beat after a short anticipation pause
+		beatTimeoutId = setTimeout(() => {
+			doBeat();
+			scheduleNextBeat();
+		}, 600);
+	});
+
+	holdBtn?.addEventListener('click', () => {
+		holding = !holding;
+		holdBtn.classList.toggle('is-active', holding);
+		if (!holding) {
+			// Reset the timer base so the descent resumes from current BPM
+			const cur = currentBpm;
+			const start = selectedPhrase.startBpm;
+			const end = selectedPhrase.endBpm;
+			// solve: cur = end + (start-end) * e^(-t/tau) → t = -tau * ln((cur-end)/(start-end))
+			const ratio = (cur - end) / (start - end);
+			const t = ratio > 0 ? -tauSeconds * Math.log(ratio) : 0;
+			sessionStartMs = performance.now() - t * 1000;
+		}
+		if (navigator.vibrate) navigator.vibrate(15);
+	});
+
+	deepenBtn?.addEventListener('click', () => {
+		tauSeconds = Math.max(20, tauSeconds * 0.6);
+		deepenBtn.classList.add('is-active');
+		setTimeout(() => deepenBtn.classList.remove('is-active'), 400);
+		if (navigator.vibrate) navigator.vibrate([10, 20, 10]);
+	});
+
+	endBtn?.addEventListener('click', () => endSession(false));
+	againBtn?.addEventListener('click', () => {
+		sceneComplete.hidden = true;
+		sceneSetup.hidden = false;
+		if (beginBar) beginBar.style.display = '';
+	});
+
+	function endSession(reachedTarget) {
+		clearTimeout(beatTimeoutId);
+		sceneSession.hidden = true;
+		if (reachedTarget) {
+			sceneComplete.hidden = false;
+			if (navigator.vibrate) navigator.vibrate([20, 60, 20, 60, 30]);
+			// Log dhikr completion server-side
+			try {
+				fetch(`${LA.apiRoot}dhikr/complete`, {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+					cache: 'no-store',
+				}).catch(() => {});
+			} catch (_) {}
+		} else {
+			// User exited early — back to setup
+			sceneSetup.hidden = false;
+			if (beginBar) beginBar.style.display = '';
+		}
+	}
+
+	updateBeginMeta();
+})();
+
+// ============================================================
+// WAVE 40 — Dhikr NAMES (99 Names of Allah contemplation)
+// ============================================================
+(function initNames() {
+	const root = document.querySelector('.la-app--names');
+	if (!root) return;
+
+	const dataEl = root.querySelector('#la-names-data');
+	const names = dataEl ? JSON.parse(dataEl.textContent || '[]') : [];
+	if (!names.length) return;
+
+	// State
+	let selectedCount = 3;
+	let selectedMode  = 'random';
+	let sessionList   = [];
+	let sessionIdx    = 0;
+	let canContinue   = false;
+	let progressTimer = null;
+
+	// Persist sequence-mode cursor
+	const SEQ_KEY = 'la_names_seq_idx';
+	function getSeqStart() {
+		return parseInt(localStorage.getItem(SEQ_KEY) || '0', 10) % names.length;
+	}
+	function advanceSeq(by) {
+		localStorage.setItem(SEQ_KEY, String((getSeqStart() + by) % names.length));
+	}
+
+	// Elements
+	const countPills = root.querySelectorAll('[data-names-count]');
+	const modePills  = root.querySelectorAll('[data-names-mode]');
+	const beginMeta  = root.querySelector('[data-names-begin-meta]');
+	const beginBtn   = root.querySelector('[data-names-begin]');
+	const beginBar   = root.querySelector('.la-names-begin-bar');
+	const sceneSetup    = root.querySelector('[data-names-scene="setup"]');
+	const sceneSession  = root.querySelector('[data-names-scene="session"]');
+	const sceneComplete = root.querySelector('[data-names-scene="complete"]');
+	const progressDots  = root.querySelector('[data-names-progress]');
+	const arabicEl      = root.querySelector('[data-names-arabic]');
+	const translitEl    = root.querySelector('[data-names-translit]');
+	const meaningEl     = root.querySelector('[data-names-meaning]');
+	const reflectionEl  = root.querySelector('[data-names-reflection]');
+	const continueBtn   = root.querySelector('[data-names-continue]');
+	const ctaLabel      = root.querySelector('[data-names-cta-label]');
+	const ctaProgress   = root.querySelector('[data-names-cta-progress]');
+	const cardEl        = root.querySelector('[data-names-card]');
+	const againBtn      = root.querySelector('[data-names-again]');
+
+	function updateBeginMeta() {
+		if (beginMeta) {
+			const modeLabel = selectedMode === 'random' ? 'random' : 'in order';
+			beginMeta.textContent = `${selectedCount} ${modeLabel} ${selectedCount === 1 ? 'name' : 'names'} · ≈ ${selectedCount} min`;
+		}
+	}
+
+	countPills.forEach(p => {
+		p.addEventListener('click', () => {
+			countPills.forEach(x => x.classList.remove('is-active'));
+			p.classList.add('is-active');
+			selectedCount = parseInt(p.dataset.namesCount, 10) || 3;
+			updateBeginMeta();
+		});
+	});
+	modePills.forEach(p => {
+		p.addEventListener('click', () => {
+			modePills.forEach(x => x.classList.remove('is-active'));
+			p.classList.add('is-active');
+			selectedMode = p.dataset.namesMode || 'random';
+			updateBeginMeta();
+		});
+	});
+
+	function pickNames() {
+		if (selectedMode === 'sequence') {
+			const start = getSeqStart();
+			const out = [];
+			for (let i = 0; i < selectedCount; i++) {
+				out.push(names[(start + i) % names.length]);
+			}
+			return out;
+		}
+		// Random: shuffle a copy, take first N
+		const pool = [...names];
+		for (let i = pool.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[pool[i], pool[j]] = [pool[j], pool[i]];
+		}
+		return pool.slice(0, selectedCount);
+	}
+
+	function renderName(idx) {
+		const name = sessionList[idx];
+		if (!name) return;
+		// Trigger animation by re-rendering
+		cardEl.classList.remove('la-names-card');
+		void cardEl.offsetWidth;
+		cardEl.classList.add('la-names-card');
+		arabicEl.textContent = name.ar;
+		translitEl.textContent = name.n;
+		meaningEl.textContent = name.meaning;
+		reflectionEl.textContent = name.reflection || '';
+		// Update progress dots
+		progressDots.innerHTML = '';
+		for (let i = 0; i < sessionList.length; i++) {
+			const dot = document.createElement('div');
+			dot.className = 'la-names-dot';
+			if (i < idx) dot.classList.add('is-done');
+			else if (i === idx) dot.classList.add('is-active');
+			progressDots.appendChild(dot);
+		}
+		// Reset CTA — 30s lock-out
+		canContinue = false;
+		continueBtn.disabled = true;
+		if (ctaLabel) ctaLabel.textContent = 'Sit with this · 30s';
+		if (ctaProgress) ctaProgress.style.width = '0%';
+		clearTimeout(progressTimer);
+		const start = performance.now();
+		const tick = () => {
+			const elapsed = performance.now() - start;
+			const pct = Math.min(100, (elapsed / 30000) * 100);
+			if (ctaProgress) ctaProgress.style.width = pct + '%';
+			if (pct < 100) {
+				progressTimer = setTimeout(tick, 200);
+			} else {
+				canContinue = true;
+				continueBtn.disabled = false;
+				if (ctaLabel) {
+					const isLast = idx === sessionList.length - 1;
+					ctaLabel.textContent = isLast ? 'Complete' : 'Continue';
+				}
+			}
+		};
+		tick();
+	}
+
+	beginBtn?.addEventListener('click', () => {
+		sessionList = pickNames();
+		sessionIdx = 0;
+		if (selectedMode === 'sequence') advanceSeq(selectedCount);
+		sceneSetup.hidden = true;
+		if (beginBar) beginBar.style.display = 'none';
+		sceneSession.hidden = false;
+		renderName(0);
+	});
+
+	continueBtn?.addEventListener('click', () => {
+		if (!canContinue) return;
+		sessionIdx++;
+		if (sessionIdx >= sessionList.length) {
+			sceneSession.hidden = true;
+			sceneComplete.hidden = false;
+			if (navigator.vibrate) navigator.vibrate([15, 40, 15]);
+			// Log dhikr completion
+			try {
+				fetch(`${LA.apiRoot}dhikr/complete`, {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+					cache: 'no-store',
+				}).catch(() => {});
+			} catch (_) {}
+			return;
+		}
+		renderName(sessionIdx);
+	});
+
+	againBtn?.addEventListener('click', () => {
+		sceneComplete.hidden = true;
+		sceneSetup.hidden = false;
+		if (beginBar) beginBar.style.display = '';
+	});
+
+	updateBeginMeta();
+})();
+

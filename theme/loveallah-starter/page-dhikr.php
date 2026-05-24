@@ -13,6 +13,30 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+// ─── Wave 40: Dhikr hub + modes router ────────────────────────────────
+// /dhikr/                       → hub (4-card chooser)
+// /dhikr/?mode=solitude         → the existing breath-paced orb (this file)
+// /dhikr/?mode=witness          → feed of dhikr content + tap counter
+// /dhikr/?mode=pulse            → BPM ticker with 80 → 40 BPM descent
+// /dhikr/?mode=names            → 99 Names of Allah contemplation
+$la_mode = sanitize_key( $_GET['mode'] ?? '' );
+$la_route_partial = '';
+if ( $la_mode === '' || $la_mode === 'hub' ) {
+	$la_route_partial = 'dhikr-hub.php';
+} elseif ( in_array( $la_mode, [ 'witness', 'pulse', 'names' ], true ) ) {
+	$la_route_partial = 'dhikr-' . $la_mode . '.php';
+}
+if ( $la_route_partial ) {
+	$la_route_path = get_template_directory() . '/inc/' . $la_route_partial;
+	if ( file_exists( $la_route_path ) ) {
+		get_header();
+		include $la_route_path;
+		get_footer();
+		return;
+	}
+}
+// Fall through: mode=solitude or unknown → render the original page below.
+
 // The dhikr phrases — ordered from the highest to the everyday.
 // La ilaha illa Allah is the primary dhikr of the Sufi orders (the kalimah).
 // breath_s = full cycle in seconds. We default to 10s (6 breaths/min) —
