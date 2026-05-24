@@ -596,6 +596,11 @@ class LA_API {
 				'name'         => $name  ?: $user->name,
 				'last_seen_at' => current_time( 'mysql', 1 ),
 			], [ 'id' => $user->id ] );
+			// Re-fetch so the response reflects the updated row (was
+			// returning stale pre-update snapshot)
+			$user = $wpdb->get_row( $wpdb->prepare(
+				"SELECT * FROM {$t['users']} WHERE id = %d LIMIT 1", $user->id
+			) );
 		} else {
 			// New user — generate token
 			$token = wp_generate_password( 48, false, false );
