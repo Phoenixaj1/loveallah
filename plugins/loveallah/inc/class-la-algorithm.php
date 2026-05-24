@@ -220,7 +220,25 @@ class LA_Algorithm {
 		if ( ! empty( $type_filter ) ) {
 			// 'nasheed' deliberately omitted — feed is scholars + qaris only
 			$allowed = [ 'short', 'reminder', 'dhikr', 'mindfulness', 'qirat', 'lecture' ];
-			if ( in_array( $type_filter, $allowed, true ) ) {
+			if ( $type_filter === 'dhikr' ) {
+				// Wave 46: dhikr filter no longer matches by channel-type alone.
+				// Most channels are mixed (a scholar uploads both lectures and
+				// dhikr sessions); type-tagging by channel pulls non-dhikr
+				// content into the Witness feed. Instead, ALSO match by title
+				// keywords — the user-facing video title almost always declares
+				// "dhikr", "la ilaha illa", "subhanallah", etc. when it's a
+				// dhikr session. This way we get pure-dhikr clips from any
+				// channel, not just channels typed dhikr.
+				//
+				// REGEXP is case-insensitive on default utf8 collation. The
+				// alternation list is conservative (high-precision phrases
+				// only) so we don't pull lectures that merely mention "dhikr"
+				// in passing.
+				$type_where = " AND ( p.type = 'dhikr'
+				                      OR p.title REGEXP '(dhikr|tasbih|tasbeeh|la[[:space:]]+ilaha[[:space:]]+illa|illallah|subhanallah|subhān|salawat|durood|durūd|kalimah|halaqa|ya[[:space:]]+hayyu[[:space:]]+ya[[:space:]]+qayyum)'
+				                 )";
+				// No bound params — phrase list is hardcoded above.
+			} elseif ( in_array( $type_filter, $allowed, true ) ) {
 				$type_where = " AND p.type = %s";
 				$type_args[] = $type_filter;
 			}
