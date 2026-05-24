@@ -88,7 +88,9 @@ if ( class_exists( 'LA_DB' ) && function_exists( 'la_get_or_set_session_id' ) ) 
 	}
 }
 $la_prayed_count = is_array( $la_prayed ) ? count( array_intersect( $la_prayed, [ 'Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha' ] ) ) : 0;
-$la_streak = function_exists( 'la_unlock_state_for_view' ) ? la_unlock_state_for_view()['streak'] : 0;
+// Wave 39: streak pill removed from the header — no longer computing it here.
+// The streak counter logic (LA_Unlock::get_streak) is preserved in case we
+// want to surface it on a different screen later.
 
 // Hijri date — uses the modern Islamic calendar bundled in PHP's IntlDateFormatter.
 // IntlDateFormatter only accepts IANA timezone names, not UTC offsets like '+00:00'.
@@ -188,12 +190,6 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 				<?php if ( $la_hijri_label ) : ?>
 					<div class="la-hijri-pill" title="Today, Hijri" aria-label="Hijri date <?php echo esc_attr( $la_hijri_label ); ?>">
 						<span class="la-hijri-text"><?php echo esc_html( $la_hijri_label ); ?></span>
-					</div>
-				<?php endif; ?>
-				<?php if ( $la_streak >= 1 ) : ?>
-					<div class="la-streak-pill" title="<?php echo esc_attr( $la_streak ); ?>-day remembrance streak">
-						<span class="la-streak-icon">🤲</span>
-						<span class="la-streak-num"><?php echo (int) $la_streak; ?></span>
 					</div>
 				<?php endif; ?>
 				<a class="la-icon-btn" href="<?php echo esc_url( home_url( '/saved/' ) ); ?>" aria-label="Saved videos — your library" title="Your saved videos">

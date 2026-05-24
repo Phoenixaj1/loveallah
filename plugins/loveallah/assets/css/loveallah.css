@@ -201,18 +201,10 @@ button { font-family: inherit; }
 .la-icon-btn.is-busy { animation: la-pulse 1s ease-in-out infinite; }
 @keyframes la-pulse { 50% { opacity: 0.5; } }
 
-.la-streak-pill {
-	display: inline-flex; align-items: center; gap: 4px;
-	padding: 4px 9px;
-	background: rgba(255,255,255,0.18);
-	border: 1px solid rgba(255,255,255,0.22);
-	color: #fff;
-	border-radius: 999px;
-	font-size: 12px; font-weight: 800;
-	font-variant-numeric: tabular-nums;
-	margin-left: 2px;
-}
-.la-streak-icon { font-size: 14px; line-height: 1; }
+/* Wave 39: .la-streak-pill / .la-streak-icon removed — streak pill
+   dropped from the header. The styles lived here for a year-ish but
+   no longer used anywhere. Reintroduce if a later wave surfaces the
+   streak counter on a different screen. */
 
 /* ============================================================
    APP SHELL — feed-first, responsive form factors
