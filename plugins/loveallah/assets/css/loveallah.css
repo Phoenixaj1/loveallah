@@ -65,6 +65,35 @@ button { font-family: inherit; }
 	box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset;
 	position: sticky; top: 0; z-index: 50;
 }
+
+/* ─── Wave 83: Glass overlay header on the feed page ──────────────
+   On /home (the feed), the header floats over the video instead of
+   pushing it down — like the volume rail on the right. The video
+   takes the full viewport height, and the gradient is swapped for
+   a translucent blur so you still see the recitation breathing
+   through it. Other pages (/saved, /duas, /masjid, /connect) keep
+   the solid sticky bar because they have content-card layouts that
+   need the visual separator. */
+body.home .la-header {
+	position: fixed;
+	top: 0; left: 0; right: 0;
+	background:
+		linear-gradient(180deg, rgba(44, 19, 56, 0.62) 0%, rgba(107, 24, 70, 0.55) 60%, rgba(237, 28, 108, 0.45) 100%);
+	backdrop-filter: blur(16px) saturate(140%);
+	-webkit-backdrop-filter: blur(16px) saturate(140%);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+	box-shadow: 0 2px 14px rgba(0, 0, 0, 0.18);
+}
+/* Feed snap area starts at y=0 now that the header is taken out of
+   flow — first card fills the whole viewport with the glass header
+   floating over its top portion. Right-rail interactions sit
+   mid-card so they remain reachable. */
+body.home .la-app--feed {
+	height: 100dvh;
+}
+body.home .la-feed-snap {
+	min-height: 100dvh;
+}
 .la-prayer-cell-name { font-size: 10px; }
 .la-prayer-cell-time { font-size: 14px; }
 .la-prayer-cell-eta  { font-size: 10px; }
@@ -145,11 +174,15 @@ button { font-family: inherit; }
 .la-brand-mark {
 	color: #fff;
 	flex-shrink: 0;
-	width: 26px;
-	height: 26px;
+	width: 40px;       /* Wave 83: 26 → 40 — more brand presence */
+	height: 40px;
 	object-fit: contain;
 	display: block;
-	filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18));
+	filter: drop-shadow(0 1px 3px rgba(0,0,0,0.30));
+}
+@media (max-width: 380px) {
+	/* iPhone SE — shrink back so brand doesn't eat the prayer cells */
+	.la-brand-mark { width: 34px; height: 34px; }
 }
 .la-brand-text {
 	display: inline-flex; align-items: baseline; gap: 3px;
@@ -161,9 +194,28 @@ button { font-family: inherit; }
 }
 
 .la-header-actions {
-	display: inline-flex; align-items: center; gap: 3px;
+	display: inline-flex; align-items: center; gap: 6px;
 	flex-shrink: 0;
 }
+
+/* Wave 83: 2×2 grid of utility icons (saved, geo, events, sign-in).
+   Stacks vertical-2-cols instead of stretching across one row — saves
+   horizontal space for the prayer cells and looks intentional rather
+   than crowded. Each cell uses the existing .la-icon-btn sizing. */
+.la-header-icons {
+	display: grid;
+	grid-template-columns: repeat(2, auto);
+	grid-template-rows: repeat(2, auto);
+	gap: 3px;
+	flex-shrink: 0;
+}
+@media (max-width: 600px) {
+	.la-header-icons { gap: 2px; }
+}
+/* On the feed page we hide the Hijri pill to free the horizontal
+   slot for the bigger logo + the 2×2 icon block + 5 prayer cells.
+   Hijri date still appears on /saved, /duas, etc. */
+body.home .la-header-actions .la-hijri-pill { display: none; }
 
 .la-icon-btn {
 	display: inline-flex; align-items: center; justify-content: center;

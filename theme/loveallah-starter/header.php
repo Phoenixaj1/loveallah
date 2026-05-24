@@ -150,8 +150,8 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 				<img class="la-brand-mark"
 					src="<?php echo esc_url( $la_logo_url . '?v=' . $la_logo_ver ); ?>"
 					alt=""
-					width="26"
-					height="26"
+					width="40"
+					height="40"
 					decoding="async"
 					fetchpriority="high">
 				<span class="la-brand-text">
@@ -201,27 +201,34 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 						<span class="la-hijri-text"><?php echo esc_html( $la_hijri_label ); ?></span>
 					</div>
 				<?php endif; ?>
-				<a class="la-icon-btn" href="<?php echo esc_url( home_url( '/saved/' ) ); ?>" aria-label="Saved videos — your library" title="Your saved videos">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-				</a>
-				<button class="la-icon-btn la-geo-btn" type="button" aria-label="Use my location for prayer times" data-action="use-geo" title="<?php echo esc_attr( $la_geo_label ); ?> · tap to use my location">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7-7-12a7 7 0 0 1 14 0c0 5-7 12-7 12z"/><circle cx="12" cy="10" r="2.5" fill="currentColor"/></svg>
-				</button>
-				<button class="la-icon-btn" type="button" aria-label="Upcoming masjid events" data-action="events">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
-				</button>
-
-				<?php // Wave 64/65: account chip sits beside the icon-btns so it
-				      // shares their sizing/spacing and never overlaps anything. ?>
-				<?php if ( $la_user ) : ?>
-					<span class="la-account-chip" title="<?php echo esc_attr( $la_user->email ); ?>">
-						<?php echo esc_html( strtoupper( substr( $la_user->name ?: $la_user->email, 0, 1 ) ) ); ?>
-					</span>
-				<?php else : ?>
-					<button type="button" class="la-icon-btn la-account-signin" data-action="signin" aria-label="Sign in to save your progress" title="Sign in">
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+				<?php
+				// Wave 83: 4 utility icons stacked 2×2 instead of in a single row.
+				// Tighter on horizontal space (frees room for prayer cells) and
+				// looks intentional rather than crowded. Saved + Location top
+				// row, Events + Sign-in bottom row.
+				?>
+				<div class="la-header-icons">
+					<a class="la-icon-btn" href="<?php echo esc_url( home_url( '/saved/' ) ); ?>" aria-label="Saved videos — your library" title="Your saved videos">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+					</a>
+					<button class="la-icon-btn la-geo-btn" type="button" aria-label="Use my location for prayer times" data-action="use-geo" title="<?php echo esc_attr( $la_geo_label ); ?> · tap to use my location">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-7-7-7-12a7 7 0 0 1 14 0c0 5-7 12-7 12z"/><circle cx="12" cy="10" r="2.5" fill="currentColor"/></svg>
 					</button>
-				<?php endif; ?>
+					<button class="la-icon-btn" type="button" aria-label="Upcoming masjid events" data-action="events">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+					</button>
+					<?php // Wave 64/65: account chip sits in the 4th slot so it
+					      // shares the grid sizing/spacing and never overlaps. ?>
+					<?php if ( $la_user ) : ?>
+						<span class="la-account-chip" title="<?php echo esc_attr( $la_user->email ); ?>">
+							<?php echo esc_html( strtoupper( substr( $la_user->name ?: $la_user->email, 0, 1 ) ) ); ?>
+						</span>
+					<?php else : ?>
+						<button type="button" class="la-icon-btn la-account-signin" data-action="signin" aria-label="Sign in to save your progress" title="Sign in">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+						</button>
+					<?php endif; ?>
+				</div>
 			</div>
 		</div>
 	</header>
