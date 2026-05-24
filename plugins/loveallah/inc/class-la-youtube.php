@@ -233,12 +233,25 @@ class LA_YouTube {
 			return [ 'inserted' => 0, 'reason' => 'no_channel_id' ];
 		}
 
-		// Step 2 — fetch the RSS feed (15 latest videos).
+		// Step 2 — fetch videos. RSS gives 15 latest; scraping the channel's
+		// /videos page yields ~30 more from ytInitialData. Merging both
+		// (deduped by video id) gets us ~30 unique videos per channel in one
+		// sync pass — 2× the RSS-only ceiling. Wave 78.
 		$videos = self::rss_videos( $channel_id );
+		$scraped = self::scrape_channel_videos( $scholar->source_url );
+		if ( $scraped ) {
+			$known_ids = array_flip( array_column( $videos, 'id' ) );
+			foreach ( $scraped as $v ) {
+				if ( ! isset( $known_ids[ $v['id'] ] ) ) {
+					$videos[] = $v;
+					$known_ids[ $v['id'] ] = true;
+				}
+			}
+		}
 		if ( empty( $videos ) ) {
 			$update_data = [ 'last_synced_at' => current_time( 'mysql' ) ];
 			if ( self::has_sync_error_column() ) {
-				$update_data['last_sync_error'] = 'RSS feed returned no videos (channel may be empty or feed blocked)';
+				$update_data['last_sync_error'] = 'RSS feed + page scrape both empty (channel may be private/banned/empty)';
 			}
 			$wpdb->update( $t['scholars'], $update_data, [ 'id' => (int) $scholar->id ] );
 			return [ 'inserted' => 0, 'reason' => 'rss_empty' ];
@@ -405,6 +418,98 @@ class LA_YouTube {
 			if ( preg_match( $p, $body, $m ) ) return $m[1];
 		}
 		return '';
+	}
+
+	/**
+	 * Wave 78: scrape the channel's /videos page for additional video ids
+	 * beyond the 15-row RSS ceiling. YouTube's ytInitialData blob in the
+	 * page HTML contains ~30 video entries across the videos + shorts tabs.
+	 *
+	 * Returns array of [id, title, published, thumbnail, description] —
+	 * same shape as rss_videos(). published/description/thumbnail may be
+	 * empty since the channel-page card has less metadata than RSS.
+	 */
+	private static function scrape_channel_videos( string $source_url ) : array {
+		if ( empty( $source_url ) ) return [];
+		// Hit /videos to maximise the items in ytInitialData; the channel root
+		// only renders the home tab which has fewer cards.
+		$url = preg_replace( '#/(shorts|videos|featured|streams|playlists|community|about)/?$#', '', $source_url );
+		$url = rtrim( (string) $url, '/' ) . '/videos';
+
+		$res = wp_remote_get( $url, [
+			'timeout'     => 15,
+			'redirection' => 5,
+			'user-agent'  => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+			'headers'     => [
+				'Accept'          => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+				'Accept-Language' => 'en-GB,en;q=0.9',
+				'Cookie'          => 'CONSENT=YES+cb.20210328-17-p0.en+FX+999; SOCS=CAI',
+			],
+		] );
+		if ( is_wp_error( $res ) ) return [];
+		if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) return [];
+		$body = (string) wp_remote_retrieve_body( $res );
+		if ( empty( $body ) ) return [];
+
+		// Extract ytInitialData JSON blob — the channel page embeds it in a
+		// <script> tag. We don't fully parse the nested structure (it's
+		// huge and YouTube changes it weekly); instead we pull all
+		// (videoId, title) pairs by pattern match. The 11-char videoId
+		// length keeps the regex from false-positive matching unrelated
+		// strings.
+		$start = strpos( $body, 'var ytInitialData' );
+		if ( $start === false ) {
+			// Fall back to whole-page scan if the var marker moved.
+			$haystack = $body;
+		} else {
+			$haystack = substr( $body, $start, 1500000 ); // cap window so big pages don't blow PHP regex
+		}
+
+		$videos = [];
+		$seen   = [];
+		// Pattern: "videoId":"XXX" appears next to "title":{"runs":[{"text":"..."}]}
+		// in videoRenderer / gridVideoRenderer cards. Capture each pair.
+		if ( preg_match_all(
+			'#"videoId":"([A-Za-z0-9_-]{11})"[^{]*?(?:"thumbnail":\{[^}]*\}[^{]*?)?(?:"title":\{"runs":\[\{"text":"([^"]{1,200})"#',
+			$haystack,
+			$matches,
+			PREG_SET_ORDER
+		) ) {
+			foreach ( $matches as $m ) {
+				$id = $m[1];
+				if ( isset( $seen[ $id ] ) ) continue;
+				$seen[ $id ] = true;
+				// Decode unicode escapes that YouTube uses in JSON (e.g. é).
+				$title = json_decode( '"' . str_replace( '"', '\\"', $m[2] ) . '"' );
+				if ( ! is_string( $title ) ) $title = $m[2];
+				$videos[] = [
+					'id'          => $id,
+					'title'       => trim( (string) $title ),
+					'published'   => '',  // not in ytInitialData for the card view
+					'thumbnail'   => "https://i.ytimg.com/vi/{$id}/hqdefault.jpg",
+					'description' => '',
+				];
+				if ( count( $videos ) >= 40 ) break;
+			}
+		}
+		// Shorts cards use a different shape — pick up the IDs only.
+		if ( count( $videos ) < 40
+		     && preg_match_all( '#"videoId":"([A-Za-z0-9_-]{11})"#', $haystack, $shorts_m )
+		) {
+			foreach ( $shorts_m[1] as $id ) {
+				if ( isset( $seen[ $id ] ) ) continue;
+				$seen[ $id ] = true;
+				$videos[] = [
+					'id'          => $id,
+					'title'       => '',  // resolve later if needed via oEmbed
+					'published'   => '',
+					'thumbnail'   => "https://i.ytimg.com/vi/{$id}/hqdefault.jpg",
+					'description' => '',
+				];
+				if ( count( $videos ) >= 40 ) break;
+			}
+		}
+		return $videos;
 	}
 
 	/**
