@@ -241,13 +241,21 @@ self.addEventListener('notificationclick', (e) => {
 		<meta name="apple-mobile-web-app-title" content="Love Allah">
 		<meta name="format-detection" content="telephone=no">
 
+		<!-- favicons — desktop browser tab + bookmarks. Wave 38: real
+		     16/32px composited variants now exist instead of relying on a
+		     downscaled 192px which blurred on retina displays. -->
+		<link rel="icon" type="image/png" sizes="32x32" href="<?php echo esc_url( $icons . 'favicon-32.png' ); ?>">
+		<link rel="icon" type="image/png" sizes="16x16" href="<?php echo esc_url( $icons . 'favicon-16.png' ); ?>">
+
 		<!-- apple-touch-icon — iPhone home-screen icon. 180×180 is the
-		     reference size; older devices fall back to others if 180 missing. -->
-		<link rel="apple-touch-icon" sizes="180x180" href="<?php echo esc_url( $icons . 'icon-192.png' ); ?>">
+		     canonical size; older devices fall back to other sizes. Wave 38:
+		     dedicated 180px asset so iOS no longer downscales the 192px
+		     and loses crispness on the homescreen. -->
+		<link rel="apple-touch-icon" sizes="180x180" href="<?php echo esc_url( $icons . 'apple-touch-icon-180.png' ); ?>">
 		<link rel="apple-touch-icon" sizes="152x152" href="<?php echo esc_url( $icons . 'icon-152.png' ); ?>">
 		<link rel="apple-touch-icon" sizes="144x144" href="<?php echo esc_url( $icons . 'icon-144.png' ); ?>">
 		<link rel="apple-touch-icon" sizes="120x120" href="<?php echo esc_url( $icons . 'icon-128.png' ); ?>">
-		<link rel="apple-touch-icon" href="<?php echo esc_url( $icons . 'icon-192.png' ); ?>">
+		<link rel="apple-touch-icon" href="<?php echo esc_url( $icons . 'apple-touch-icon-180.png' ); ?>">
 		<link rel="mask-icon" href="<?php echo esc_url( $icons . 'icon.svg' ); ?>" color="<?php echo esc_attr( $brand ); ?>">
 
 		<!-- iOS splash screens. Each device size needs its own bitmap to avoid

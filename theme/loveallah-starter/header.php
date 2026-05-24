@@ -134,10 +134,22 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 		     Mobile-first: collapses to just the NEXT prayer cell + countdown below 600px. -->
 		<div class="la-header-row la-header-row--main">
 			<a class="la-brand" href="<?php echo esc_url( home_url( '/' ) ); ?>" aria-label="Love Allah home">
-				<svg class="la-brand-mark" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-					<path d="M12 21s-7-4.5-9.5-9C.5 8 3 4 7 4c2 0 3.5 1 5 3 1.5-2 3-3 5-3 4 0 6.5 4 4.5 8C19 16.5 12 21 12 21z" fill="currentColor"/>
-					<path d="M14.5 9.5a3.5 3.5 0 1 1-3 5.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none"/>
-				</svg>
+				<?php
+				// Wave 38: brand mark is now the user-provided white-on-
+				// transparent PNG. Sits on the pink header gradient where the
+				// white reads cleanly. Loaded with the plugin's filemtime as
+				// a cache-buster so future logo swaps invalidate immediately.
+				$la_logo_path = WP_CONTENT_DIR . '/plugins/loveallah/assets/img/logo.png';
+				$la_logo_url  = content_url( 'plugins/loveallah/assets/img/logo.png' );
+				$la_logo_ver  = file_exists( $la_logo_path ) ? filemtime( $la_logo_path ) : '1';
+				?>
+				<img class="la-brand-mark"
+					src="<?php echo esc_url( $la_logo_url . '?v=' . $la_logo_ver ); ?>"
+					alt=""
+					width="26"
+					height="26"
+					decoding="async"
+					fetchpriority="high">
 				<span class="la-brand-text">
 					<span class="la-brand-word">Love</span><span class="la-brand-allah">Allah</span>
 				</span>
