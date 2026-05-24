@@ -93,23 +93,25 @@ body.home .la-header {
 	border-radius: 18px;
 	box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
 }
-/* Wave 83d: tighter prayer cells inside the floating chip. */
+/* Wave 83d / 84c: tighter prayer cells inside the floating chip.
+   84c shrinks vertical padding further (2→0) since the row was still
+   too tall — most of the height was coming from the .is-next cell's
+   eta pill stretching siblings via flex. Cells themselves now barely
+   pad vertically; the row's overall height is governed by font + pill. */
 body.home .la-prayer-cell {
-	padding: 2px 1px;
+	padding: 0 1px;
 }
-body.home .la-prayer-cell-name { font-size: 9px; }
-body.home .la-prayer-cell-time { font-size: 12px; }
+body.home .la-prayer-cell-name { font-size: 9px; line-height: 1; }
+body.home .la-prayer-cell-time { font-size: 11px; line-height: 1.1; }
 @media (max-width: 600px) {
-	body.home .la-header { padding: 3px 6px; top: 6px; left: 6px; right: 6px; border-radius: 16px; }
-	/* Wave 84: was 1px 0 — too tight, the name text hugged the top
-	   of the cell because the flex column stretched to match the
-	   .is-next sibling (taller because of the eta pill). 4/2 gives
-	   the row some breathing room AND combines with the new
-	   justify-content:center on .la-prayer-cell to vertical-center
-	   the name+time pair properly. */
-	body.home .la-prayer-cell { padding: 4px 2px; }
-	body.home .la-prayer-cell-name { font-size: 8px; letter-spacing: 0.05em; line-height: 1.15; }
-	body.home .la-prayer-cell-time { font-size: 11px; line-height: 1.2; margin-top: 1px; }
+	body.home .la-header { padding: 2px 6px; top: 6px; left: 6px; right: 6px; border-radius: 16px; }
+	/* Wave 84 / 84c: vertical padding stays minimal because the row
+	   height is dominated by the .is-next cell's eta pill stretching
+	   all siblings. Cells just need enough horizontal pad for the
+	   numbers; vertical centring handles the visual balance. */
+	body.home .la-prayer-cell { padding: 1px 2px; }
+	body.home .la-prayer-cell-name { font-size: 8px; letter-spacing: 0.05em; line-height: 1; }
+	body.home .la-prayer-cell-time { font-size: 10px; line-height: 1.1; margin-top: 1px; }
 }
 /* Feed snap area starts at y=0 now that the header is taken out of
    flow — first card fills the whole viewport with the glass header
@@ -1055,32 +1057,31 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 }
 .la-prayer-cell.is-next .la-prayer-cell-time { color: var(--la-primary-deep); }
 .la-prayer-cell-eta {
-	/* Wave 83c: wrap the countdown in a rounded-rectangle pill so it
-	   reads as a live tag rather than floating text. Sits under the
-	   prayer time inside the .is-next cell. White-translucent fill +
-	   dark text reads cleanly on both the glass header (feed page)
-	   and the solid sticky gradient (other pages). */
+	/* Wave 83c / 84c: live countdown pill under the .is-next prayer.
+	   84c trimmed the vertical breathing room (3→2 margin, 3→1 padding
+	   top/bottom) because the pill was the row's tallest element and
+	   was stretching every sibling cell tall via flex. */
 	display: inline-block;
-	font-size: 10px;
+	font-size: 9px;
 	font-weight: 800;
 	color: var(--la-primary-deep);
 	font-variant-numeric: tabular-nums;
 	letter-spacing: 0;
 	line-height: 1;
-	margin-top: 3px;
-	padding: 3px 7px;
+	margin-top: 2px;
+	padding: 1px 6px;
 	background: rgba(255, 255, 255, 0.92);
 	border: 1px solid rgba(255, 255, 255, 0.55);
-	border-radius: 8px;
+	border-radius: 6px;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 @media (max-width: 600px) {
 	.la-prayer-cell.is-next .la-prayer-cell-eta {
-		/* Smaller pill on mobile so it doesn't overflow the cell width */
-		font-size: 9px;
-		padding: 2px 5px;
-		border-radius: 6px;
-		margin-top: 2px;
+		/* Even more compact on mobile — pill stays under 18px tall. */
+		font-size: 8px;
+		padding: 1px 5px;
+		border-radius: 5px;
+		margin-top: 1px;
 	}
 }
 
