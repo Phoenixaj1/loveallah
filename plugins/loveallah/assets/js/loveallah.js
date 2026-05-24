@@ -3146,60 +3146,8 @@
 	}
 })();
 
-// ============================================================
-// WAVE 54 — Pull-to-refresh on the main feed
-// Touch the top of the snap-feed, drag down 80px, release → reload.
-// Indicator slides down from under the header while pulling so the
-// user sees what's about to happen. Skipped on Witness (its feed is
-// curated, refreshing wouldn't surface different content).
-// ============================================================
-(function initPullToRefresh() {
-	const feed = document.querySelector('.la-feed-snap');
-	if (!feed) return;
-	if (feed.classList.contains('la-feed-snap--witness')) return;
-
-	const THRESHOLD = 80;
-	let startY = 0;
-	let pulling = false;
-	let pullDistance = 0;
-
-	const indicator = document.createElement('div');
-	indicator.className = 'la-feed-pull-indicator';
-	indicator.innerHTML = '<span class="la-feed-pull-spinner" aria-hidden="true"></span><span class="la-feed-pull-text">Pull to refresh</span>';
-	document.body.appendChild(indicator);
-
-	feed.addEventListener('touchstart', (e) => {
-		if (feed.scrollTop > 4) return;
-		startY = e.touches[0].clientY;
-		pulling = true;
-		pullDistance = 0;
-	}, { passive: true });
-
-	feed.addEventListener('touchmove', (e) => {
-		if (!pulling) return;
-		pullDistance = e.touches[0].clientY - startY;
-		if (pullDistance > 0) {
-			const progress = Math.min(1, pullDistance / THRESHOLD);
-			indicator.style.transform = `translateX(-50%) translateY(${(progress - 1) * 100}%)`;
-			indicator.querySelector('.la-feed-pull-text').textContent =
-				pullDistance >= THRESHOLD ? 'Release to refresh' : 'Pull to refresh';
-		}
-	}, { passive: true });
-
-	feed.addEventListener('touchend', () => {
-		if (!pulling) return;
-		pulling = false;
-		if (pullDistance >= THRESHOLD) {
-			indicator.classList.add('is-refreshing');
-			indicator.querySelector('.la-feed-pull-text').textContent = 'Refreshing…';
-			indicator.style.transform = `translateX(-50%) translateY(0)`;
-			setTimeout(() => location.reload(), 250);
-		} else {
-			indicator.style.transform = `translateX(-50%) translateY(-100%)`;
-		}
-		pullDistance = 0;
-	});
-})();
+// Pull-to-refresh removed (Wave 58) — conflicted with the snap-feed
+// scroller's own touch handling. Use the browser's native refresh.
 
 // ============================================================
 // WAVE 56 — Masjid list: GPS, favourites, expand cards
