@@ -545,6 +545,29 @@ class LA_YouTube {
 			$cid = self::resolve_channel_id( $out['source_url'] );
 			$out['resolved_cid'] = $cid;
 		}
+		// Wave 79: Invidious probe — try each instance separately and report.
+		$out['invidious_tries'] = [];
+		if ( $cid ) {
+			foreach ( self::invidious_instances() as $base ) {
+				$base = rtrim( $base, '/' );
+				$url = $base . '/api/v1/channels/' . urlencode( $cid ) . '/videos';
+				$res = wp_remote_get( $url, [ 'timeout' => 8, 'redirection' => 3 ] );
+				$status = is_wp_error( $res ) ? ( 'err: ' . substr( $res->get_error_message(), 0, 40 ) ) : (string) wp_remote_retrieve_response_code( $res );
+				$body_len = is_wp_error( $res ) ? 0 : strlen( (string) wp_remote_retrieve_body( $res ) );
+				$count = 0;
+				if ( ! is_wp_error( $res ) && (int) wp_remote_retrieve_response_code( $res ) === 200 ) {
+					$data = json_decode( (string) wp_remote_retrieve_body( $res ), true );
+					$rows = is_array( $data ) ? ( $data['videos'] ?? ( isset( $data[0]['videoId'] ) ? $data : [] ) ) : [];
+					$count = is_array( $rows ) ? count( $rows ) : 0;
+				}
+				$host = parse_url( $base, PHP_URL_HOST );
+				$out['invidious_tries'][] = "{$host}: status={$status} body={$body_len}B videos={$count}";
+				// Stop after we find a working instance with content
+				if ( $count > 0 ) break;
+				// Cap at 5 tries to keep diagnostic page fast
+				if ( count( $out['invidious_tries'] ) >= 5 ) break;
+			}
+		}
 		// RSS probe
 		if ( $cid ) {
 			$rss_url = 'https://www.youtube.com/feeds/videos.xml?channel_id=' . urlencode( $cid );

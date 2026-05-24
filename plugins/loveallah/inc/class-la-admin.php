@@ -556,6 +556,12 @@ class LA_Admin {
 			RSS: status=<code><?php echo esc_html( $probe['rss_status'] ); ?></code>
 			· body=<?php echo (int) $probe['rss_body_len']; ?>B
 			· entries=<strong><?php echo (int) $probe['rss_entries']; ?></strong><br>
+			<?php if ( ! empty( $probe['invidious_tries'] ) ) : ?>
+				Invidious:<br>
+				<?php foreach ( (array) $probe['invidious_tries'] as $line ) : ?>
+					&nbsp;&nbsp;<code><?php echo esc_html( $line ); ?></code><br>
+				<?php endforeach; ?>
+			<?php endif; ?>
 			Scrape URL: <code><?php echo esc_html( $probe['scrape_url'] ); ?></code><br>
 			Scrape: status=<code><?php echo esc_html( $probe['scrape_status'] ); ?></code>
 			· body=<?php echo (int) $probe['scrape_body_len']; ?>B
