@@ -6376,47 +6376,46 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 }
 
 /* Wave 63: blossoming-heart backdrop.
-   Two layered divs:
-     1. .la-pulse-bg-image — the actual artwork, cover-sized, gently
-        scaled and floated up by 4% so the heart sits a touch above
-        the optical centre (the pulse rings overlay the chambers).
-     2. .la-pulse-bg-vignette — radial dim that fades the edges toward
-        midnight so the rings + arabic + HUD stay clearly readable.
-   Image lives at /assets/img/pulse-heart-bg.jpg (the user supplies
-   the file). Falls back to a dark gradient if the image is missing. */
+   The heart is a SMALL centred element that fades out smoothly via a
+   radial mask — the pulse rings then look like they're emanating
+   from the heart itself rather than sitting on top of a full-bleed
+   image. Sized to sit just inside ring--3 (420px) so the outermost
+   rings expand BEYOND the heart's edge as they pulse outward.
+   Falls back to a dark gradient if the image is missing. */
 .la-pulse-bg-image {
 	position: absolute;
-	inset: -2% -2%;
+	left: 50%; top: 48%;
 	z-index: 0;
-	background-color: #0B0316;
+	width: 380px; height: 380px;
+	transform: translate(-50%, -50%);
 	background-image: url('../img/pulse-heart-bg.jpg');
 	background-size: cover;
 	background-position: center 42%;
 	background-repeat: no-repeat;
-	opacity: 0.85;
-	filter: saturate(0.92) brightness(0.78);
+	/* Radial mask: solid at centre, fades to transparent at edges so
+	   the heart blends seamlessly into the midnight backdrop rather
+	   than cutting off at a rectangle edge. */
+	-webkit-mask-image: radial-gradient(circle at center, #000 0%, #000 32%, rgba(0,0,0,0.5) 55%, transparent 80%);
+	        mask-image: radial-gradient(circle at center, #000 0%, #000 32%, rgba(0,0,0,0.5) 55%, transparent 80%);
+	opacity: 0.95;
+	filter: saturate(1.05) brightness(0.90);
 	animation: la-pulse-bg-breathe 14s ease-in-out infinite;
 }
-@keyframes la-pulse-bg-breathe {
-	0%, 100% { transform: scale(1.00); }
-	50%      { transform: scale(1.04); }
+@media (max-width: 480px) {
+	.la-pulse-bg-image { width: 320px; height: 320px; }
 }
+@keyframes la-pulse-bg-breathe {
+	0%, 100% { transform: translate(-50%, -50%) scale(1.00); }
+	50%      { transform: translate(-50%, -50%) scale(1.05); }
+}
+/* Bottom HUD reading band (kept as a separate layer so we don't dim
+   the centre — heart needs to stay luminous). */
 .la-pulse-bg-vignette {
 	position: absolute;
-	inset: 0;
+	left: 0; right: 0; bottom: 0;
+	height: 28%;
 	z-index: 1;
-	background:
-		/* Light bloom from the centre — picks up the divine light from
-		   the artwork and makes the pulse rings feel luminous */
-		radial-gradient(ellipse 60% 50% at center 46%, rgba(232, 199, 111, 0.16), transparent 70%),
-		/* Edge darkening — fades the bottom for HUD readability, top
-		   for the back-button area, sides for typography focus */
-		radial-gradient(ellipse 130% 100% at center 50%,
-			transparent 30%,
-			rgba(11, 3, 22, 0.35) 65%,
-			rgba(11, 3, 22, 0.75) 100%),
-		/* Bottom hud reading band */
-		linear-gradient(0deg, rgba(11, 3, 22, 0.85), transparent 35%);
+	background: linear-gradient(0deg, rgba(10, 8, 22, 0.92), transparent);
 	pointer-events: none;
 }
 
