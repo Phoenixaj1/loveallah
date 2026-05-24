@@ -82,13 +82,16 @@ body.home .la-header {
 	left: 8px;
 	right: 8px;
 	padding: 3px 8px;
-	background:
-		linear-gradient(180deg, rgba(44, 19, 56, 0.62) 0%, rgba(107, 24, 70, 0.55) 60%, rgba(237, 28, 108, 0.45) 100%);
-	backdrop-filter: blur(18px) saturate(150%);
-	-webkit-backdrop-filter: blur(18px) saturate(150%);
-	border: 1px solid rgba(255, 255, 255, 0.16);
+	/* Wave 84b: match the right-rail (.la-snap-actions-pill) glass exactly
+	   — same rgba(0,0,0,0.42), same 14px blur + 140% saturation, same
+	   white-translucent border. Header now reads as part of the same
+	   floating-control family as the volume/heart/save/share pill. */
+	background: rgba(0, 0, 0, 0.42);
+	backdrop-filter: blur(14px) saturate(140%);
+	-webkit-backdrop-filter: blur(14px) saturate(140%);
+	border: 1px solid rgba(255, 255, 255, 0.10);
 	border-radius: 18px;
-	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.30), 0 1px 0 rgba(255, 255, 255, 0.10) inset;
+	box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
 }
 /* Wave 83d: tighter prayer cells inside the floating chip. */
 body.home .la-prayer-cell {
