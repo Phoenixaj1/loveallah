@@ -6242,18 +6242,9 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 .la-app--pulse {
 	position: relative;
 	min-height: calc(100dvh - var(--la-tabbar-h));
+	background: radial-gradient(circle at 50% 30%, #1a1530, #0a0816 70%);
 	color: #fff;
 	overflow: hidden;
-	isolation: isolate;
-	/* Wave 63: blossoming-heart artwork as the whole-page backdrop —
-	   shows on both setup AND session, so the divine feel is the FIRST
-	   thing you see when you tap into Pulse. */
-	background:
-		radial-gradient(ellipse 60% 50% at center 46%, rgba(232, 199, 111, 0.14), transparent 70%),
-		radial-gradient(ellipse 130% 100% at center 50%, transparent 30%, rgba(11, 3, 22, 0.45) 65%, rgba(11, 3, 22, 0.80) 100%),
-		linear-gradient(0deg, rgba(11, 3, 22, 0.88), transparent 28%),
-		url('../img/pulse-heart-bg.jpg') center 38% / cover no-repeat,
-		#0B0316;
 }
 .la-pulse-back, .la-witness-back-link, .la-names-back {
 	position: fixed;
