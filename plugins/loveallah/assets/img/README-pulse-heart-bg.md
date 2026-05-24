@@ -20,3 +20,4 @@ over 14s to feel alive.
 
 If the file is missing the pulse session falls back to the existing dark
 midnight gradient — nothing breaks.
+<!-- Wave 63 image redeploy -->
