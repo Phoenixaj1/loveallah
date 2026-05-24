@@ -30,6 +30,7 @@ class LA_DB {
 			'dua_ameen'         => $wpdb->prefix . 'la_dua_ameen',
 			'event_rsvps'       => $wpdb->prefix . 'la_event_rsvps',
 			'skill_listings'    => $wpdb->prefix . 'la_skill_listings',
+			'dhikr_videos'      => $wpdb->prefix . 'la_dhikr_videos',
 		];
 	}
 
@@ -59,6 +60,7 @@ class LA_DB {
 			self::seed_scholars();
 			self::seed_duas();
 			self::seed_skill_listings();
+			self::seed_dhikr_videos();
 			// Events for the default mosque (idempotent — skips if any
 			// events already exist for that mosque_id).
 			$default_mosque_id = (int) ( get_option( 'la_default_mosque_id' ) ?: 1 );
@@ -376,6 +378,28 @@ class LA_DB {
 			PRIMARY KEY  (id),
 			UNIQUE KEY uniq_dua_identity (dua_id, identity)
 		) $charset_collate;" );
+
+		// Wave 52: dedicated dhikr-only video table.
+		// Hand-curated list of YouTube videos that ARE genuine dhikr loops
+		// (la ilaha illa Allah, subhanallah, salawat, etc). Witness mode
+		// queries this directly — no algorithm, no regex matching, no
+		// scholar-type joins. The complexity of filtering mixed-content
+		// channels was the wrong abstraction; a hand-picked allowlist is
+		// the simple, predictable architecture this content deserves.
+		dbDelta( "CREATE TABLE {$t['dhikr_videos']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			youtube_id varchar(20) NOT NULL,
+			title varchar(255) NOT NULL,
+			scholar_name varchar(120) DEFAULT NULL,
+			channel_handle varchar(120) DEFAULT NULL,
+			phrase varchar(60) DEFAULT NULL,
+			duration_sec int unsigned DEFAULT 0,
+			sort_order int NOT NULL DEFAULT 0,
+			added_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY youtube_id (youtube_id),
+			KEY phrase (phrase)
+		) $charset_collate;" );
 	}
 
 	public static function seed() {
@@ -385,6 +409,50 @@ class LA_DB {
 		self::seed_feed_posts();
 		self::seed_duas();
 		self::seed_skill_listings();
+		self::seed_dhikr_videos();
+	}
+
+	/**
+	 * Hand-curated dhikr videos for the Witness mode. Each entry is a
+	 * specific YouTube video verified to be a genuine dhikr loop —
+	 * not a lecture, not a Qur'an recitation, just dhikr you can chant
+	 * along with. Verified before seeding.
+	 *
+	 * Idempotent — INSERT IGNORE skips entries whose youtube_id is
+	 * already present, so re-seeding is safe.
+	 */
+	private static function seed_dhikr_videos() {
+		global $wpdb;
+		$t = self::tables();
+
+		$videos = [
+			// la ilaha illa Allah (kalimah loops)
+			[ 'youtube_id' => 'psN1gCbTgLc', 'title' => 'La ilaha illallah — Heart Soothing Dhikr (1 Hour)',
+			  'scholar_name' => 'Shaykh Hasan Ali', 'channel_handle' => 'Alfalaah', 'phrase' => 'la_ilaha', 'duration_sec' => 3600 ],
+			[ 'youtube_id' => 'WLn3zz6M6jQ', 'title' => 'La Ilaha Illa Allah — The Most Powerful Dhikr (1 Hour Continuous)',
+			  'scholar_name' => 'Sajjad Yaseen', 'channel_handle' => 'SajjadYaseen', 'phrase' => 'la_ilaha', 'duration_sec' => 3600 ],
+			[ 'youtube_id' => 'ysQoihAK-TE', 'title' => 'La Ilaha Illa Allah — Islamic Meditation for the Soul',
+			  'scholar_name' => 'Fadael', 'channel_handle' => 'Fadael', 'phrase' => 'la_ilaha', 'duration_sec' => 3600 ],
+			[ 'youtube_id' => 'g0O5Kwly1S8', 'title' => 'La ilaha illa Allah · 1000× (6 Hour Continuous Dhikr)',
+			  'scholar_name' => null, 'channel_handle' => null, 'phrase' => 'la_ilaha', 'duration_sec' => 21600 ],
+			[ 'youtube_id' => 'D1qds82VFYY', 'title' => 'La Ilaha Illa Allah — Pitched Version (1 Hour)',
+			  'scholar_name' => 'Sajjad Yaseen', 'channel_handle' => 'SajjadYaseen', 'phrase' => 'la_ilaha', 'duration_sec' => 3600 ],
+		];
+
+		foreach ( $videos as $i => $v ) {
+			$wpdb->query( $wpdb->prepare(
+				"INSERT IGNORE INTO {$t['dhikr_videos']}
+					(youtube_id, title, scholar_name, channel_handle, phrase, duration_sec, sort_order)
+				 VALUES (%s, %s, %s, %s, %s, %d, %d)",
+				$v['youtube_id'],
+				$v['title'],
+				$v['scholar_name'],
+				$v['channel_handle'],
+				$v['phrase'],
+				$v['duration_sec'],
+				$i
+			) );
+		}
 	}
 
 	/** Seed 6 example Connect listings so the marketplace isn't empty
