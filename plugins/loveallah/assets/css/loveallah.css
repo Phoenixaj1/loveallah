@@ -6400,20 +6400,24 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	   mask alpha so nothing is fully visible anywhere. */
 	-webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.30) 40%, rgba(0,0,0,0.12) 65%, transparent 88%);
 	        mask-image: radial-gradient(circle at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.30) 40%, rgba(0,0,0,0.12) 65%, transparent 88%);
-	/* Wave 63 (further faded): a ghost in the dark. You feel it more
-	   than you see it. Each beat is the heart whispering, not waving. */
-	opacity: 0.22;
-	filter: saturate(0.22) brightness(0.32) contrast(0.92) blur(1.4px);
+	/* Wave 63 (final): heart is almost invisible at rest — a soft
+	   shadow you might not notice. Each beat surfaces it briefly:
+	   for ~150ms the heart blooms into view as the pulse rings
+	   expand, then fades back into the dark. The contrast between
+	   rest and peak is what makes the heart "appear with the beat"
+	   rather than "sit behind the page". */
+	opacity: 0.12;
+	filter: saturate(0.20) brightness(0.30) contrast(0.92) blur(1.6px);
 	transition: transform 0.18s ease-out;
 }
 .la-pulse-bg-image.is-beating {
 	animation: la-pulse-bg-beat var(--la-pulse-dur, 700ms) ease-out;
 }
 @keyframes la-pulse-bg-beat {
-	0%   { transform: translate(-50%, -50%) scale(1.00); opacity: 0.22; filter: saturate(0.22) brightness(0.32) contrast(0.92) blur(1.4px); }
-	18%  { transform: translate(-50%, -50%) scale(1.05); opacity: 0.38; filter: saturate(0.35) brightness(0.45) contrast(0.95) blur(1.0px); }
-	38%  { transform: translate(-50%, -50%) scale(1.02); opacity: 0.30; }
-	100% { transform: translate(-50%, -50%) scale(1.00); opacity: 0.22; filter: saturate(0.22) brightness(0.32) contrast(0.92) blur(1.4px); }
+	0%   { transform: translate(-50%, -50%) scale(1.00); opacity: 0.12; filter: saturate(0.20) brightness(0.30) contrast(0.92) blur(1.6px); }
+	16%  { transform: translate(-50%, -50%) scale(1.05); opacity: 0.62; filter: saturate(0.55) brightness(0.65) contrast(1.05) blur(0.3px); }
+	42%  { transform: translate(-50%, -50%) scale(1.02); opacity: 0.32; filter: saturate(0.32) brightness(0.42) contrast(0.95) blur(1.0px); }
+	100% { transform: translate(-50%, -50%) scale(1.00); opacity: 0.12; filter: saturate(0.20) brightness(0.30) contrast(0.92) blur(1.6px); }
 }
 @media (max-width: 480px) {
 	.la-pulse-bg-image { width: 320px; height: 320px; }
