@@ -209,6 +209,7 @@ class LA_API {
 	}
 
 	public static function get_feed( WP_REST_Request $req ) {
+		self::bypass_cdn_cache();
 		[ $user_id, $session_id ] = self::identity( $req );
 
 		if ( ! LA_Unlock::is_unlocked( $user_id, $session_id ) ) {
@@ -324,6 +325,7 @@ class LA_API {
 	 * Supports optional ?type= filter for nasheeds / dhikr / qirat / reminder.
 	 */
 	public static function get_feed_more( WP_REST_Request $req ) {
+		self::bypass_cdn_cache();
 		[ $user_id, $session_id ] = self::identity( $req );
 		$page  = max( 0, (int) $req->get_param( 'page' ) );
 		$limit = min( 20, max( 5, (int) ( $req->get_param( 'limit' ) ?: 10 ) ) );
@@ -714,5 +716,31 @@ class LA_API {
 			$session_id = sanitize_key( $_COOKIE['la_session'] );
 		}
 		return [ $user_id, $session_id ?: null ];
+	}
+
+	/**
+	 * Stop Varnish / Breeze / Cloudflare / Apache mod_cache from caching the
+	 * response. The personalised feed endpoints (/feed, /feed/more) must
+	 * compute fresh per user — otherwise every anonymous visitor with the
+	 * same query string gets the FIRST user's cached batch, defeating
+	 * seen-tracking, binge-exclusion, and per-session jitter entirely.
+	 *
+	 * The chain of headers below covers each layer:
+	 *   nocache_headers()           — WordPress canonical "do not cache"
+	 *   Cache-Control: no-store     — instructs every intermediary + browser
+	 *   X-Breeze-Cache-Bypass: 1    — Cloudways Breeze opt-out
+	 *   X-Cache-Bypass: 1           — generic page-cache opt-out
+	 *   DONOTCACHEPAGE              — WP Super Cache / W3 Total Cache opt-out
+	 *   Vary: Cookie, X-LA-Session  — even if a cache decides to store,
+	 *                                  it'll segment by identity
+	 */
+	private static function bypass_cdn_cache() : void {
+		nocache_headers();
+		header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		header( 'Pragma: no-cache' );
+		header( 'X-Breeze-Cache-Bypass: 1' );
+		header( 'X-Cache-Bypass: 1' );
+		header( 'Vary: Cookie, X-LA-Session', false );
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) define( 'DONOTCACHEPAGE', true );
 	}
 }

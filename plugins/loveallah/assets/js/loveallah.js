@@ -249,11 +249,17 @@
 		if (refNode) {
 			refNode.insertAdjacentHTML('beforebegin', '<article class="la-snap la-snap--loading"><div class="la-snap-inner"><div class="la-feed-loader-spinner"></div></div></article>');
 		}
-		// Fetch page 0 with filter
+		// Fetch page 0 with filter.
+		// `_s` cache-buster appends the session id so each user's request URL
+		// is unique — defeats any upstream cache (Varnish/Breeze/Cloudflare)
+		// that ignores our no-store headers and keys purely by URL. Belt and
+		// suspenders alongside the server-side bypass headers.
 		try {
-			const qs = `page=0&limit=10${type ? '&type=' + encodeURIComponent(type) : ''}`;
+			const cb = `&_s=${encodeURIComponent(LA.sessionId || 'anon')}&_t=${Date.now()}`;
+			const qs = `page=0&limit=10${type ? '&type=' + encodeURIComponent(type) : ''}${cb}`;
 			const res = await fetch(`${LA.apiRoot}feed/more?${qs}`, {
 				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+				cache: 'no-store',
 			});
 			const data = await res.json();
 			$$('.la-snap--loading', feedContainer).forEach(n => n.remove());
@@ -683,9 +689,13 @@
 		if (loader) loader.hidden = false;
 
 		try {
-			const qs = `page=${currentPage}&limit=10${currentFilter ? '&type=' + encodeURIComponent(currentFilter) : ''}`;
+			// Cache-buster: session id + monotonic timestamp so no upstream
+			// cache can serve another user's batch by URL match.
+			const cb = `&_s=${encodeURIComponent(LA.sessionId || 'anon')}&_t=${Date.now()}`;
+			const qs = `page=${currentPage}&limit=10${currentFilter ? '&type=' + encodeURIComponent(currentFilter) : ''}${cb}`;
 			const res = await fetch(`${LA.apiRoot}feed/more?${qs}`, {
 				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+				cache: 'no-store',
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.message || 'failed');

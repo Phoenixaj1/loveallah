@@ -27,7 +27,21 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class LA_YouTube {
 
-	const MAX_PER_SYNC    = 15;       // Items to consider per scholar per run
+	// POOL CAPACITY (Wave 30):
+	// A power user consuming 3 hours of 30-second reels per day = ~360 unique
+	// videos/day. Even at our 56 channels × 15 = 840 cap, they'd exhaust the
+	// pool in ~2.3 days. Bumping MAX_PER_SYNC to 30 gives 56 × 30 = 1,680
+	// shorts — about 4.6 days for a power user before everything is seen.
+	// Combined with the hourly cron's fresh-uploads stream, this should keep
+	// a heavy daily user supplied without ever cycling back through the same
+	// content (binge-exclusion in LA_Algorithm finishes the job).
+	//
+	// Why not 100+ per channel? yt-dlp --flat-playlist is fast, but the per-
+	// new-item oEmbed fetch (~1s each) adds up during initial backfill of
+	// a freshly-seeded channel. At 30 per channel × 8 channels per tick =
+	// up to ~240s of oembed work — still under the 300s PHP timeout. Going
+	// higher would risk timeouts on first sync of new channels.
+	const MAX_PER_SYNC    = 30;       // Items to consider per scholar per run
 	const TIMEOUT_SEC     = 30;       // Per-subprocess timeout
 	const BATCH_PER_TICK  = 8;        // Scholars processed per hourly cron tick
 
