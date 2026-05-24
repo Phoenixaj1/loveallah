@@ -481,6 +481,18 @@ class LA_YouTube {
 			$out['scrape_uc_hits']  = preg_match_all( '/UC[A-Za-z0-9_-]{22}/', $body, $junk );
 			$out['scrape_vid_hits'] = preg_match_all( '/"videoId":"[A-Za-z0-9_-]{11}"/', $body, $junk );
 			$out['scrape_mobile']   = ( strpos( $body, 'm.youtube.com' ) !== false ) && ( strpos( $body, '"videoId"' ) === false );
+			// Wave 78e: more diagnostic signals — what KIND of page is this?
+			$out['has_yt_data']     = strpos( $body, 'ytInitialData' ) !== false;
+			$out['has_ytcfg']       = strpos( $body, 'ytcfg' ) !== false;
+			$out['watch_v_hits']    = preg_match_all( '#/watch\?v=[A-Za-z0-9_-]{11}#', $body, $junk );
+			$out['shorts_hits']     = preg_match_all( '#/shorts/[A-Za-z0-9_-]{11}#', $body, $junk );
+			$out['esc_vid_hits']    = preg_match_all( '/\\\\"videoId\\\\":\\\\"[A-Za-z0-9_-]{11}\\\\"/', $body, $junk );
+			$out['title']           = (string) ( preg_match( '#<title>([^<]+)#', $body, $m ) ? trim( $m[1] ) : '' );
+			// Look for any 11-char ID-like token preceded by characteristic context
+			$out['rich_item_hits']  = substr_count( $body, '"richItemRenderer"' );
+			$out['video_renderer']  = substr_count( $body, '"videoRenderer"' );
+			$out['captcha']         = ( stripos( $body, 'captcha' ) !== false );
+			$out['consent_page']    = ( stripos( $body, 'consent.youtube.com' ) !== false );
 		}
 		return $out;
 	}

@@ -561,7 +561,17 @@ class LA_Admin {
 			· body=<?php echo (int) $probe['scrape_body_len']; ?>B
 			· UC-hits=<?php echo (int) $probe['scrape_uc_hits']; ?>
 			· vidId-hits=<strong><?php echo (int) $probe['scrape_vid_hits']; ?></strong>
-			· mobile-fallback=<?php echo $probe['scrape_mobile'] ? 'YES' : 'no'; ?>
+			· mobile-fallback=<?php echo $probe['scrape_mobile'] ? 'YES' : 'no'; ?><br>
+			page-title: <code><?php echo esc_html( $probe['title'] ?? '' ); ?></code><br>
+			has-ytInitialData=<?php echo ! empty( $probe['has_yt_data'] ) ? 'yes' : 'NO'; ?>
+			· has-ytcfg=<?php echo ! empty( $probe['has_ytcfg'] ) ? 'yes' : 'NO'; ?>
+			· /watch?v hits=<strong><?php echo (int) ( $probe['watch_v_hits'] ?? 0 ); ?></strong>
+			· /shorts/ hits=<strong><?php echo (int) ( $probe['shorts_hits'] ?? 0 ); ?></strong><br>
+			escaped-vidId hits=<?php echo (int) ( $probe['esc_vid_hits'] ?? 0 ); ?>
+			· richItemRenderer=<?php echo (int) ( $probe['rich_item_hits'] ?? 0 ); ?>
+			· videoRenderer=<?php echo (int) ( $probe['video_renderer'] ?? 0 ); ?>
+			· captcha=<?php echo ! empty( $probe['captcha'] ) ? 'YES' : 'no'; ?>
+			· consent-redirect=<?php echo ! empty( $probe['consent_page'] ) ? 'YES' : 'no'; ?>
 		</div>
 		<?php
 		flush();
