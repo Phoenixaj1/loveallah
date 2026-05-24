@@ -474,7 +474,11 @@
 			const span = action.querySelector('[data-likes]');
 			if (span) {
 				const newVal = parseInt(span.textContent || '0', 10) + (action.classList.contains('is-active') ? (wasActive ? 0 : 1) : (wasActive ? -1 : 0));
-				span.textContent = Math.max(0, newVal);
+				const clamped = Math.max(0, newVal);
+				span.textContent = clamped;
+				// Wave 36: hide the count when zero so the pill stays compact
+				// for fresh posts. Re-show as soon as it ticks above 0.
+				span.classList.toggle('is-zero', clamped === 0);
 				span.classList.remove('is-tick');
 				void span.offsetWidth;
 				span.classList.add('is-tick');
@@ -504,28 +508,51 @@
 	});
 
 	async function shareCard(card, postId) {
-		const titleEl = card.querySelector('.la-snap-title');
+		// Wave 36: share-to-WhatsApp turns every clip into an invite link.
+		// The URL points at /clip/{id}/ which renders the homepage but with
+		// per-post Open Graph tags so WhatsApp shows a rich preview card
+		// (thumbnail + scholar name + caption). Anyone tapping the link
+		// lands inside the app on that exact clip.
+		const titleEl   = card.querySelector('.la-snap-title');
 		const scholarEl = card.querySelector('.la-snap-scholar-name');
-		const title = `${scholarEl?.textContent.trim() || 'Love Allah'} — ${titleEl?.textContent.trim() || ''}`.trim();
-		const url   = `${location.origin}/feed/post/${postId}?ref=share`;
-		const text  = `Watch this on Love Allah`;
+		const scholar   = (scholarEl?.textContent || '').trim();
+		const title     = (titleEl?.textContent   || '').trim();
+		const url       = `${location.origin}/clip/${postId}/`;
 
+		// Compose a thoughtful WhatsApp message — bismillah-style heading,
+		// blank line, link last so the preview unfurls cleanly under it.
+		const header  = scholar ? `🌙 ${scholar}${title ? ' — ' + title : ''}` : '🌙 A reminder from Love Allah';
+		const message = `${header}\n\nWatch on Love Allah · ${url}`;
+
+		let didShare = false;
 		if (navigator.share) {
 			try {
-				await navigator.share({ title, text, url });
+				await navigator.share({
+					title: scholar ? `Love Allah · ${scholar}` : 'Love Allah',
+					text: message,
+					url,
+				});
+				didShare = true;
 				showToast('Shared');
 			} catch (err) {
-				if (err && err.name === 'AbortError') return; // user cancelled
-				console.error('share failed', err);
+				if (err && err.name === 'AbortError') return; // user cancelled — don't fall through
+				// Any non-abort error → try WhatsApp deep link
 			}
-			return;
 		}
-		// Fallback: copy URL
-		try {
-			await navigator.clipboard.writeText(url);
-			showToast('Link copied');
-		} catch (e) {
-			window.prompt('Copy this link:', url);
+
+		if (!didShare) {
+			// Open WhatsApp share sheet directly. wa.me is platform-aware —
+			// opens the WhatsApp app on mobile, web.whatsapp.com on desktop.
+			const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+			window.open(waUrl, '_blank', 'noopener,noreferrer');
+			didShare = true;
+			showToast('Opening WhatsApp');
+		}
+
+		// Record share interaction so the quality algorithm registers the
+		// positive signal (a share is a strong endorsement, weight 40).
+		if (didShare && typeof postInteraction === 'function') {
+			postInteraction(postId, 'share');
 		}
 	}
 

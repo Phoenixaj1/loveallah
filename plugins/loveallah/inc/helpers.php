@@ -88,6 +88,35 @@ function la_render_feed_main( string $type_filter = '' ) : void {
 
 	$cards = LA_Algorithm::for_user( $user_id, $session_id, 20, 0, $type_filter ?: null );
 
+	// Wave 36: if the visitor arrived via a /clip/{id}/ share link, prepend
+	// that specific post as the first card. Without this, the feed algorithm
+	// might rank the shared clip lower than the freshness winner and the
+	// recipient lands on a different video than the sender intended.
+	$clip_id = (int) get_query_var( 'la_clip' );
+	if ( $clip_id ) {
+		$clip_post = LA_Feed::get_by_id( $clip_id );
+		if ( $clip_post && empty( $clip_post->expires_at ) || ( $clip_post && strtotime( $clip_post->expires_at ) > time() ) ) {
+			// Hydrate the scholar fields the renderer expects (the algorithm
+			// adds them via SQL JOIN; LA_Feed::by_id returns just the post row).
+			if ( class_exists( 'LA_Scholars' ) ) {
+				$scholar = LA_Scholars::get_by_id( (int) $clip_post->scholar_id );
+				if ( $scholar ) {
+					$clip_post->scholar_username     = $scholar->username     ?? '';
+					$clip_post->scholar_display_name = $scholar->display_name ?? '';
+					$clip_post->scholar_account_type = $scholar->account_type ?? 'curated';
+					$clip_post->scholar_avatar       = $scholar->avatar       ?? '';
+					$clip_post->scholar_source_url   = $scholar->source_url   ?? '';
+				}
+			}
+			$clip_post->_card_type = 'content';
+			// Drop the dupe if the algorithm already put this clip in $cards.
+			$cards = array_values( array_filter( $cards, function ( $c ) use ( $clip_id ) {
+				return ! ( ( $c->_card_type ?? '' ) === 'content' && (int) ( $c->id ?? 0 ) === $clip_id );
+			} ) );
+			array_unshift( $cards, $clip_post );
+		}
+	}
+
 	// Bulk-decorate content cards with this identity's saved/liked state
 	// so the bookmark + heart icons render in the correct state on first
 	// paint — no flicker waiting for client-side localStorage hydration.

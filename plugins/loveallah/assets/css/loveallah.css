@@ -554,21 +554,33 @@ button { font-family: inherit; }
 	max-width: calc(100% - 72px);
 }
 
+/* Wave 36 right rail — frosted pill container, icon-only buttons.
+   The old version was four floating ghost-icons that felt scattered.
+   This wraps them in a single glass pill anchored to the bottom-right
+   above the scholar overlay, so the column reads as one piece of UI
+   rather than four loose buttons. */
 .la-snap-actions {
 	position: absolute;
-	right: 12px;
-	/* Anchor to the middle of the snap area so the action column sits at
-	   eye-level rather than crammed against the tabbar. The flex stack
-	   grows down from the anchor — top button (mute) lands around 45%
-	   from the top of the snap, the others cascade below it. */
-	top: 45%;
-	bottom: auto;
-	display: flex; flex-direction: column;
-	gap: 18px;
+	right: 10px;
+	bottom: 120px;          /* clear of scholar overlay; phone-safe */
+	top: auto;
 	z-index: 3;
 }
+.la-snap-actions-pill {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 6px 4px;
+	background: rgba(0, 0, 0, 0.42);
+	-webkit-backdrop-filter: blur(14px) saturate(140%);
+	backdrop-filter: blur(14px) saturate(140%);
+	border: 1px solid rgba(255, 255, 255, 0.10);
+	border-radius: 26px;
+	box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
 
-/* Desktop: pin overlay + actions to a centered column around the portrait video */
+/* Desktop: anchor against the portrait iframe column instead of viewport */
 @media (min-width: 720px) {
 	.la-snap-overlay {
 		left: 50%;
@@ -582,6 +594,7 @@ button { font-family: inherit; }
 	.la-snap-overlay .la-snap-caption { max-width: 100%; }
 	.la-snap-actions {
 		right: max(20px, calc(50% - 320px));
+		bottom: 96px;
 	}
 }
 @media (min-width: 1024px) {
@@ -589,33 +602,51 @@ button { font-family: inherit; }
 		right: calc(50% - 290px);  /* tighter to the iframe edge */
 	}
 }
+
 .la-snap-action {
-	display: flex; flex-direction: column; align-items: center;
-	gap: 4px;
+	width: 44px;
+	height: 44px;
+	min-height: 44px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
 	background: transparent;
 	border: none;
+	border-radius: 14px;
 	color: #fff;
 	cursor: pointer;
 	padding: 0;
 	font-family: inherit;
-	transition: transform 0.15s var(--la-spring);
+	transition: transform 0.15s var(--la-spring), background 0.15s ease;
 }
+.la-snap-action:hover { background: rgba(255, 255, 255, 0.06); }
 .la-snap-action:active { transform: scale(0.88); }
 .la-snap-action svg {
-	filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
 	transition: fill 0.2s var(--la-easing), stroke 0.2s var(--la-easing);
 }
 .la-snap-action.is-active svg {
 	fill: var(--la-primary);
 	stroke: var(--la-primary);
 }
+
+/* WhatsApp-themed share button. The icon is the official WA glyph from
+   the render PHP; tinting it to WA-green is the visual cue that this
+   share goes via WhatsApp. */
+.la-snap-share { color: #25d366; }
+.la-snap-share svg { filter: drop-shadow(0 0 6px rgba(37, 211, 102, 0.4)); }
+
+/* Like count — only render when > 0 (.is-zero hides it). Tiny so the
+   pill stays compact when no engagement has happened yet. */
 .la-snap-action-count {
-	font-size: 11px;
-	font-weight: 800;
-	color: #fff;
-	text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+	font-size: 10px;
+	font-weight: 700;
+	color: rgba(255, 255, 255, 0.95);
 	letter-spacing: 0;
+	line-height: 1;
 }
+.la-snap-action-count.is-zero { display: none; }
 
 /* Mute toggle — two SVGs, show one based on .is-on */
 .la-snap-mute .la-mute-icon { transition: transform 0.2s var(--la-spring); }
