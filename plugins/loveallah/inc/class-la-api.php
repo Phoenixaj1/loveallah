@@ -369,7 +369,22 @@ class LA_API {
 		$limit = min( 20, max( 5, (int) ( $req->get_param( 'limit' ) ?: 10 ) ) );
 		$type  = sanitize_key( (string) $req->get_param( 'type' ) ) ?: null;
 
-		$cards = LA_Algorithm::for_user( $user_id, $session_id, $limit, $page, $type );
+		// Wave 77: client-side seen-ids backstop. The frontend mirrors every
+		// 'view' interaction into localStorage and ships up to 200 of the most
+		// recent ids back in X-LA-Seen on each feed fetch. This keeps the
+		// repeat-exclusion working even when the server-side identity has
+		// rolled (cookie clear, PWA reinstall, switched device).
+		$extra_seen = [];
+		$header = (string) $req->get_header( 'x-la-seen' );
+		if ( $header ) {
+			foreach ( explode( ',', $header ) as $tok ) {
+				$n = (int) trim( $tok );
+				if ( $n > 0 ) $extra_seen[] = $n;
+				if ( count( $extra_seen ) >= 250 ) break;
+			}
+		}
+
+		$cards = LA_Algorithm::for_user( $user_id, $session_id, $limit, $page, $type, $extra_seen );
 
 		// Bulk-decorate saved/liked state for the new batch (mirrors first-paint behaviour)
 		$post_ids = [];

@@ -53,7 +53,7 @@ class LA_Algorithm {
 	 * content pool with a deterministic per-cycle shuffle so re-encounters
 	 * feel fresh rather than identical).
 	 */
-	public static function for_user( ?int $user_id, ?string $session_id, int $limit = 20, int $page = 0, ?string $type_filter = null ) : array {
+	public static function for_user( ?int $user_id, ?string $session_id, int $limit = 20, int $page = 0, ?string $type_filter = null, array $extra_seen_ids = [] ) : array {
 		$affinities = self::scholar_affinities( $user_id, $session_id );
 
 		// Tiered seen-tracking (Wave 29). "Saw this already" is the #1 reason
@@ -63,13 +63,28 @@ class LA_Algorithm {
 		//   $binged    = 3+ views in 30d  → HARD excluded from the SQL pool
 		//                                   (with cold-start fallback below).
 		[ $seen_once, $binged ] = self::seen_tiered( $user_id, $session_id );
+
+		// Wave 77: merge client-supplied seen ids (from localStorage backstop)
+		// into the once-seen map. These are ids the client knows it has shown
+		// even if the server-side identity has rolled and has no DB record.
+		if ( $extra_seen_ids ) {
+			foreach ( $extra_seen_ids as $eid ) {
+				$pid = (int) $eid;
+				if ( $pid > 0 ) $seen_once[ $pid ] = true;
+			}
+		}
 		$all = self::ranked_content_full( $affinities, $seen_once, $binged, $user_id, $session_id, $page, $type_filter );
 
-		// Cold-start fallback: if the binge exclusion drained the pool below
-		// what we need to fill one page, retry WITHOUT the exclusion. Better
-		// to occasionally repeat than to ship a half-empty feed.
+		// Wave 77: tiered cold-start fallback. The first pass excludes ANY
+		// post seen in the last 30 days (Wave 77 strictness). If that drains
+		// the pool below one page, soften: still exclude binged (≥3 views)
+		// but allow once-seen back. If THAT still leaves us short, drop all
+		// exclusion — we'd rather repeat than ship empty.
 		if ( count( $all ) < $limit ) {
-			$all = self::ranked_content_full( $affinities, $seen_once, [], $user_id, $session_id, $page, $type_filter );
+			$all = self::ranked_content_full( $affinities, [], $binged, $user_id, $session_id, $page, $type_filter );
+		}
+		if ( count( $all ) < $limit ) {
+			$all = self::ranked_content_full( $affinities, [], [], $user_id, $session_id, $page, $type_filter );
 		}
 
 		// Wave 66: dhikr cards removed from the main feed. Dhikr lives
@@ -246,17 +261,23 @@ class LA_Algorithm {
 			}
 		}
 
-		// HARD exclusion of binge-seen posts (3+ views in 30d). Done inline
-		// in the SQL with an int-sanitized list so a user who's looped a
-		// favourite to death actually stops seeing it — even if their scholar
-		// affinity for the channel is sky-high.
-		$binged_where = '';
-		if ( ! empty( $binged_ids ) ) {
-			$safe_ids = array_map( 'intval', array_keys( $binged_ids ) );
-			if ( $safe_ids ) {
-				$binged_where = ' AND p.id NOT IN (' . implode( ',', $safe_ids ) . ')';
-			}
+		// Wave 77: HARD-exclude ANY post the user has seen in the last 30 days
+		// (was: only 3+ view "binged" rows). With 3,800+ videos in the catalog
+		// and content arriving daily, repeats are unacceptable — the −800
+		// penalty alone left low-quality unseen content losing to a seen
+		// favourite. Merge once-seen + binged IDs into the SQL NOT IN list.
+		// The fallback at the bottom of this function re-includes seen content
+		// if the exclusion list leaves us with nothing to show.
+		$all_seen_ids = array_unique( array_merge(
+			array_map( 'intval', array_keys( (array) $seen_ids ) ),
+			array_map( 'intval', array_keys( (array) $binged_ids ) )
+		) );
+		$seen_where = '';
+		if ( $all_seen_ids ) {
+			$seen_where = ' AND p.id NOT IN (' . implode( ',', $all_seen_ids ) . ')';
 		}
+		// Keep the old var name available in case any downstream code references it.
+		$binged_where = $seen_where;
 
 		// Wave 71 hotfix: filter out hidden/archived scholars ONLY IF the
 		// status column exists. The dbDelta migration may not have applied

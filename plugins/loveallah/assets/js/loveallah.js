@@ -257,8 +257,11 @@
 		try {
 			const cb = `&_s=${encodeURIComponent(LA.sessionId || 'anon')}&_t=${Date.now()}`;
 			const qs = `page=0&limit=10${type ? '&type=' + encodeURIComponent(type) : ''}${cb}`;
+			const hdrs = { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId };
+			const seen = (window.__laSeenHeader && window.__laSeenHeader()) || '';
+			if (seen) hdrs['X-LA-Seen'] = seen;
 			const res = await fetch(`${LA.apiRoot}feed/more?${qs}`, {
-				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+				headers: hdrs,
 				cache: 'no-store',
 			});
 			const data = await res.json();
@@ -657,12 +660,48 @@
 
 	function postInteraction(id, action) {
 		if (!id) return;
+		// Wave 77: belt-and-braces seen-tracking. If the user's identity cookies
+		// reset (PWA reinstall, cookie clear, switched device), the server-side
+		// seen list goes back to empty — and they re-see content they swiped
+		// through yesterday. Stamping the id in localStorage means the next
+		// feed fetch can ship the IDs back via X-LA-Seen header so the server
+		// excludes them even when its own row history is gone.
+		if (action === 'view') rememberSeenLocal(id);
 		fetch(`${LA.apiRoot}feed/${id}/${action}`, {
 			method: 'POST',
 			headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
 			cache: 'no-store',
 		}).catch(() => {});
 	}
+
+	// Local seen-ids ring buffer (~200 most recent ids). Keeps the feed
+	// repeat-free even when cookie identity is unstable.
+	const SEEN_KEY = 'la_seen_ids_v1';
+	const SEEN_CAP = 200;
+	function rememberSeenLocal(id) {
+		try {
+			const n = parseInt(id, 10);
+			if (!n) return;
+			let arr = [];
+			try { arr = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'); } catch (e) {}
+			if (!Array.isArray(arr)) arr = [];
+			// Most-recent-first; dedup; cap.
+			arr = [n, ...arr.filter(x => x !== n)].slice(0, SEEN_CAP);
+			localStorage.setItem(SEEN_KEY, JSON.stringify(arr));
+		} catch (e) { /* private mode / quota — ignore */ }
+	}
+	function readSeenLocal() {
+		try {
+			const arr = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]');
+			return Array.isArray(arr) ? arr.filter(n => Number.isInteger(n)).slice(0, SEEN_CAP) : [];
+		} catch (e) { return []; }
+	}
+	function seenHeader() {
+		const arr = readSeenLocal();
+		return arr.length ? arr.join(',') : '';
+	}
+	// Expose for the feed-fetch helpers below.
+	window.__laSeenHeader = seenHeader;
 
 	function flushDwell(card) {
 		const id = card.dataset.postId;
@@ -783,8 +822,11 @@
 			// cache can serve another user's batch by URL match.
 			const cb = `&_s=${encodeURIComponent(LA.sessionId || 'anon')}&_t=${Date.now()}`;
 			const qs = `page=${currentPage}&limit=10${currentFilter ? '&type=' + encodeURIComponent(currentFilter) : ''}${cb}`;
+			const hdrs = { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId };
+			const seen = (window.__laSeenHeader && window.__laSeenHeader()) || '';
+			if (seen) hdrs['X-LA-Seen'] = seen;
 			const res = await fetch(`${LA.apiRoot}feed/more?${qs}`, {
-				headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+				headers: hdrs,
 				cache: 'no-store',
 			});
 			const data = await res.json();
