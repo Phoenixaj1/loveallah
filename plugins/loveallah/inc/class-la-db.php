@@ -57,6 +57,7 @@ class LA_DB {
 			// Re-seed on every DB version bump. All of these are idempotent
 			// (insert-or-update by unique key, or count-and-skip-if-exists)
 			// so re-running them on existing installs is safe.
+			self::seed_mosque();
 			self::seed_scholars();
 			self::seed_duas();
 			self::seed_skill_listings();
@@ -584,16 +585,55 @@ class LA_DB {
 	private static function seed_mosque() {
 		global $wpdb;
 		$t = self::tables();
-		$wpdb->insert( $t['mosques'], [
-			'slug' => 'central-jamia-masjid-birmingham',
-			'name' => 'Central Jamia Masjid Ghamkol Sharif',
-			'address' => 'Golden Hillock Road',
-			'city' => 'Birmingham',
-			'country' => 'United Kingdom',
-			'latitude' => 52.4567,
-			'longitude' => -1.8606,
-			'branding_color_primary' => '#ED1C6C',
-		] );
+
+		// Wave 54: default masjid is ArRahma Foundation / Masjid Esa Ibn
+		// Maryam in Hall Green, Birmingham — Adil's employer's main masjid.
+		// Idempotent: if mosque #1 already exists with the old Ghamkol Sharif
+		// data, UPDATE it in place rather than inserting a duplicate (the
+		// schema has a UNIQUE KEY on slug, so direct inserts would fail).
+		$arrahma = [
+			'slug'                   => 'masjid-esa-ibn-maryam',
+			'name'                   => 'Masjid Esa Ibn Maryam',
+			'address'                => '14 Etwall Road, Hall Green',
+			'city'                   => 'Birmingham',
+			'country'                => 'United Kingdom',
+			'latitude'               => 52.4399,
+			'longitude'              => -1.8307,
+			'branding_color_primary' => '#1A8A7B', // ArRahma teal
+			'jumuah_time'            => '13:30:00',
+			'jumuah_khutbah_lang'    => 'English/Urdu',
+		];
+
+		$existing_id = (int) $wpdb->get_var(
+			"SELECT id FROM {$t['mosques']} ORDER BY id ASC LIMIT 1"
+		);
+		if ( $existing_id ) {
+			$wpdb->update( $t['mosques'], $arrahma, [ 'id' => $existing_id ] );
+		} else {
+			$wpdb->insert( $t['mosques'], $arrahma );
+		}
+
+		// Seed ArRahma's second masjid (Masjid Sulayman Bin Dawud) — same
+		// foundation, York Road. Future masjid-picker dropdown surfaces both.
+		// INSERT IGNORE so re-seeding is safe (unique slug).
+		$sulayman_exists = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM {$t['mosques']} WHERE slug = %s",
+			'masjid-sulayman-bin-dawud'
+		) );
+		if ( ! $sulayman_exists ) {
+			$wpdb->insert( $t['mosques'], [
+				'slug'                   => 'masjid-sulayman-bin-dawud',
+				'name'                   => 'Masjid Sulayman Bin Dawud',
+				'address'                => '196 York Road, Hall Green',
+				'city'                   => 'Birmingham',
+				'country'                => 'United Kingdom',
+				'latitude'               => 52.4351,
+				'longitude'              => -1.8401,
+				'branding_color_primary' => '#1A8A7B',
+				'jumuah_time'            => '13:30:00',
+				'jumuah_khutbah_lang'    => 'English/Urdu',
+			] );
+		}
 	}
 
 	private static function seed_scholars() {

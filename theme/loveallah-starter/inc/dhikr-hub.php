@@ -37,8 +37,8 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 				</svg>
 			</div>
 			<div class="la-dhikr-hub-card-name">Witness</div>
-			<div class="la-dhikr-hub-card-tag">Scholars chant — follow along</div>
-			<div class="la-dhikr-hub-card-desc">A feed of qaris and shuyukh doing dhikr aloud. Tap the counter as you chant with them. Mirror what's in front of you.</div>
+			<div class="la-dhikr-hub-card-tag">Scholars leading — join in</div>
+			<div class="la-dhikr-hub-card-desc">A feed of qaris and shuyukh doing dhikr aloud. Tap the counter as you remember with them. Mirror what's in front of you.</div>
 		</a>
 
 		<!-- Pulse — BPM-driven flow state -->

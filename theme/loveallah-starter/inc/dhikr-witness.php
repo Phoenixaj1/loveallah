@@ -56,7 +56,7 @@ foreach ( $videos as $v ) {
 		</a>
 		<div class="la-witness-hud-tally">
 			<div class="la-witness-hud-count" data-witness-count>0</div>
-			<div class="la-witness-hud-label">chants this session</div>
+			<div class="la-witness-hud-label">this session</div>
 		</div>
 	</div>
 
@@ -73,9 +73,9 @@ foreach ( $videos as $v ) {
 			<div class="la-feed-sentinel" data-feed-sentinel aria-hidden="true"></div>
 		</div>
 
-		<button class="la-witness-tap" type="button" data-witness-tap aria-label="Tap to count">
+		<button class="la-witness-tap" type="button" data-witness-tap aria-label="Tap each remembrance">
 			<span class="la-witness-tap-plus">+1</span>
-			<span class="la-witness-tap-label">Chant along</span>
+			<span class="la-witness-tap-label">Tap each one</span>
 		</button>
 
 	<?php else : ?>

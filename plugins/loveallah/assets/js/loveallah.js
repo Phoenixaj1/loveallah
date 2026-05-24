@@ -3077,3 +3077,127 @@
 	updateBeginMeta();
 })();
 
+// ============================================================
+// WAVE 54 — PWA install banner
+// Chrome fires beforeinstallprompt when installable; we stash the
+// event, wait 20s of engagement, then show a low-friction banner.
+// Dismissal saved for 7 days. iOS Safari is skipped — Apple does
+// not expose beforeinstallprompt to web pages.
+// ============================================================
+(function initPwaInstallPrompt() {
+	if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
+	if (window.navigator.standalone) return;
+
+	const dismissedAt = parseInt(localStorage.getItem('la_pwa_dismissed_at') || '0', 10);
+	if (dismissedAt && (Date.now() - dismissedAt) < 7 * 24 * 60 * 60 * 1000) return;
+
+	let deferredPrompt = null;
+	let promptShown = false;
+
+	window.addEventListener('beforeinstallprompt', (e) => {
+		e.preventDefault();
+		deferredPrompt = e;
+		setTimeout(showInstallBanner, 20000);
+	});
+
+	window.addEventListener('appinstalled', () => {
+		deferredPrompt = null;
+		document.querySelector('.la-pwa-install-banner')?.remove();
+		localStorage.setItem('la_pwa_dismissed_at', Date.now().toString());
+	});
+
+	function showInstallBanner() {
+		if (!deferredPrompt || promptShown) return;
+		promptShown = true;
+
+		const banner = document.createElement('div');
+		banner.className = 'la-pwa-install-banner';
+		banner.innerHTML = `
+			<div class="la-pwa-install-icon" aria-hidden="true">
+				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7 7 7-7"/></svg>
+			</div>
+			<div class="la-pwa-install-text">
+				<strong>Install Love Allah</strong>
+				<span>One tap from your homescreen — prayer times, dhikr, masjid.</span>
+			</div>
+			<button type="button" class="la-pwa-install-yes">Install</button>
+			<button type="button" class="la-pwa-install-no" aria-label="Dismiss">×</button>
+		`;
+		document.body.appendChild(banner);
+
+		banner.querySelector('.la-pwa-install-yes').addEventListener('click', async () => {
+			if (!deferredPrompt) { banner.remove(); return; }
+			deferredPrompt.prompt();
+			try {
+				const choice = await deferredPrompt.userChoice;
+				if (choice.outcome === 'dismissed') {
+					localStorage.setItem('la_pwa_dismissed_at', Date.now().toString());
+				}
+			} catch (_) {}
+			deferredPrompt = null;
+			banner.remove();
+		});
+
+		banner.querySelector('.la-pwa-install-no').addEventListener('click', () => {
+			localStorage.setItem('la_pwa_dismissed_at', Date.now().toString());
+			banner.classList.add('is-leaving');
+			setTimeout(() => banner.remove(), 250);
+		});
+	}
+})();
+
+// ============================================================
+// WAVE 54 — Pull-to-refresh on the main feed
+// Touch the top of the snap-feed, drag down 80px, release → reload.
+// Indicator slides down from under the header while pulling so the
+// user sees what's about to happen. Skipped on Witness (its feed is
+// curated, refreshing wouldn't surface different content).
+// ============================================================
+(function initPullToRefresh() {
+	const feed = document.querySelector('.la-feed-snap');
+	if (!feed) return;
+	if (feed.classList.contains('la-feed-snap--witness')) return;
+
+	const THRESHOLD = 80;
+	let startY = 0;
+	let pulling = false;
+	let pullDistance = 0;
+
+	const indicator = document.createElement('div');
+	indicator.className = 'la-feed-pull-indicator';
+	indicator.innerHTML = '<span class="la-feed-pull-spinner" aria-hidden="true"></span><span class="la-feed-pull-text">Pull to refresh</span>';
+	document.body.appendChild(indicator);
+
+	feed.addEventListener('touchstart', (e) => {
+		if (feed.scrollTop > 4) return;
+		startY = e.touches[0].clientY;
+		pulling = true;
+		pullDistance = 0;
+	}, { passive: true });
+
+	feed.addEventListener('touchmove', (e) => {
+		if (!pulling) return;
+		pullDistance = e.touches[0].clientY - startY;
+		if (pullDistance > 0) {
+			const progress = Math.min(1, pullDistance / THRESHOLD);
+			indicator.style.transform = `translateX(-50%) translateY(${(progress - 1) * 100}%)`;
+			indicator.querySelector('.la-feed-pull-text').textContent =
+				pullDistance >= THRESHOLD ? 'Release to refresh' : 'Pull to refresh';
+		}
+	}, { passive: true });
+
+	feed.addEventListener('touchend', () => {
+		if (!pulling) return;
+		pulling = false;
+		if (pullDistance >= THRESHOLD) {
+			indicator.classList.add('is-refreshing');
+			indicator.querySelector('.la-feed-pull-text').textContent = 'Refreshing…';
+			indicator.style.transform = `translateX(-50%) translateY(0)`;
+			setTimeout(() => location.reload(), 250);
+		} else {
+			indicator.style.transform = `translateX(-50%) translateY(-100%)`;
+		}
+		pullDistance = 0;
+	});
+})();
+

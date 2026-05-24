@@ -91,10 +91,24 @@ class LA_Algorithm {
 			shuffle( $all );
 		}
 
-		// Slice with wraparound
+		// Slice — but for filtered views with a tiny pool, return UNIQUE
+		// posts only (no wraparound duplication). 20 copies of the same
+		// clip is worse than 1 clip; the empty-state UI is better than
+		// "spam this video at me 20 times". Unfiltered feed still wraps
+		// because the main feed pool is always large enough that
+		// wraparound is real cycling, not pathological duplication.
 		$content = [];
-		for ( $i = 0; $i < $limit; $i++ ) {
-			$content[] = $all[ ( $offset + $i ) % $total ];
+		if ( ! empty( $type_filter ) && $total < $limit ) {
+			// Tiny filtered pool — return whatever unique posts we have,
+			// no padding. Caller decides whether to show empty state.
+			$content = array_slice( $all, $offset );
+			if ( count( $content ) < $total ) {
+				$content = array_merge( $content, array_slice( $all, 0, $total - count( $content ) ) );
+			}
+		} else {
+			for ( $i = 0; $i < $limit; $i++ ) {
+				$content[] = $all[ ( $offset + $i ) % $total ];
+			}
 		}
 
 		// Diversity pass — no two adjacent posts from the same scholar.
