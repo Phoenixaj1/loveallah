@@ -44,6 +44,33 @@ function la_seed_session_cookie_early() : void {
 	la_get_or_set_session_id();
 }
 
+/**
+ * Wave 64: return the currently signed-in user row (la_users) for the
+ * device, or null. Cached per request so reads are cheap. Identity is a
+ * cookie `la_user_token` set by POST /loveallah/v1/identity.
+ *
+ * Used by identity_str() in the REST API to prefer 'e{id}' over
+ * 's{session_id}' for tracking. That stable identity is what makes
+ * the seen-content de-duplication work properly — anonymous sessions
+ * reset whenever cookies clear.
+ */
+function la_current_user() {
+	static $cached = false;
+	static $user   = null;
+	if ( $cached ) return $user;
+	$cached = true;
+	if ( empty( $_COOKIE['la_user_token'] ) ) return null;
+	$token = preg_replace( '/[^a-zA-Z0-9_-]/', '', $_COOKIE['la_user_token'] );
+	if ( strlen( $token ) < 16 ) return null;
+	global $wpdb;
+	$t = LA_DB::tables();
+	$user = $wpdb->get_row( $wpdb->prepare(
+		"SELECT * FROM {$t['users']} WHERE token = %s LIMIT 1",
+		$token
+	) );
+	return $user ?: null;
+}
+
 function la_chosen_mosque() {
 	if ( ! empty( $_COOKIE['la_masjid_slug'] ) ) {
 		$slug = sanitize_title( $_COOKIE['la_masjid_slug'] );

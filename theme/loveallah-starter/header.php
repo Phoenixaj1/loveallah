@@ -157,6 +157,25 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 				</span>
 			</a>
 
+			<?php
+			// Wave 64: sign-in pill (or initials chip if already signed in).
+			// Sits in the header next to the brand mark so it's reachable on
+			// every page. Click → opens the global la-signin-sheet from footer.
+			$la_user = function_exists( 'la_current_user' ) ? la_current_user() : null;
+			?>
+			<?php if ( $la_user ) : ?>
+				<span class="la-account-chip" title="<?php echo esc_attr( $la_user->email ); ?>">
+					<span class="la-account-chip-initial" aria-hidden="true"><?php
+						echo esc_html( strtoupper( substr( $la_user->name ?: $la_user->email, 0, 1 ) ) );
+					?></span>
+				</span>
+			<?php else : ?>
+				<button type="button" class="la-account-signin" data-action="signin" aria-label="Sign in">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+					<span>Sign in</span>
+				</button>
+			<?php endif; ?>
+
 			<?php if ( $la_timings ) : ?>
 				<div class="la-prayer-bar-row" data-prayer-bar aria-label="Your prayer times today">
 					<?php foreach ( [ 'Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha' ] as $name ) :

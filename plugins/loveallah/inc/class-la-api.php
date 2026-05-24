@@ -170,6 +170,23 @@ class LA_API {
 			'permission_callback' => [ __CLASS__, 'check_nonce' ],
 		] );
 
+		// Wave 64: passwordless "sign in". Email + phone → stable identity.
+		register_rest_route( self::NS, '/identity', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'identity_signin' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+		] );
+		register_rest_route( self::NS, '/identity/me', [
+			'methods'  => 'GET',
+			'callback' => [ __CLASS__, 'identity_me' ],
+			'permission_callback' => '__return_true',
+		] );
+		register_rest_route( self::NS, '/identity/signout', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'identity_signout' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+		] );
+
 		// Geo prayer times — visitor's own location, computed locally
 		// (Aladhan is firewalled from Cloudways).
 		register_rest_route( self::NS, '/prayer-times', [
@@ -539,6 +556,160 @@ class LA_API {
 		return [ 'ok' => true, 'is_favourite' => true ];
 	}
 
+	// ─── Wave 64: passwordless email+phone identity ───────────────
+
+	/**
+	 * POST /loveallah/v1/identity { email, phone, name? }
+	 *
+	 * Creates the user row (or finds an existing one by email/phone),
+	 * sets a long-lived la_user_token cookie, and migrates the device's
+	 * pre-signin history (feed views, prayer log, dhikr count, masjid
+	 * favourites) onto the new stable identity so nothing is lost.
+	 *
+	 * Returns the user payload so the client can flip its UI to
+	 * "signed in" without a follow-up GET.
+	 */
+	public static function identity_signin( WP_REST_Request $req ) {
+		$email = sanitize_email( (string) $req->get_param( 'email' ) );
+		$phone = preg_replace( '/[^0-9+]/', '', (string) $req->get_param( 'phone' ) );
+		$name  = sanitize_text_field( (string) $req->get_param( 'name' ) );
+
+		if ( ! is_email( $email ) ) {
+			return new WP_Error( 'bad_email', 'Please enter a valid email', [ 'status' => 400 ] );
+		}
+		if ( strlen( $phone ) < 7 ) {
+			return new WP_Error( 'bad_phone', 'Please enter a valid phone number', [ 'status' => 400 ] );
+		}
+
+		global $wpdb;
+		$t = LA_DB::tables();
+
+		// Find existing by email (most reliable match across devices)
+		$user = $wpdb->get_row( $wpdb->prepare(
+			"SELECT * FROM {$t['users']} WHERE email = %s LIMIT 1", $email
+		) );
+
+		if ( $user ) {
+			// Update phone/name if newer, refresh last_seen
+			$wpdb->update( $t['users'], [
+				'phone'        => $phone ?: $user->phone,
+				'name'         => $name  ?: $user->name,
+				'last_seen_at' => current_time( 'mysql', 1 ),
+			], [ 'id' => $user->id ] );
+		} else {
+			// New user — generate token
+			$token = wp_generate_password( 48, false, false );
+			$wpdb->insert( $t['users'], [
+				'email'        => $email,
+				'phone'        => $phone,
+				'name'         => $name,
+				'token'        => $token,
+				'created_at'   => current_time( 'mysql', 1 ),
+				'last_seen_at' => current_time( 'mysql', 1 ),
+			] );
+			$user = $wpdb->get_row( $wpdb->prepare(
+				"SELECT * FROM {$t['users']} WHERE id = %d LIMIT 1", $wpdb->insert_id
+			) );
+		}
+
+		if ( ! $user ) {
+			return new WP_Error( 'create_failed', 'Could not save identity', [ 'status' => 500 ] );
+		}
+
+		// Set the cookie — long-lived (1 year). HttpOnly + SameSite=Lax
+		// + Secure on HTTPS. The cookie itself doesn't grant access —
+		// it just lets the server find the user row.
+		if ( ! headers_sent() ) {
+			setcookie( 'la_user_token', $user->token, [
+				'expires'  => time() + YEAR_IN_SECONDS,
+				'path'     => COOKIEPATH ?: '/',
+				'domain'   => COOKIE_DOMAIN,
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			] );
+		}
+		$_COOKIE['la_user_token'] = $user->token;
+
+		// Migrate pre-signin history onto the stable identity. The
+		// session_id column on each tracking table is varchar so we
+		// can just rewrite it. Idempotent — if the user already had
+		// rows under 'e{id}' we just leave them, and the old session
+		// rows get re-tagged to the same identity.
+		$old_session = '';
+		if ( isset( $_COOKIE['wordpress_la_session'] ) ) {
+			$old_session = sanitize_key( $_COOKIE['wordpress_la_session'] );
+		}
+		$new_identity = 'e' . (int) $user->id;
+		if ( $old_session && $old_session !== $new_identity ) {
+			// Tables that key by session_id (varchar) for anonymous users
+			$session_tables = [
+				$t['feed_interactions'] => 'session_id',
+				$t['prayer_log']        => 'identity',
+				$t['tasbeeh_log']       => 'identity',
+				$t['unlock_state']      => 'session_id',
+				$t['event_rsvps']       => 'identity',
+				$t['dua_ameen']         => 'identity',
+				$t['masjid_favourites'] => 'identity',
+			];
+			foreach ( $session_tables as $tbl => $col ) {
+				// Skip tables that don't exist yet on older installs
+				$exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $tbl ) );
+				if ( ! $exists ) continue;
+				$wpdb->query( $wpdb->prepare(
+					"UPDATE {$tbl} SET {$col} = %s WHERE {$col} = %s",
+					$new_identity, $old_session
+				) );
+			}
+		}
+
+		return [
+			'ok'   => true,
+			'user' => [
+				'id'    => (int) $user->id,
+				'name'  => $user->name,
+				'email' => $user->email,
+				'phone' => $user->phone,
+			],
+		];
+	}
+
+	/**
+	 * GET /loveallah/v1/identity/me — returns the current user (or null).
+	 */
+	public static function identity_me( WP_REST_Request $req ) {
+		$user = function_exists( 'la_current_user' ) ? la_current_user() : null;
+		if ( ! $user ) return [ 'user' => null ];
+		return [
+			'user' => [
+				'id'    => (int) $user->id,
+				'name'  => $user->name,
+				'email' => $user->email,
+				'phone' => $user->phone,
+			],
+		];
+	}
+
+	/**
+	 * POST /loveallah/v1/identity/signout — clears the token cookie.
+	 * Doesn't delete the user row — they can sign back in with the
+	 * same email to recover their history.
+	 */
+	public static function identity_signout( WP_REST_Request $req ) {
+		if ( ! headers_sent() ) {
+			setcookie( 'la_user_token', '', [
+				'expires'  => time() - 3600,
+				'path'     => COOKIEPATH ?: '/',
+				'domain'   => COOKIE_DOMAIN,
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			] );
+		}
+		unset( $_COOKIE['la_user_token'] );
+		return [ 'ok' => true ];
+	}
+
 	// ─── Prayer-log endpoints ───
 
 	/** Returns the list of prayer names this identity has marked prayed today. */
@@ -842,6 +1013,15 @@ class LA_API {
 
 	/** Build the string identity used for prayer_log / tasbeeh_log rows. */
 	private static function identity_str( WP_REST_Request $req ) : string {
+		// Wave 64: prefer the email-based la_users row if the device
+		// has a la_user_token cookie. That gives a STABLE identity
+		// across sessions/devices so seen-tracking actually de-dupes
+		// content. Without it, every cookie clear = fresh feed = same
+		// videos repeat.
+		if ( function_exists( 'la_current_user' ) ) {
+			$user = la_current_user();
+			if ( $user && ! empty( $user->id ) ) return 'e' . (int) $user->id;
+		}
 		[ $user_id, $session_id ] = self::identity( $req );
 		if ( $user_id )    return 'u' . (int) $user_id;
 		if ( $session_id ) return 's' . $session_id;
@@ -849,6 +1029,21 @@ class LA_API {
 	}
 
 	private static function identity( WP_REST_Request $req ) : array {
+		// Wave 64: if a la_user_token cookie identifies a signed-in
+		// email-user, return their STABLE 'e{id}' identity as the
+		// session_id. All existing tracking (seen-history, prayer log,
+		// dhikr count, saves, likes) keys off session_id — so this one
+		// override makes the whole app respect persistent identity
+		// without touching any other code path.
+		// Even after cookies expire, the user signs back in with the
+		// same email and gets the same 'e{id}' → all their seen videos
+		// stay excluded from the feed.
+		if ( function_exists( 'la_current_user' ) ) {
+			$user = la_current_user();
+			if ( $user ) {
+				return [ null, 'e' . (int) $user->id ];
+			}
+		}
 		$user_id = get_current_user_id() ?: null;
 		$session_id = sanitize_key( (string) $req->get_header( 'x-la-session' ) );
 		if ( ! $session_id && isset( $_COOKIE['wordpress_la_session'] ) ) {

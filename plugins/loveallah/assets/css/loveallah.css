@@ -7402,3 +7402,169 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	.la-masjid-card-prayer-jamaat { font-size: 9px; }
 }
 
+
+
+/* ============================================================
+   WAVE 64 — Passwordless sign-in sheet
+   ============================================================ */
+.la-signin-sheet {
+	position: fixed;
+	inset: 0;
+	z-index: 1200;
+	display: flex; align-items: center; justify-content: center;
+	padding: 20px;
+	animation: la-signin-fade 0.22s ease;
+}
+.la-signin-sheet[hidden] { display: none; }
+@keyframes la-signin-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.la-signin-backdrop {
+	position: absolute; inset: 0;
+	background: rgba(11, 3, 22, 0.72);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	border: none; cursor: pointer; padding: 0;
+}
+.la-signin-panel {
+	position: relative;
+	max-width: 400px; width: 100%;
+	padding: 26px 24px 22px;
+	background: #fff;
+	border-radius: 22px;
+	box-shadow: 0 30px 80px rgba(0,0,0,0.30), 0 0 0 1px rgba(0,0,0,0.04) inset;
+	display: flex; flex-direction: column; gap: 10px;
+	animation: la-signin-pop 0.32s cubic-bezier(0.2, 0.9, 0.4, 1.2);
+}
+@keyframes la-signin-pop {
+	from { opacity: 0; transform: translateY(12px) scale(0.96); }
+	to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.la-signin-x {
+	position: absolute; top: 12px; right: 12px;
+	width: 30px; height: 30px;
+	display: flex; align-items: center; justify-content: center;
+	background: var(--la-bg-soft, #f4f4f8);
+	border: none;
+	border-radius: 50%;
+	color: var(--la-ink-mid, #475569);
+	cursor: pointer;
+}
+.la-signin-x:hover { background: rgba(237, 28, 108, 0.10); color: var(--la-primary); }
+
+.la-signin-icon {
+	width: 50px; height: 50px;
+	margin: 4px auto 6px;
+	display: flex; align-items: center; justify-content: center;
+	background: linear-gradient(135deg, rgba(237,28,108,0.10), rgba(237,28,108,0.04));
+	border: 1px solid rgba(237,28,108,0.18);
+	border-radius: 16px;
+	color: var(--la-primary, #ED1C6C);
+}
+.la-signin-title {
+	font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+	color: var(--la-ink-dark);
+	margin: 0; text-align: center;
+}
+.la-signin-sub {
+	font-size: 13.5px; line-height: 1.5;
+	color: var(--la-ink-mid, #475569);
+	margin: 0 0 6px;
+	text-align: center;
+}
+
+.la-signin-field {
+	display: flex; flex-direction: column; gap: 5px;
+}
+.la-signin-label {
+	font-size: 11px; font-weight: 800;
+	letter-spacing: 0.10em; text-transform: uppercase;
+	color: var(--la-ink-faint, #94a3b8);
+}
+.la-signin-label em {
+	font-style: normal; font-weight: 600; letter-spacing: 0;
+	text-transform: none;
+	color: var(--la-ink-faint);
+}
+.la-signin-field input {
+	padding: 11px 14px;
+	font-size: 15px;
+	font-family: inherit;
+	color: var(--la-ink-dark);
+	background: var(--la-bg-soft, #f5f5fa);
+	border: 1.5px solid transparent;
+	border-radius: 12px;
+	outline: none;
+	transition: border-color 0.15s ease, background 0.15s ease;
+	-webkit-appearance: none;
+	appearance: none;
+}
+.la-signin-field input:focus {
+	border-color: var(--la-primary, #ED1C6C);
+	background: #fff;
+}
+.la-signin-error {
+	padding: 10px 12px;
+	background: rgba(237, 28, 108, 0.08);
+	border: 1px solid rgba(237, 28, 108, 0.25);
+	border-radius: 10px;
+	font-size: 12.5px;
+	color: var(--la-primary, #ED1C6C);
+	font-weight: 600;
+}
+.la-signin-submit {
+	margin-top: 4px;
+	display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+	padding: 14px 22px;
+	background: linear-gradient(135deg, var(--la-primary, #ED1C6C), #c8175a);
+	color: #fff;
+	border: none;
+	border-radius: 999px;
+	font-family: inherit;
+	font-size: 15px; font-weight: 800; letter-spacing: 0.02em;
+	cursor: pointer;
+	box-shadow: 0 10px 26px rgba(237, 28, 108, 0.34);
+	transition: transform 0.14s var(--la-spring, ease), box-shadow 0.14s ease;
+}
+.la-signin-submit:hover:not(:disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 14px 32px rgba(237, 28, 108, 0.42);
+}
+.la-signin-submit:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.la-signin-submit:disabled { opacity: 0.7; cursor: default; }
+.la-signin-fineprint {
+	margin: 6px 0 0;
+	font-size: 11.5px; line-height: 1.5;
+	color: var(--la-ink-faint, #94a3b8);
+	text-align: center;
+}
+
+/* Wave 64 — Sign-in pill / account chip in the header */
+.la-account-signin {
+	display: inline-flex; align-items: center; gap: 5px;
+	padding: 6px 11px 6px 9px;
+	background: rgba(255,255,255,0.10);
+	border: 1px solid rgba(255,255,255,0.18);
+	border-radius: 999px;
+	color: #fff;
+	font-family: inherit;
+	font-size: 12px; font-weight: 700;
+	letter-spacing: 0.01em;
+	cursor: pointer;
+	margin-left: auto;
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	transition: background 0.15s ease, transform 0.12s var(--la-spring, ease);
+}
+.la-account-signin:hover { background: rgba(255,255,255,0.18); }
+.la-account-signin:active { transform: scale(0.95); }
+.la-account-chip {
+	display: inline-flex; align-items: center; justify-content: center;
+	width: 30px; height: 30px;
+	margin-left: auto;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #ffd866, #ef8634);
+	color: #1a0d26;
+	font-weight: 800;
+	font-size: 13px;
+	box-shadow: 0 0 0 2px rgba(255,255,255,0.25);
+}

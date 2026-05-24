@@ -3513,3 +3513,87 @@
 	requestGps();
 })();
 
+// ============================================================
+// WAVE 64 — Passwordless email+phone sign-in
+// Any [data-action="signin"] button opens the sheet. Submit posts
+// to /identity, server sets the cookie, reload — and the algorithm
+// now sees 'e{id}' as the identity → seen-tracking persists forever.
+// ============================================================
+(function initSigninSheet() {
+	const sheet  = document.querySelector('[data-signin-sheet]');
+	if (!sheet) return;
+	const form   = sheet.querySelector('[data-signin-form]');
+	const errEl  = sheet.querySelector('[data-signin-error]');
+	const submit = sheet.querySelector('[data-signin-submit]');
+	const apiRoot = (window.LA && LA.apiRoot) || '/wp-json/loveallah/v1/';
+	const nonce   = (window.LA && LA.nonce)   || '';
+
+	function open() {
+		sheet.removeAttribute('hidden');
+		document.body.style.overflow = 'hidden';
+		setTimeout(() => sheet.querySelector('[data-signin-email]')?.focus(), 100);
+	}
+	function close() {
+		sheet.setAttribute('hidden', '');
+		document.body.style.overflow = '';
+		if (errEl) errEl.setAttribute('hidden', '');
+	}
+
+	// Global click delegation: any [data-action="signin"] opens.
+	// Close buttons / backdrop close.
+	document.addEventListener('click', (e) => {
+		if (e.target.closest('[data-action="signin"]')) {
+			e.preventDefault();
+			open();
+		} else if (e.target.closest('[data-signin-close]')) {
+			close();
+		}
+	});
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape' && !sheet.hasAttribute('hidden')) close();
+	});
+
+	form?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		if (errEl) errEl.setAttribute('hidden', '');
+		const email = sheet.querySelector('[data-signin-email]')?.value.trim();
+		const phone = sheet.querySelector('[data-signin-phone]')?.value.trim();
+		const name  = sheet.querySelector('[data-signin-name]')?.value.trim();
+		if (!email || !phone) {
+			showError('Email and mobile are both required.');
+			return;
+		}
+		submit.disabled = true;
+		submit.querySelector('.la-signin-submit-label').textContent = 'Saving…';
+		try {
+			const res = await fetch(apiRoot + 'identity', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+				body: JSON.stringify({ email, phone, name }),
+			});
+			const data = await res.json().catch(() => null);
+			if (!res.ok || !data?.ok) {
+				showError(data?.message || 'Could not save. Please check your details and try again.');
+				submit.disabled = false;
+				submit.querySelector('.la-signin-submit-label').textContent = 'Continue';
+				return;
+			}
+			// Success → reload so the server re-renders with the
+			// signed-in identity in place (feed re-queries with the
+			// stable 'e{id}', persistent seen-history kicks in).
+			location.reload();
+		} catch (_) {
+			showError('Connection problem. Please try again.');
+			submit.disabled = false;
+			submit.querySelector('.la-signin-submit-label').textContent = 'Continue';
+		}
+	});
+
+	function showError(msg) {
+		if (!errEl) return;
+		errEl.textContent = msg;
+		errEl.removeAttribute('hidden');
+	}
+})();
+

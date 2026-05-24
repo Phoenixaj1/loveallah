@@ -36,6 +36,57 @@ elseif ( is_page( 'connect' ) )     $la_cur = 'connect';
 	</a>
 </nav>
 
+<?php
+// Wave 64: passwordless sign-in sheet — appears as a centred modal,
+// triggered by any [data-action="signin"] click anywhere on the site.
+// Renders once globally so every page can open it without duplication.
+$la_current_user = function_exists( 'la_current_user' ) ? la_current_user() : null;
+?>
+<div class="la-signin-sheet" data-signin-sheet hidden role="dialog" aria-modal="true" aria-labelledby="la-signin-title">
+	<button type="button" class="la-signin-backdrop" data-signin-close aria-label="Close"></button>
+	<form class="la-signin-panel" data-signin-form>
+		<button type="button" class="la-signin-x" data-signin-close aria-label="Close">
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+		</button>
+
+		<div class="la-signin-icon" aria-hidden="true">
+			<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="currentColor" fill-opacity="0.20" stroke-opacity="1"/></svg>
+		</div>
+		<h2 class="la-signin-title" id="la-signin-title">Save your journey</h2>
+		<p class="la-signin-sub">Just your email + phone. No password. So the feed remembers what you've seen, your prayer streak survives, and your masjid stays pinned — across devices and time.</p>
+
+		<label class="la-signin-field">
+			<span class="la-signin-label">Email</span>
+			<input type="email" name="email" data-signin-email required autocomplete="email" placeholder="you@example.com" inputmode="email">
+		</label>
+		<label class="la-signin-field">
+			<span class="la-signin-label">Mobile</span>
+			<input type="tel" name="phone" data-signin-phone required autocomplete="tel" placeholder="07700 900123" inputmode="tel">
+		</label>
+		<label class="la-signin-field la-signin-field--optional">
+			<span class="la-signin-label">Name <em>(optional)</em></span>
+			<input type="text" name="name" data-signin-name autocomplete="name" placeholder="What should we call you?">
+		</label>
+
+		<div class="la-signin-error" data-signin-error hidden></div>
+
+		<button type="submit" class="la-signin-submit" data-signin-submit>
+			<span class="la-signin-submit-label">Continue</span>
+			<svg class="la-signin-submit-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+		</button>
+
+		<p class="la-signin-fineprint">We won't spam. You'll only hear from us with reminders you'd actually want — Friday salawat, Ramadan prep, your masjid's events.</p>
+	</form>
+</div>
+
+<script type="application/json" id="la-current-user">
+<?php echo wp_json_encode( $la_current_user ? [
+	'id'    => (int) $la_current_user->id,
+	'name'  => $la_current_user->name,
+	'email' => $la_current_user->email,
+] : null ); ?>
+</script>
+
 <?php wp_footer(); ?>
 </body>
 </html>

@@ -32,6 +32,7 @@ class LA_DB {
 			'skill_listings'    => $wpdb->prefix . 'la_skill_listings',
 			'dhikr_videos'      => $wpdb->prefix . 'la_dhikr_videos',
 			'masjid_favourites' => $wpdb->prefix . 'la_masjid_favourites',
+			'users'             => $wpdb->prefix . 'la_users',
 		];
 	}
 
@@ -404,6 +405,27 @@ class LA_DB {
 			PRIMARY KEY  (id),
 			UNIQUE KEY youtube_id (youtube_id),
 			KEY phrase (phrase)
+		) $charset_collate;" );
+
+		// Wave 64: passwordless email+phone identity. No password — the
+		// `token` (uuid) is set as a long-lived cookie that pins the
+		// device to this row. Lets a user "sign in" by typing email +
+		// phone again on a new device. Marketing list lives here too.
+		dbDelta( "CREATE TABLE {$t['users']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			email varchar(190) NOT NULL,
+			phone varchar(40) DEFAULT NULL,
+			name varchar(120) DEFAULT NULL,
+			token varchar(64) NOT NULL,
+			city varchar(120) DEFAULT NULL,
+			country varchar(80) DEFAULT NULL,
+			marketing_opt_in tinyint(1) NOT NULL DEFAULT 1,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			last_seen_at datetime DEFAULT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY email (email),
+			UNIQUE KEY token (token),
+			KEY phone (phone)
 		) $charset_collate;" );
 
 		// Wave 56: user favourites — one row per (identity, mosque) pair.
