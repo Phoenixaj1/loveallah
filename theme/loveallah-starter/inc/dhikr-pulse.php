@@ -128,6 +128,16 @@ $la_pulse_phrases = [
 				<span class="la-pulse-bpm-unit">BPM</span>
 			</div>
 			<div class="la-pulse-controls">
+				<!-- Haptic toggle. JS flips .is-active to reflect the saved
+				     preference; an opt-in confirmation buzz fires on enable
+				     so the user feels what's about to happen each beat. -->
+				<button type="button" class="la-pulse-ctrl la-pulse-ctrl--haptic" data-pulse-haptic aria-label="Toggle haptic feedback" title="Toggle haptic">
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+						<rect x="7" y="2.5" width="10" height="19" rx="2"/>
+						<line x1="3" y1="9" x2="3" y2="15"/>
+						<line x1="21" y1="9" x2="21" y2="15"/>
+					</svg>
+				</button>
 				<button type="button" class="la-pulse-ctrl" data-pulse-hold aria-label="Hold this pace" title="Hold this pace">
 					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
 				</button>

@@ -2687,6 +2687,8 @@
 
 // ============================================================
 // WAVE 40 — Dhikr PULSE (heart-rate-entrainment metronome)
+// Wave 42: heartbeat-pattern haptics so users can close eyes & feel
+// each beat by vibration alone.
 // ============================================================
 (function initPulse() {
 	const root = document.querySelector('.la-app--pulse');
@@ -2705,6 +2707,10 @@
 	let beatCount      = 0;
 	let holding        = false;
 	let beatTimeoutId  = null;
+	// Haptic feedback — default ON, persist to localStorage so user choice
+	// survives page reload. iOS Safari does not support navigator.vibrate,
+	// so this is silently a no-op there (the visual pulse still works).
+	let hapticEnabled  = localStorage.getItem('la_pulse_haptic') !== 'off';
 
 	// Setup screen elements
 	const phrasePills = root.querySelectorAll('[data-pulse-phrase]');
@@ -2728,6 +2734,7 @@
 	const deepenBtn     = root.querySelector('[data-pulse-deepen]');
 	const endBtn        = root.querySelector('[data-pulse-end]');
 	const againBtn      = root.querySelector('[data-pulse-again]');
+	const hapticBtn     = root.querySelector('[data-pulse-haptic]');
 
 	function updateBeginMeta() {
 		if (beginMeta) {
@@ -2795,8 +2802,16 @@
 		if (countDisplay) countDisplay.textContent = String(beatCount);
 		if (bpmDisplay) bpmDisplay.textContent = Math.round(currentBpm);
 
-		// Gentle haptic every beat
-		if (navigator.vibrate && beatCount > 0) navigator.vibrate(10);
+		// Heartbeat-pattern haptic. Two-pulse "ba-bum" — distinct from a
+		// phone notification, so the user can close their eyes and feel
+		// each beat as a heartbeat. Every 33rd beat is a sunnah milestone
+		// → slightly longer triple-pulse so the body recognises it.
+		// 100ms total (worst case 160ms on milestones) — well inside the
+		// minimum beat gap of ~750ms at 80 BPM and ~1500ms at 40 BPM.
+		if (navigator.vibrate && hapticEnabled && beatCount > 0) {
+			const isMilestone = beatCount % 33 === 0 && beatCount > 0;
+			navigator.vibrate(isMilestone ? [30, 80, 30, 80, 50] : [20, 60, 20]);
+		}
 
 		// Target hit
 		if (beatCount >= selectedCount) {
@@ -2857,6 +2872,23 @@
 		sceneSetup.hidden = false;
 		if (beginBar) beginBar.style.display = '';
 	});
+
+	// Haptic toggle — also fires a confirmation pulse on enable so the
+	// user feels what they just turned on without waiting for a beat.
+	function updateHapticBtn() {
+		if (!hapticBtn) return;
+		hapticBtn.classList.toggle('is-active', hapticEnabled);
+		hapticBtn.setAttribute('aria-pressed', String(hapticEnabled));
+		hapticBtn.setAttribute('title', hapticEnabled ? 'Haptic on — tap to mute' : 'Haptic off — tap to enable');
+	}
+	hapticBtn?.addEventListener('click', () => {
+		hapticEnabled = !hapticEnabled;
+		localStorage.setItem('la_pulse_haptic', hapticEnabled ? 'on' : 'off');
+		updateHapticBtn();
+		// Sample buzz so the user knows it's now on (or doesn't feel the off)
+		if (hapticEnabled && navigator.vibrate) navigator.vibrate([20, 60, 20]);
+	});
+	updateHapticBtn();
 
 	function endSession(reachedTarget) {
 		clearTimeout(beatTimeoutId);
