@@ -97,10 +97,16 @@ body.home .la-prayer-cell {
 body.home .la-prayer-cell-name { font-size: 9px; }
 body.home .la-prayer-cell-time { font-size: 12px; }
 @media (max-width: 600px) {
-	body.home .la-header { padding: 2px 6px; top: 6px; left: 6px; right: 6px; border-radius: 16px; }
-	body.home .la-prayer-cell { padding: 1px 0; }
-	body.home .la-prayer-cell-name { font-size: 8px; letter-spacing: 0.05em; }
-	body.home .la-prayer-cell-time { font-size: 10px; }
+	body.home .la-header { padding: 3px 6px; top: 6px; left: 6px; right: 6px; border-radius: 16px; }
+	/* Wave 84: was 1px 0 — too tight, the name text hugged the top
+	   of the cell because the flex column stretched to match the
+	   .is-next sibling (taller because of the eta pill). 4/2 gives
+	   the row some breathing room AND combines with the new
+	   justify-content:center on .la-prayer-cell to vertical-center
+	   the name+time pair properly. */
+	body.home .la-prayer-cell { padding: 4px 2px; }
+	body.home .la-prayer-cell-name { font-size: 8px; letter-spacing: 0.05em; line-height: 1.15; }
+	body.home .la-prayer-cell-time { font-size: 11px; line-height: 1.2; margin-top: 1px; }
 }
 /* Feed snap area starts at y=0 now that the header is taken out of
    flow — first card fills the whole viewport with the glass header
@@ -153,6 +159,14 @@ body.home .la-feed-snap {
 	cursor: pointer;
 	position: relative;
 	-webkit-tap-highlight-color: transparent;
+	/* Wave 84: the cell is a flex column inside the prayer-bar-row.
+	   Flex children stretch to match the tallest sibling — which is
+	   the .is-next cell (it carries the eta pill). Without explicit
+	   alignment, content pinned to flex-start (top) and the bottom
+	   sat empty. justify-content:center vertically balances the
+	   name + time + check inside whatever cell height we end up with. */
+	justify-content: center;
+	align-items: center;
 }
 .la-prayer-cell-check {
 	position: absolute;
