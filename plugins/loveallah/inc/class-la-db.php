@@ -1991,17 +1991,50 @@ class LA_DB {
 		$rules = [
 			[ 'wisamsharieff',  'wisamsharieff', 'Wisam Sharieff' ],
 			[ 'dawahconnect',   'dawahconnect',  'Dawah Connect'  ],
+
+			// Wave 44: legacy duplicate of misharyalafasy. The OLD entry
+			// (misharyrashed → @Alafasy) was mistagged default_content_type
+			// = 'dhikr' which caused Quran recitations to surface in the
+			// Witness dhikr-only feed. The CURRENT entry (misharyalafasy →
+			// @AlafasyChannel, default=qirat) covers him correctly. Purge
+			// the duplicate + its mistagged feed_posts. Slug-only match —
+			// the URL substring `@Alafasy` would also match the legitimate
+			// misharyalafasy whose URL contains `@AlafasyChannel`.
+			[ 'misharyrashed',  '', '' ],
+
+			// Wave 44: Ahmed Bukhatir is a nasheed artist (music), not a
+			// dhikr-circle channel. Was mistagged default=dhikr — slipped
+			// through purge_nasheed_artists because the slug is
+			// 'ahmedbukhatir' not 'bukhatir' (which the older purge list
+			// looked for). The legitimate qari Salah Bukhatir is a separate
+			// entry (#47 salahbukhatir, default=qirat) and is unaffected.
+			[ 'ahmedbukhatir',  'youtube.com/@ahmedbukhatir', 'Ahmed Bukhatir' ],
 		];
 
 		foreach ( $rules as [ $slug, $url_sub, $name_sub ] ) {
+			// CRITICAL: skip empty match clauses. An empty $name_sub or
+			// $url_sub produces `LIKE '%%'` which matches EVERY row — that
+			// would wipe the entire scholars table. Build the WHERE
+			// dynamically from only the non-empty match criteria.
+			$conditions = [];
+			$params = [];
+			if ( ! empty( $slug ) ) {
+				$conditions[] = 'username = %s';
+				$params[] = $slug;
+			}
+			if ( ! empty( $url_sub ) ) {
+				$conditions[] = 'source_url LIKE %s';
+				$params[] = '%' . $wpdb->esc_like( $url_sub ) . '%';
+			}
+			if ( ! empty( $name_sub ) ) {
+				$conditions[] = 'display_name LIKE %s';
+				$params[] = '%' . $wpdb->esc_like( $name_sub ) . '%';
+			}
+			if ( empty( $conditions ) ) continue;
+			$where_sql = implode( ' OR ', $conditions );
 			$ids = $wpdb->get_col( $wpdb->prepare(
-				"SELECT id FROM {$t['scholars']}
-				 WHERE username = %s
-				    OR source_url LIKE %s
-				    OR display_name LIKE %s",
-				$slug,
-				'%' . $wpdb->esc_like( $url_sub )  . '%',
-				'%' . $wpdb->esc_like( $name_sub ) . '%'
+				"SELECT id FROM {$t['scholars']} WHERE {$where_sql}",
+				$params
 			) );
 			foreach ( $ids as $id ) {
 				$id = (int) $id;
