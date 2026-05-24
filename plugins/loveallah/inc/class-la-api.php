@@ -54,7 +54,11 @@ class LA_API {
 			'permission_callback' => [ __CLASS__, 'check_nonce' ],
 		] );
 
-		register_rest_route( self::NS, '/feed/(?P<id>\d+)/(?P<action>like|save|share|view)', [
+		// Wave 31: 'skip' and 'engage' are watch-through quality signals
+		// fired by the client when a card leaves view. 'complete' fires when
+		// the embedded video reaches end-of-playback. Together with view/
+		// like/save/share they feed the post_quality_scores() ranker.
+		register_rest_route( self::NS, '/feed/(?P<id>\d+)/(?P<action>like|save|share|view|skip|engage|complete)', [
 			'methods'  => 'POST',
 			'callback' => [ __CLASS__, 'feed_interaction' ],
 			'permission_callback' => [ __CLASS__, 'check_nonce' ],

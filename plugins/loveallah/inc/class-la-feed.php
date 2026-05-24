@@ -43,7 +43,14 @@ class LA_Feed {
 	}
 
 	public static function record_interaction( int $post_id, string $action, ?int $user_id, ?string $session_id ) : array {
-		$valid = [ 'view', 'like', 'save', 'share', 'complete' ];
+		// Wave 31: 'skip' and 'engage' are watch-through signals from the
+		// client. Skip = card left view before 10% of duration → strong
+		// negative quality signal. Engage = card left view after 30% of
+		// duration → positive quality signal. Both feed into the per-post
+		// quality_score used by the algorithm. We collapse repeats to one
+		// row per (post, identity, action) so a user toggling in/out of
+		// view doesn't pile up duplicate signals.
+		$valid = [ 'view', 'like', 'save', 'share', 'complete', 'skip', 'engage' ];
 		if ( ! in_array( $action, $valid, true ) ) return [ 'ok' => false ];
 
 		global $wpdb;
@@ -98,7 +105,21 @@ class LA_Feed {
 			return [ 'ok' => true, 'active' => true ];
 		}
 
-		// view, share, complete — append every time
+		// skip, engage, complete — record ONCE per identity+post. Quality
+		// scoring divides engages÷views, so duplicates would over-count.
+		// (view itself stays append-only — that's the binge-tracking signal.)
+		$dedup = in_array( $action, [ 'skip', 'engage', 'complete' ], true );
+		if ( $dedup ) {
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t['feed_interactions']}
+				 WHERE post_id = %d AND action = %s AND {$col} = %s
+				 LIMIT 1",
+				$post_id, $action, (string) $val
+			) );
+			if ( $existing ) return [ 'ok' => true, 'active' => true ];
+		}
+
+		// view, share, complete, skip, engage — append (with optional dedup above)
 		$wpdb->insert( $t['feed_interactions'], [
 			'post_id' => $post_id,
 			'action' => $action,

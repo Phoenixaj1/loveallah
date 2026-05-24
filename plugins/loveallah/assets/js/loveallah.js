@@ -619,6 +619,46 @@
 		setSound(!userWantsSound);
 	});
 
+	// Dwell tracking (Wave 31). When a content card enters view we stamp
+	// `dwellStart`, and when it exits we compute how long it was on-screen.
+	// That dwell time, compared to the video's duration, gives us the
+	// strongest "good vs shit content" signal we can collect — viewers who
+	// scroll away in the first 10% are voting against the content. Viewers
+	// who stick past 30% are voting for it.
+	const dwellStart = new Map(); // post_id → high-res timestamp ms
+	const dwellPosted = new Set(); // post_id → already posted skip/engage (don't double-fire)
+
+	function postInteraction(id, action) {
+		if (!id) return;
+		fetch(`${LA.apiRoot}feed/${id}/${action}`, {
+			method: 'POST',
+			headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+			cache: 'no-store',
+		}).catch(() => {});
+	}
+
+	function flushDwell(card) {
+		const id = card.dataset.postId;
+		if (!id) return;
+		const start = dwellStart.get(id);
+		if (!start) return;
+		dwellStart.delete(id);
+		if (dwellPosted.has(id)) return; // first dwell signal wins per session
+		const dwellMs = performance.now() - start;
+		// Need a minimum dwell of 600ms to count at all — anything shorter is
+		// the user mid-flick, not a real consideration of the content.
+		if (dwellMs < 600) return;
+		const dur = Math.max(5, parseInt(card.dataset.durationSec, 10) || 30);
+		// Threshold scales with duration: a 30s reel skipped before 3s is a
+		// fast skip; a 1hr lecture skipped before 6min is the equivalent
+		// signal. Engage threshold is 30% of duration with sensible caps so
+		// we don't require half an hour of a lecture to count it engaged.
+		const skipThreshMs   = Math.max(2000,  Math.min(15000, dur * 100));    // 10% of duration, 2-15s
+		const engageThreshMs = Math.max(8000,  Math.min(120000, dur * 300));   // 30% of duration, 8-120s
+		if (dwellMs < skipThreshMs)      { postInteraction(id, 'skip');   dwellPosted.add(id); }
+		else if (dwellMs >= engageThreshMs) { postInteraction(id, 'engage'); dwellPosted.add(id); }
+	}
+
 	const io = new IntersectionObserver((entries) => {
 		entries.forEach(entry => {
 			const card = entry.target;
@@ -637,20 +677,35 @@
 			if (type === 'content') {
 				if (entry.intersectionRatio >= 0.7) {
 					const id = card.dataset.postId;
-					if (id && !seenViews.has(id)) {
-						seenViews.add(id);
-						fetch(`${LA.apiRoot}feed/${id}/view`, {
-							method: 'POST',
-							headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
-						}).catch(() => {});
+					if (id) {
+						// Start dwell timer on every focus enter (so re-entering
+						// resets the clock — fair to the content).
+						dwellStart.set(id, performance.now());
+						if (!seenViews.has(id)) {
+							seenViews.add(id);
+							postInteraction(id, 'view');
+						}
 					}
 					playVideoIn(card);
 				} else if (entry.intersectionRatio < 0.3) {
+					// Card left focus → compute dwell and fire skip/engage
+					flushDwell(card);
 					pauseVideoIn(card);
 				}
 			}
 		});
 	}, { threshold: [0, 0.3, 0.4, 0.7, 1], root: feedContainer });
+
+	// Belt-and-braces: if the user closes the tab or backgrounds the app
+	// mid-watch, flush dwell signals for the currently-focused card. Without
+	// this, a long engaged watch followed by a tab-close would be invisible.
+	window.addEventListener('visibilitychange', () => {
+		if (document.visibilityState !== 'hidden') return;
+		dwellStart.forEach((_, id) => {
+			const card = feedContainer.querySelector(`[data-post-id="${id}"]`);
+			if (card) flushDwell(card);
+		});
+	});
 
 	function observeNewCards() {
 		$$('.la-snap:not([data-observed])', feedContainer).forEach(card => {

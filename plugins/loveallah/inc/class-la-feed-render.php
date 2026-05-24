@@ -100,6 +100,7 @@ class LA_FeedRender {
 			data-post-id="<?php echo (int) $card->id; ?>"
 			data-scholar-id="<?php echo (int) ( $card->scholar_id ?? 0 ); ?>"
 			data-content-type="<?php echo esc_attr( $card->type ?? 'video' ); ?>"
+			data-duration-sec="<?php echo (int) ( $card->duration_sec ?? 30 ); ?>"
 			tabindex="0">
 			<?php if ( $thumb_url ) : ?>
 				<div class="la-snap-backdrop" style="background-image:url(<?php echo esc_url( $thumb_url ); ?>)" aria-hidden="true"></div>

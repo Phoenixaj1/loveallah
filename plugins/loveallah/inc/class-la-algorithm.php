@@ -285,12 +285,76 @@ class LA_Algorithm {
 		$seed_key = ( $user_id ? "u{$user_id}" : ( $session_id ?: 'anon' ) ) . '|p' . $page;
 		$seed = abs( crc32( $seed_key ) );
 
+		// Wave 31: compute per-post quality scores from collective skip/engage/
+		// like/save/share signals across all users. The single biggest signal
+		// of "this content is good" vs "this content is shit" is whether
+		// viewers watch past the hook or scroll away within the first 10%.
+		$quality = self::post_quality_scores( wp_list_pluck( $rows, 'id' ) );
+
 		foreach ( $rows as $r ) {
 			$r->_card_type = 'content';
+			$r->_quality = $quality[ (int) $r->id ] ?? 0;
 			$r->_score = self::score_post( $r, $affinities, $seen_ids, $seed );
 		}
 		usort( $rows, function( $a, $b ) { return $b->_score <=> $a->_score; } );
 		return $rows;
+	}
+
+	/**
+	 * Per-post crowdsourced quality score, computed from the interactions
+	 * the whole user base has logged against each post.
+	 *
+	 *   quality = engagement_lift − skip_drag
+	 *   engagement_lift = positive_actions / unique_viewers   × 200  (cap +200)
+	 *   skip_drag       = unique_skippers   / unique_viewers   × 300  (cap −300)
+	 *
+	 * positive_actions = engage + complete + like + save + share
+	 * (engage = "card stayed in view past 30% of duration", from client)
+	 * (skip   = "card left view before 10% of duration",    from client)
+	 *
+	 * Posts with < 10 unique viewers are treated as quality-neutral (0)
+	 * to avoid penalising fresh ingest before it has data.
+	 *
+	 * Returns map [ post_id => float_score ] only for posts with data.
+	 */
+	private static function post_quality_scores( array $post_ids ) : array {
+		if ( empty( $post_ids ) ) return [];
+		global $wpdb;
+		$t = LA_DB::tables();
+		$ids = array_map( 'intval', $post_ids );
+		$in  = implode( ',', $ids );
+
+		$rows = $wpdb->get_results(
+			"SELECT post_id,
+				COUNT(DISTINCT CASE WHEN action = 'view'     THEN COALESCE(user_id, session_id) END) AS viewers,
+				COUNT(DISTINCT CASE WHEN action = 'skip'     THEN COALESCE(user_id, session_id) END) AS skippers,
+				COUNT(DISTINCT CASE WHEN action = 'engage'   THEN COALESCE(user_id, session_id) END) AS engagers,
+				COUNT(DISTINCT CASE WHEN action = 'complete' THEN COALESCE(user_id, session_id) END) AS completers,
+				COUNT(DISTINCT CASE WHEN action = 'like'     THEN COALESCE(user_id, session_id) END) AS likers,
+				COUNT(DISTINCT CASE WHEN action = 'save'     THEN COALESCE(user_id, session_id) END) AS savers,
+				COUNT(DISTINCT CASE WHEN action = 'share'    THEN COALESCE(user_id, session_id) END) AS sharers
+			 FROM {$t['feed_interactions']}
+			 WHERE post_id IN ({$in})
+			   AND occurred_at >= DATE_SUB( NOW(), INTERVAL 90 DAY )
+			 GROUP BY post_id"
+		);
+
+		$out = [];
+		foreach ( $rows as $r ) {
+			$viewers = max( 0, (int) $r->viewers );
+			if ( $viewers < 10 ) {
+				// Cold start: not enough signal yet. Leave at quality-neutral.
+				$out[ (int) $r->post_id ] = 0.0;
+				continue;
+			}
+			$skip_rate    = $r->skippers / $viewers;
+			$positives    = (int) $r->engagers + (int) $r->completers + (int) $r->likers + (int) $r->savers + (int) $r->sharers;
+			$engage_rate  = $positives / $viewers;
+			$engagement_lift = min( 1.0, $engage_rate ) * 200;
+			$skip_drag       = min( 1.0, $skip_rate )   * 300;
+			$out[ (int) $r->post_id ] = $engagement_lift - $skip_drag;
+		}
+		return $out;
 	}
 
 	private static function score_post( $post, array $affinities, array $seen_ids, int $seed ) : float {
@@ -351,6 +415,13 @@ class LA_Algorithm {
 
 		// Popularity nudge
 		$score += min( 50, (int) ( $post->likes_count ?? 0 ) );
+
+		// Wave 31: crowdsourced quality (skip rate vs engagement rate).
+		// This is the strongest "good content vs shit content" signal we
+		// have. Range: roughly −300 (universally skipped) to +200 (consistently
+		// watched past the hook). Pre-computed in post_quality_scores() and
+		// stamped onto each row as _quality before scoring.
+		$score += (float) ( $post->_quality ?? 0 );
 
 		// Deterministic per-session jitter [-30, +30] — breaks ties so equal-
 		// score posts shuffle predictably per user per page, no two visits
