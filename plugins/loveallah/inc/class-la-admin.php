@@ -29,8 +29,9 @@ class LA_Admin {
 		add_action( 'admin_post_la_save_mosque',  [ __CLASS__, 'handle_save_mosque' ] );
 		add_action( 'admin_post_la_save_event',   [ __CLASS__, 'handle_save_event' ] );
 		add_action( 'admin_post_la_delete',       [ __CLASS__, 'handle_delete' ] );
-		add_action( 'admin_post_la_yt_sync',       [ __CLASS__, 'handle_yt_sync' ] );
-		add_action( 'admin_post_la_yt_sync_batch', [ __CLASS__, 'handle_yt_sync_batch' ] );
+		add_action( 'admin_post_la_yt_sync',         [ __CLASS__, 'handle_yt_sync' ] );
+		add_action( 'admin_post_la_yt_sync_batch',   [ __CLASS__, 'handle_yt_sync_batch' ] );
+		add_action( 'admin_post_la_yt_sync_catchup', [ __CLASS__, 'handle_yt_sync_catchup' ] );
 		add_action( 'admin_notices',      [ __CLASS__, 'flash_notice' ] );
 	}
 
@@ -156,12 +157,24 @@ class LA_Admin {
 				<?php submit_button( __( 'Sync next batch (fast)', 'loveallah' ), 'primary', '', false ); ?>
 			</form>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:10px; display:inline-block; margin-left:8px;">
+				<?php wp_nonce_field( 'la_yt_sync_catchup' ); ?>
+				<input type="hidden" name="action" value="la_yt_sync_catchup">
+				<?php submit_button( __( '🚀 Pull in MORE videos now (catch-up)', 'loveallah' ), 'primary', '', false, [ 'style' => 'background:#1A8A7B; border-color:#1A8A7B;' ] ); ?>
+			</form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:10px; display:inline-block; margin-left:8px;">
 				<?php wp_nonce_field( 'la_yt_sync' ); ?>
 				<input type="hidden" name="action" value="la_yt_sync">
 				<?php submit_button( __( 'Sync full roster (slow)', 'loveallah' ), 'secondary', '', false ); ?>
 			</form>
 			<p class="description" style="margin-top:8px;">
-				<?php esc_html_e( 'Batch syncs the 8 oldest channels and matches what the hourly cron does — completes in seconds. Full roster checks every channel and can time out the browser, run only when you really need to backfill everything.', 'loveallah' ); ?>
+				<strong><?php esc_html_e( '🚀 Catch-up', 'loveallah' ); ?>:</strong>
+				<?php esc_html_e( 'Aggressively backfills the catalog — keeps running batches in priority order (never-synced → undersized → rest) until every channel has at least 20 videos OR ~25 passes done. Takes 5-15 min. The browser may time out but the work continues server-side. Refresh this page in 10-15 min to see the final count.', 'loveallah' ); ?>
+				<br>
+				<strong><?php esc_html_e( 'Batch', 'loveallah' ); ?>:</strong>
+				<?php esc_html_e( 'Syncs the next 15 oldest channels (matches one hourly cron tick). Done in seconds.', 'loveallah' ); ?>
+				<br>
+				<strong><?php esc_html_e( 'Full roster', 'loveallah' ); ?>:</strong>
+				<?php esc_html_e( 'Single sequential pass over all 255+ channels. Slow and synchronous — use only if catch-up does not converge.', 'loveallah' ); ?>
 			</p>
 
 			<h2 style="margin-top:32px;"><?php esc_html_e( 'Quick actions', 'loveallah' ); ?></h2>
@@ -816,6 +829,124 @@ class LA_Admin {
 			$result['synced'], $result['inserted']
 		), 30 );
 		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah' ) );
+		exit;
+	}
+
+	/**
+	 * Wave 69: aggressive catch-up sync from the admin. Runs up to
+	 * MAX_PASSES of sync_next_batch() — each pass picks priority
+	 * channels (never-synced → undersized → rest) and pulls them deep
+	 * (CATCH_UP_PULL=100 latest for undersized channels). Stops early
+	 * once every channel has ≥ CATCH_UP_THRESHOLD videos in the DB.
+	 *
+	 * UX:
+	 *   - Renders an immediate "running" status page
+	 *   - Flushes output so the user sees progress in real time
+	 *   - ignore_user_abort(true) so the work keeps going even if the
+	 *     browser closes / times out
+	 *   - set_time_limit(0) so PHP doesn't kill the process
+	 *   - Persists per-pass stats to la_yt_last_tick so the dashboard
+	 *     keeps updating
+	 */
+	public static function handle_yt_sync_catchup() : void {
+		check_admin_referer( 'la_yt_sync_catchup' );
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+
+		// Don't kill the work if the browser closes
+		ignore_user_abort( true );
+		@set_time_limit( 0 );
+
+		// Stream a status page so the user has something to look at
+		// while the catch-up runs.
+		nocache_headers();
+		header( 'Content-Type: text/html; charset=utf-8' );
+		header( 'X-Accel-Buffering: no' );  // disable nginx buffering
+		echo str_repeat( ' ', 1024 );        // force initial flush
+		flush();
+
+		?>
+		<!doctype html>
+		<html><head>
+			<meta charset="utf-8">
+			<title>Catch-up sync running…</title>
+			<style>
+				body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1A0D26; color: #F8ECD0; padding: 32px; max-width: 720px; margin: 0 auto; line-height: 1.5; }
+				h1 { color: #F4D982; font-weight: 800; }
+				.pass { padding: 10px 14px; background: rgba(255,255,255,0.06); border-left: 3px solid #C9A961; margin: 8px 0; border-radius: 6px; font-variant-numeric: tabular-nums; }
+				.done { border-left-color: #4ade80; }
+				.totals { font-size: 18px; font-weight: 700; color: #F4D982; margin-top: 20px; padding: 14px 18px; background: rgba(232, 199, 111, 0.10); border-radius: 10px; }
+				a { color: #F4D982; }
+			</style>
+		</head><body>
+		<h1>🚀 Catch-up sync running</h1>
+		<p>Each pass pulls 15 priority channels. We'll stop early when every channel has ≥ <?php echo (int) LA_YouTube::CATCH_UP_THRESHOLD; ?> videos. <strong>This page keeps writing as work progresses — leave it open OR close it (the sync continues server-side).</strong></p>
+		<?php
+		flush();
+
+		$MAX_PASSES = 25;
+		$total_synced   = 0;
+		$total_inserted = 0;
+		$start_at       = microtime( true );
+
+		for ( $i = 0; $i < $MAX_PASSES; $i++ ) {
+			$res = LA_YouTube::sync_next_batch();
+			$total_synced   += (int) $res['synced'];
+			$total_inserted += (int) $res['inserted'];
+
+			// Persist per-pass so the main admin dashboard reflects progress
+			update_option( 'la_yt_last_tick', [
+				'at'       => current_time( 'mysql' ),
+				'synced'   => (int) $res['synced'],
+				'inserted' => (int) $res['inserted'],
+				'errors'   => array_slice( (array) $res['errors'], 0, 5 ),
+			], false );
+
+			$elapsed = (int) ( microtime( true ) - $start_at );
+			printf(
+				'<div class="pass">Pass %d/%d · %d channels checked · %d new posts · running total: %d new · elapsed %ds</div>',
+				$i + 1, $MAX_PASSES, (int) $res['synced'], (int) $res['inserted'], $total_inserted, $elapsed
+			);
+			flush();
+
+			// Early-exit check: every channel meets the threshold?
+			if ( $res['inserted'] === 0 && $i > 4 ) {
+				global $wpdb;
+				$t = LA_DB::tables();
+				$undersized = (int) $wpdb->get_var( $wpdb->prepare(
+					"SELECT COUNT(*) FROM {$t['scholars']} s
+					 LEFT JOIN ( SELECT scholar_id, COUNT(*) AS c FROM {$t['feed_posts']} GROUP BY scholar_id ) p
+					   ON p.scholar_id = s.id
+					 WHERE COALESCE(p.c, 0) < %d
+					   AND s.source_url IS NOT NULL AND s.source_url <> ''",
+					LA_YouTube::CATCH_UP_THRESHOLD
+				) );
+				if ( $undersized === 0 ) {
+					echo '<div class="pass done">✓ All channels now have at least ' . (int) LA_YouTube::CATCH_UP_THRESHOLD . ' videos — stopping early.</div>';
+					flush();
+					break;
+				}
+			}
+
+			// Small pause between batches so we don't slam yt-dlp
+			usleep( 1500 * 1000 );
+		}
+
+		// Final stats
+		global $wpdb;
+		$t = LA_DB::tables();
+		$total_videos    = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t['feed_posts']}" );
+		$total_channels  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t['scholars']} WHERE source_url IS NOT NULL AND source_url <> ''" );
+		$elapsed = (int) ( microtime( true ) - $start_at );
+
+		printf(
+			'<div class="totals">✅ Done in %ds<br>Catch-up added <strong>%d new videos</strong> across %d channel-checks.<br>Catalog now has <strong>%d videos</strong> across %d channels.</div>',
+			$elapsed, $total_inserted, $total_synced, $total_videos, $total_channels
+		);
+		printf(
+			'<p style="margin-top:20px;"><a href="%s">← Back to Love Allah admin</a></p>',
+			esc_url( admin_url( 'admin.php?page=loveallah' ) )
+		);
+		echo '</body></html>';
 		exit;
 	}
 
