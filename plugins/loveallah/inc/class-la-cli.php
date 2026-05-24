@@ -27,8 +27,85 @@ class LA_CLI {
 
 	/**
 	 * Trigger YouTube sync.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--mode=<mode>]
+	 * : 'all' (default) — every scholar in one go.
+	 *   'batch' — process one BATCH_PER_TICK batch (~15 scholars).
+	 *   'catchup' — repeatedly call sync_next_batch() until either every
+	 *               scholar has ≥ CATCH_UP_THRESHOLD videos OR the
+	 *               configured max passes is hit. The "backfill the
+	 *               catalog" mode for a fresh launch.
+	 *
+	 * [--passes=<n>]
+	 * : (catchup mode only) Max passes through the queue. Default 30.
+	 *
+	 * [--sleep=<seconds>]
+	 * : Pause this long between batches in catchup mode. Default 2.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp loveallah sync                       # all scholars, one go
+	 *     wp loveallah sync --mode=batch          # one batch (15 scholars)
+	 *     wp loveallah sync --mode=catchup        # backfill until full
+	 *     wp loveallah sync --mode=catchup --passes=50 --sleep=3
 	 */
 	public static function sync( $args, $assoc ) : void {
+		$mode   = $assoc['mode']   ?? 'all';
+		$passes = max( 1, (int) ( $assoc['passes'] ?? 30 ) );
+		$sleep  = max( 0, (int) ( $assoc['sleep']  ?? 2 ) );
+
+		if ( $mode === 'batch' ) {
+			WP_CLI::log( 'Running one batch (BATCH_PER_TICK scholars)…' );
+			$res = LA_YouTube::sync_next_batch();
+			WP_CLI::success( sprintf( '%d scholars synced · %d new posts', $res['synced'], $res['inserted'] ) );
+			if ( ! empty( $res['errors'] ) ) {
+				foreach ( $res['errors'] as $e ) WP_CLI::warning( $e );
+			}
+			return;
+		}
+
+		if ( $mode === 'catchup' ) {
+			WP_CLI::log( "Catch-up mode: up to {$passes} passes, {$sleep}s between batches…" );
+			$total_synced   = 0;
+			$total_inserted = 0;
+			for ( $i = 0; $i < $passes; $i++ ) {
+				$res = LA_YouTube::sync_next_batch();
+				$total_synced   += (int) $res['synced'];
+				$total_inserted += (int) $res['inserted'];
+				WP_CLI::log( sprintf(
+					'  pass %d/%d: %d checked, %d new · running total: %d new posts',
+					$i + 1, $passes, $res['synced'], $res['inserted'], $total_inserted
+				) );
+				// If a pass added zero AND every channel now has the catch-
+				// up threshold, we're done.
+				if ( $res['inserted'] === 0 && $i > 5 ) {
+					global $wpdb;
+					$t = LA_DB::tables();
+					$undersized = (int) $wpdb->get_var( $wpdb->prepare(
+						"SELECT COUNT(*) FROM {$t['scholars']} s
+						 LEFT JOIN ( SELECT scholar_id, COUNT(*) AS c FROM {$t['feed_posts']} GROUP BY scholar_id ) p
+						   ON p.scholar_id = s.id
+						 WHERE COALESCE(p.c, 0) < %d
+						   AND s.source_url IS NOT NULL AND s.source_url <> ''",
+						LA_YouTube::CATCH_UP_THRESHOLD
+					) );
+					if ( $undersized === 0 ) {
+						WP_CLI::log( '  every channel meets the catch-up threshold — stopping.' );
+						break;
+					}
+				}
+				if ( $sleep > 0 && $i < $passes - 1 ) sleep( $sleep );
+			}
+			WP_CLI::success( sprintf(
+				'Catch-up complete: %d total channels checked across passes, %d new posts.',
+				$total_synced, $total_inserted
+			) );
+			return;
+		}
+
+		// default: full single-pass sync
 		WP_CLI::log( 'Running yt-dlp sync for all scholars…' );
 		$res = LA_YouTube::sync_all();
 		WP_CLI::success( sprintf( '%d scholars synced · %d new posts', $res['synced'], $res['inserted'] ) );

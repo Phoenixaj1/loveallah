@@ -41,14 +41,19 @@ class LA_YouTube {
 	// a freshly-seeded channel. At 30 per channel × 8 channels per tick =
 	// up to ~240s of oembed work — still under the 300s PHP timeout. Going
 	// higher would risk timeouts on first sync of new channels.
-	// Wave 68: bumped ingestion to scale the catalog from a few hundred
-	// toward several thousand videos. 50 latest per channel × 255 active
-	// scholars = ~12,750 theoretical max. Even at 60% ingest success
-	// that's 7,500+ videos in the pool. Combined with 15 channels/tick
-	// the full rotation takes ~17 hours.
-	const MAX_PER_SYNC    = 50;       // Items to consider per scholar per run
-	const TIMEOUT_SEC     = 30;       // Per-subprocess timeout
-	const BATCH_PER_TICK  = 15;       // Scholars processed per hourly cron tick
+	// Wave 68/69: ingestion tuned for fast catalog growth then steady-
+	// state freshness.
+	//   MAX_PER_SYNC is the default ceiling per channel per run.
+	//   CATCH_UP_PULL is used when a channel is below CATCH_UP_THRESHOLD
+	//   videos in our DB — we go deeper on first contact to fill out the
+	//   catalog, then back off to MAX_PER_SYNC once we've got a baseline.
+	//   Skip-if-fresh (Wave 69) means a fully-synced channel is a near-
+	//   zero-cost check.
+	const MAX_PER_SYNC       = 50;    // Items per scholar in steady state
+	const CATCH_UP_PULL      = 100;   // Items for undersized channels
+	const CATCH_UP_THRESHOLD = 20;    // < this many videos = catch-up mode
+	const TIMEOUT_SEC        = 30;    // Per-subprocess timeout
+	const BATCH_PER_TICK     = 15;    // Scholars processed per hourly cron tick
 
 	/**
 	 * Locate yt-dlp binary. Cloudways installs it under ~/bin, others under /usr/local/bin.
@@ -103,21 +108,43 @@ class LA_YouTube {
 	}
 
 	/**
-	 * Round-robin sync: pick the N least-recently-synced scholars and
-	 * process only those. NULL last_synced_at sorts first so newly-seeded
-	 * channels get pulled on the very next cron tick.
+	 * Smart prioritising sync (Wave 69). Replaces the naive round-robin
+	 * with a priority queue:
+	 *   1. NEVER-SYNCED channels first (last_synced_at IS NULL)
+	 *   2. Then UNDERSIZED channels (< CATCH_UP_THRESHOLD videos in DB)
+	 *      — ordered by oldest sync, so we don't keep hitting the same
+	 *      bot-blocked channel forever
+	 *   3. Then channels sorted by last_synced_at ASC (round-robin
+	 *      across the rest)
 	 *
-	 * This is what the hourly cron calls — keeps each tick under the shell
-	 * timeout while still rotating the entire roster every few hours.
+	 * This pattern fills out the catalog FAST when it's small, then
+	 * settles into steady-state freshness rotation once every channel
+	 * has a baseline.
 	 */
 	public static function sync_next_batch( int $batch = self::BATCH_PER_TICK ) : array {
 		global $wpdb;
 		$t = LA_DB::tables();
+
+		// Compute per-channel video counts in one query so we can
+		// surface undersized channels first.
 		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT * FROM {$t['scholars']}
-			 WHERE source_url IS NOT NULL AND source_url <> ''
-			 ORDER BY (last_synced_at IS NULL) DESC, last_synced_at ASC, id ASC
+			"SELECT s.*,
+			        COALESCE(p.video_count, 0) AS video_count
+			 FROM {$t['scholars']} s
+			 LEFT JOIN (
+			   SELECT scholar_id, COUNT(*) AS video_count
+			   FROM {$t['feed_posts']}
+			   GROUP BY scholar_id
+			 ) p ON p.scholar_id = s.id
+			 WHERE s.source_url IS NOT NULL AND s.source_url <> ''
+			 ORDER BY
+			   (s.last_synced_at IS NULL) DESC,
+			   (COALESCE(p.video_count, 0) < %d) DESC,
+			   COALESCE(p.video_count, 0) ASC,
+			   s.last_synced_at ASC,
+			   s.id ASC
 			 LIMIT %d",
+			self::CATCH_UP_THRESHOLD,
 			$batch
 		) );
 		return self::sync_list( $rows ?: [] );
@@ -160,6 +187,20 @@ class LA_YouTube {
 		$max_dur   = self::max_duration_for( $type );
 		$tabs      = self::tabs_for( $type );
 
+		// Wave 69: catch-up mode for undersized channels — pull deeper
+		// to fill out the catalog on first contact, then back off.
+		// $scholar->video_count is populated by sync_next_batch's JOIN,
+		// or we fetch it here if a caller passes us a raw scholar row.
+		$existing_count = isset( $scholar->video_count )
+			? (int) $scholar->video_count
+			: (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$t['feed_posts']} WHERE scholar_id = %d",
+				(int) $scholar->id
+			) );
+		$pull_limit = ( $existing_count < self::CATCH_UP_THRESHOLD )
+			? self::CATCH_UP_PULL
+			: self::MAX_PER_SYNC;
+
 		// Detect search-URL channels so we don't pointlessly call yt-dlp
 		// twice with the same URL (the /shorts and /videos suffixes are
 		// stripped for query-string URLs in url_for_tab).
@@ -171,13 +212,43 @@ class LA_YouTube {
 		$tabs_to_try = $is_search ? [ 'search' ] : $tabs;
 		foreach ( $tabs_to_try as $tab ) {
 			$url  = self::url_for_tab( $scholar->source_url, $tab );
-			$list = self::flat_list( $url, self::MAX_PER_SYNC );
+			$list = self::flat_list( $url, $pull_limit );
 			if ( ! empty( $list ) ) { $used_tab = $tab; break; }
 		}
 
 		if ( empty( $list ) ) {
 			$wpdb->update( $t['scholars'], [ 'last_synced_at' => current_time( 'mysql' ) ], [ 'id' => (int) $scholar->id ] );
 			return [ 'inserted' => 0, 'reason' => 'no_content_tabs' ];
+		}
+
+		// Wave 69: SKIP-IF-FRESH optimisation. If we already have the
+		// channel's most recent N videos (the first few items in $list
+		// since yt-dlp returns newest-first), nothing has changed
+		// upstream — skip the expensive per-video metadata fetches
+		// for items we'd reject anyway. Only kicks in for steady-state
+		// channels (those NOT in catch-up mode) — newly-discovered
+		// channels still get the full sweep.
+		if ( $existing_count >= self::CATCH_UP_THRESHOLD && count( $list ) >= 3 ) {
+			$top_three = array_slice( $list, 0, 3 );
+			$urls = array_map( function ( $v ) {
+				return "https://www.youtube.com/watch?v={$v['id']}";
+			}, $top_three );
+			$placeholders = implode( ',', array_fill( 0, count( $urls ), '%s' ) );
+			$known = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$t['feed_posts']}
+				 WHERE original_source_url IN ($placeholders)
+				    OR original_source_url IN (" . implode( ',', array_fill( 0, count( $urls ), '%s' ) ) . ")",
+				array_merge(
+					$urls,
+					array_map( function ( $v ) {
+						return "https://www.youtube.com/shorts/{$v['id']}";
+					}, $top_three )
+				)
+			) );
+			if ( $known >= 3 ) {
+				$wpdb->update( $t['scholars'], [ 'last_synced_at' => current_time( 'mysql' ) ], [ 'id' => (int) $scholar->id ] );
+				return [ 'inserted' => 0, 'fetched' => count( $list ), 'tab' => $used_tab, 'skipped_fresh' => true ];
+			}
 		}
 
 		$inserted = 0;
