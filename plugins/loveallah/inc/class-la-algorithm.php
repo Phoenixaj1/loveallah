@@ -137,6 +137,18 @@ class LA_Algorithm {
 		// at the top of the score list (e.g. a recently-ingested batch).
 		$content = self::diversify_by_scholar( $content );
 
+		// Wave 82: type-balance pass. User feedback after the catalogue grew
+		// to 4,600+ posts: qirat (Quran recitations) was flooding the feed
+		// because reciter channels carry the deepest catalogues AND we have
+		// many qaris seeded. Round-robin draw against a target type rotation
+		// surfaces lectures + reminders sooner so the feed doesn't feel
+		// one-note. Skipped when the user has filtered to a single type
+		// (the /qirat, /lecture, etc. tab pages) — that's an explicit
+		// user choice we shouldn't override.
+		if ( empty( $type_filter ) ) {
+			$content = self::diversify_by_type( $content );
+		}
+
 		// Wave 66: dhikr + signup card interruptions removed. Main feed
 		// is pure content now — dhikr has its own tab, identity uses
 		// the sign-in chip in the header instead of a mid-feed gate.
@@ -540,6 +552,72 @@ class LA_Algorithm {
 					}
 				}
 				unset( $bucket );
+				break;
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * Wave 82: Type-balance pass. The catalogue is qirat-heavy (deep
+	 * reciter back-catalogues + many qaris seeded), so the score-sorted
+	 * pool tends to surface 6-7 qirats per 10 cards. Users want a healthy
+	 * mix of voices: a reminder, a recitation, a lecture, a nasheed —
+	 * not 10 surahs in a row.
+	 *
+	 * Approach: bucket by `type`, then round-robin draw against a target
+	 * rotation pattern that biases toward under-represented types. Each
+	 * draw takes the highest-scoring item from the chosen bucket (the
+	 * input is already score-sorted, so the top of each bucket IS the
+	 * best item of that type). When a bucket runs dry, the rotation
+	 * skips its slot and tries the next preferred type instead — so
+	 * we never insert filler for diversity's sake.
+	 *
+	 * Rotation pattern is weighted to give:
+	 *   - reminder & lecture two slots each (compensating for their
+	 *     smaller per-channel catalogues)
+	 *   - qirat two slots (still well-represented but not dominant)
+	 *   - nasheed, mindfulness, dhikr one slot each
+	 * That's 9 slots per cycle ≈ 22% reminder, 22% qirat, 22% lecture,
+	 * 11% each of nasheed/mindfulness/dhikr. Feels like a balanced
+	 * Islamic content feed rather than a Quran radio station.
+	 */
+	private static function diversify_by_type( array $content ) : array {
+		if ( count( $content ) <= 3 ) return $content;
+
+		$buckets = [];
+		foreach ( $content as $c ) {
+			$type = (string) ( $c->type ?? 'unknown' );
+			$buckets[ $type ][] = $c;
+		}
+		if ( count( $buckets ) <= 1 ) return $content;
+
+		$rotation = [ 'reminder', 'qirat', 'lecture', 'reminder', 'qirat', 'lecture', 'nasheed', 'mindfulness', 'dhikr' ];
+		$rot_len  = count( $rotation );
+
+		$result = [];
+		$total  = count( $content );
+		$rot_i  = 0;
+		$safety = 0;
+		while ( count( $result ) < $total && $safety++ < $total * 4 ) {
+			$picked = false;
+			// Search the rotation for the next type that still has content.
+			for ( $tries = 0; $tries < $rot_len; $tries++ ) {
+				$want = $rotation[ ( $rot_i + $tries ) % $rot_len ];
+				if ( ! empty( $buckets[ $want ] ) ) {
+					$result[] = array_shift( $buckets[ $want ] );
+					$rot_i    = ( $rot_i + $tries + 1 ) % $rot_len;
+					$picked   = true;
+					break;
+				}
+			}
+			// Rotation drained — drain any remaining buckets (untracked types).
+			if ( ! $picked ) {
+				foreach ( $buckets as $type => &$bucket ) {
+					while ( ! empty( $bucket ) ) {
+						$result[] = array_shift( $bucket );
+					}
+				}
 				break;
 			}
 		}
