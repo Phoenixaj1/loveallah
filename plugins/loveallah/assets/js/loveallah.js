@@ -1866,33 +1866,15 @@
 		// Apply on first paint
 		applyScene(selected.scene);
 
-		// ─── Wave 60/61: in-session scene library + audio toggle ─────
-		// "Scenes" chip opens a bottom-sheet library (data-scene-library)
-		// with all scenes grouped by genre: Without music · Ambient music ·
-		// Islamic music. Users scroll the list and tap to switch scenes
-		// mid-session. Audio toggle mutes/unmutes ambient — pref persists.
+		// ─── Wave 62: in-session scene library (no audio toggle) ─────
+		// "Scenes" chip opens a bottom-sheet library grouped by AUDIO
+		// TYPE: Natural sounds · Silence · Ambient music · Nasheeds ·
+		// Islamic hip-hop. Each scene IS the audio choice — no mute.
 		const sessionControls = root.querySelector('[data-session-controls]');
 		const toggleScenesBtn = sessionControls?.querySelector('[data-toggle-scenes]');
-		const toggleAudioBtn  = sessionControls?.querySelector('[data-toggle-audio]');
 		const currentEmojiEl  = sessionControls?.querySelector('[data-current-scene-emoji]');
 		const sceneLibrary    = root.querySelector('[data-scene-library]');
 		const sceneListSession = root.querySelector('[data-scene-list-session]');
-		// Pull initial mute state from localStorage so the user's last
-		// choice carries between sessions.
-		let audioOn = localStorage.getItem('la_dhikr_audio') !== 'off';
-
-		function refreshSessionAudio() {
-			if (!toggleAudioBtn) return;
-			toggleAudioBtn.classList.toggle('is-on', audioOn);
-			toggleAudioBtn.classList.toggle('is-off', !audioOn);
-			toggleAudioBtn.setAttribute('aria-pressed', audioOn ? 'true' : 'false');
-			if (typeof bgYtPlayer !== 'undefined' && bgYtPlayer) {
-				try {
-					if (audioOn) { bgYtPlayer.unMute?.(); bgYtPlayer.setVolume?.(30); }
-					else         { bgYtPlayer.mute?.();   bgYtPlayer.setVolume?.(0); }
-				} catch (_) {}
-			}
-		}
 
 		function refreshSessionSceneEmoji(sceneKey) {
 			if (!currentEmojiEl) return;
@@ -1939,12 +1921,6 @@
 			}
 		});
 
-		toggleAudioBtn?.addEventListener('click', () => {
-			audioOn = !audioOn;
-			localStorage.setItem('la_dhikr_audio', audioOn ? 'on' : 'off');
-			refreshSessionAudio();
-		});
-
 		sceneListSession?.querySelectorAll('[data-session-scene]').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				const newScene = btn.getAttribute('data-session-scene');
@@ -1960,7 +1936,6 @@
 					refreshSessionSceneEmoji(newScene);
 					applyScene(newScene);
 					loadBackgroundVideo(newScene);
-					setTimeout(refreshSessionAudio, 1500);
 				}
 				// Stay open so the user can audition another scene if
 				// they don't like this one. They close via X / scrim /
@@ -2341,11 +2316,13 @@
 						events: {
 							onReady: (e) => {
 								try {
-									// Background ambient — never leading. 30% volume
-									// when audio is on, fully muted when user toggled
-									// it off. Wave 60: localStorage-backed preference.
-									if (audioOn) { e.target.unMute?.(); e.target.setVolume(30); }
-									else         { e.target.mute?.();   e.target.setVolume(0); }
+									// Background ambient — 30% volume. Wave 62
+									// removed the mute toggle since the user
+									// now picks a scene that already has the
+									// kind of audio they want (silence / nature
+									/* / ambient / nasheed / hip-hop). */
+									e.target.unMute?.();
+									e.target.setVolume(30);
 									e.target.seekTo(SCENE_START_SECONDS, true);
 									e.target.playVideo();
 								} catch (_) {}

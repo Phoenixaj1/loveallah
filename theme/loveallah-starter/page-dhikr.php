@@ -158,65 +158,79 @@ $la_modes = [
 // Background scenes — each has a YouTube ambient loop AND a CSS-gradient
 // fallback so the experience never goes blank if YT fails.
 //
-// Wave 61: scenes are now grouped into 3 GENRES surfaced as section
-// headers in the in-session scene library. The user can scroll through
-// the whole list during meditation and switch live.
-//   genre = 'silent' | 'music' | 'islamic'
-//   silent  → no audio, or pure nature (no melody)
-//   music   → relaxation / ambient music underneath the visual
-//   islamic → duff-based nasheeds (drum-based, permissible-music
-//             tradition — distinguished from ambient music so users
-//             who want strictly halal audio have an explicit choice)
+// Wave 62: scenes are organised by what KIND OF AUDIO the user wants.
+// No mute toggle — pick a scene that already sounds the way you want.
+//   genre =
+//     'nature'   nature sounds only, no music (waves, birds)
+//     'silence'  pure dark, no audio (rare — most users skip)
+//     'ambient'  cinematic / relaxation music
+//     'nasheed'  vocal nasheeds, duff-based (no melodic instruments)
+//     'hiphop'   modern Islamic hip-hop / produced nasheeds
+//                (Maher Zain / Native Deen / Omar Esa style)
 //
 //   video: YouTube ID — VERIFIED via oEmbed API (see commit notes).
 //   Always verify new IDs with `curl -s -o /dev/null -w "%{http_code}" \
 //   "https://www.youtube.com/oembed?url=...&format=json"` returns 200.
 $la_scenes = [
-	// ─── SILENT ──────────────────────────────────────────────
-	[ 'key' => 'none',    'genre' => 'silent', 'emoji' => '🌑', 'label' => 'Stillness',
-	  'desc' => 'Pure dark, nothing else',   'video' => '' ],
-	[ 'key' => 'ocean',   'genre' => 'silent', 'emoji' => '🌊', 'label' => 'Ocean',
+	// ─── NATURAL SOUNDS (no music) ───────────────────────────
+	[ 'key' => 'ocean',   'genre' => 'nature',  'emoji' => '🌊', 'label' => 'Ocean',
 	  'desc' => 'Waves only — no music',     'video' => 'NJXzcQJi_A8' ],
-	[ 'key' => 'forest',  'genre' => 'silent', 'emoji' => '🌿', 'label' => 'Forest',
+	[ 'key' => 'forest',  'genre' => 'nature',  'emoji' => '🌿', 'label' => 'Forest',
 	  'desc' => 'Birds at dawn — no music',  'video' => 'BHACKCNDMW8' ],
+	[ 'key' => 'none',    'genre' => 'silence', 'emoji' => '🌑', 'label' => 'Stillness',
+	  'desc' => 'Pure dark, no sound',       'video' => '' ],
 
-	// ─── WITH MUSIC ──────────────────────────────────────────
+	// ─── AMBIENT MUSIC ───────────────────────────────────────
 	// "COSMIC RELAXATION: 8 HOURS of 4K Deep Space NASA Footage" by Nature
 	// Relaxation Films — actual cosmos / nebula footage from Hubble.
-	[ 'key' => 'cosmos',  'genre' => 'music',  'emoji' => '✨', 'label' => 'Cosmos',
+	[ 'key' => 'cosmos',  'genre' => 'ambient', 'emoji' => '✨', 'label' => 'Cosmos',
 	  'desc' => 'Deep space — Hubble + ambient music', 'video' => 'Y_plhk1FUQA' ],
-	// "Sahara Desert 4K - Scenic Relaxation Film" by Scenic Relaxation —
-	// drifting dunes with cinematic score.
-	[ 'key' => 'desert',  'genre' => 'music',  'emoji' => '🌅', 'label' => 'Sahara',
+	// "Sahara Desert 4K - Scenic Relaxation Film" by Scenic Relaxation.
+	[ 'key' => 'desert',  'genre' => 'ambient', 'emoji' => '🌅', 'label' => 'Sahara',
 	  'desc' => 'Dunes at first light — cinematic score', 'video' => 'gFmDx9oj3DU' ],
 
-	// ─── ISLAMIC MUSIC (duff-based) ──────────────────────────
-	// Mevlan Kurtishi — Astaghfirullah Dhikr (duff + vocals, no
-	// pitched instruments). 1hr loop.
-	[ 'key' => 'duff_astaghfirullah', 'genre' => 'islamic', 'emoji' => '🥁',
-	  'label' => 'Astaghfirullah Duff', 'desc' => 'Mevlan Kurtishi — duff + vocal loop',
+	// ─── NASHEEDS (duff + vocals — no pitched instruments) ───
+	// Mevlan Kurtishi — Astaghfirullah Dhikr (duff + vocal nasheed loop).
+	[ 'key' => 'duff_astaghfirullah', 'genre' => 'nasheed', 'emoji' => '🥁',
+	  'label' => 'Astaghfirullah', 'desc' => 'Mevlan Kurtishi — duff + vocal',
 	  'video' => 'r4YrbaVbqPk' ],
-	// Adam Islamic Animation — Allahu Akbar 1hr (duff + takbir, no
-	// melodic instruments).
-	[ 'key' => 'duff_takbir',         'genre' => 'islamic', 'emoji' => '🪘',
-	  'label' => 'Allahu Akbar Duff', 'desc' => 'Takbir nasheed — duff drumming',
+	// Adam Islamic Animation — Allahu Akbar Takbir 1hr.
+	[ 'key' => 'duff_takbir',         'genre' => 'nasheed', 'emoji' => '🪘',
+	  'label' => 'Allahu Akbar', 'desc' => 'Takbir nasheed — duff drumming',
 	  'video' => 'n9oLl0HjV3Y' ],
-	// "Makkah Live HD" — live tawaf audio (mostly silent + occasional
-	// talbiyah). The traditional choice; not duff but obviously Islamic.
-	[ 'key' => 'kaaba',               'genre' => 'islamic', 'emoji' => '🕋',
+	// Omar Hisham — 1 Hour Salat on the Prophet (salawat with duff).
+	[ 'key' => 'duff_salawat',        'genre' => 'nasheed', 'emoji' => '🌙',
+	  'label' => 'Salawat', 'desc' => 'Omar Hisham — 1hr salawat loop',
+	  'video' => 'maHPe1byTfk' ],
+	// "Makkah Live HD" — the traditional choice.
+	[ 'key' => 'kaaba',               'genre' => 'nasheed', 'emoji' => '🕋',
 	  'label' => 'Haram', 'desc' => 'Live tawaf from Makkah',
 	  'video' => 'bNY8a2BB5Gc' ],
-	// Omar Hisham — 1 Hour Salat on the Prophet (salawat with duff).
-	[ 'key' => 'duff_salawat',        'genre' => 'islamic', 'emoji' => '🌙',
-	  'label' => 'Salawat Duff', 'desc' => 'Omar Hisham — 1hr salawat loop',
-	  'video' => 'maHPe1byTfk' ],
+
+	// ─── ISLAMIC HIP-HOP / MODERN ────────────────────────────
+	// Placeholder slots — the look + UI are wired; final video IDs need
+	// the user's curation. Maher Zain, Native Deen, Omar Esa, Boonaa
+	// Mohammed, The Reminders are the obvious starting names. For now
+	// each placeholder shows the gradient backdrop with no audio — clearly
+	// marked "coming soon" so users see the category exists.
+	[ 'key' => 'hiphop_1', 'genre' => 'hiphop', 'emoji' => '🎤',
+	  'label' => 'Maher Zain', 'desc' => 'Coming soon — Maher Zain produced nasheeds',
+	  'video' => '' ],
+	[ 'key' => 'hiphop_2', 'genre' => 'hiphop', 'emoji' => '🎧',
+	  'label' => 'Native Deen', 'desc' => 'Coming soon — Native Deen hip-hop',
+	  'video' => '' ],
+	[ 'key' => 'hiphop_3', 'genre' => 'hiphop', 'emoji' => '🎶',
+	  'label' => 'Omar Esa', 'desc' => 'Coming soon — Omar Esa UK nasheeds',
+	  'video' => '' ],
 ];
 
 // Genre metadata for the in-session library headers.
 $la_scene_genres = [
-	'silent'  => [ 'label' => 'Without music',     'sub' => 'Pure visual or natural sound' ],
-	'music'   => [ 'label' => 'Ambient music',     'sub' => 'Cinematic visuals + soundtrack' ],
-	'islamic' => [ 'label' => 'Islamic music',     'sub' => 'Duff-based — no melodic instruments' ],
+	'nature'  => [ 'label' => 'Natural sounds', 'sub' => 'No music — waves, birds, silence' ],
+	'silence' => [ 'label' => 'Silence',         'sub' => 'No audio at all' ],
+	'ambient' => [ 'label' => 'Ambient music',   'sub' => 'Cinematic visuals + soundtrack' ],
+	'nasheed' => [ 'label' => 'Nasheeds',        'sub' => 'Duff + vocal — no melodic instruments' ],
+	'hiphop'  => [ 'label' => 'Islamic hip-hop', 'sub' => 'Modern Muslim hip-hop & rap' ],
 ];
 
 // Soundscape picker removed Wave 21 — the SCENE video already carries the
@@ -427,28 +441,17 @@ get_header();
 			<div class="la-dhikr-progress-fill" data-progress-fill></div>
 		</div>
 
-		<!-- Wave 61: in-session controls.
-		     The scene chip opens a vertical scrollable LIBRARY of scenes
-		     grouped by genre (Without music · Ambient music · Islamic
-		     music). The user can switch scenes during the meditation
-		     so they can audition until they find what they want. -->
+		<!-- Wave 62: only the Scenes chip remains. Audio mute removed —
+		     the user picks a scene that already sounds the way they
+		     want (silence / nature / ambient / nasheed / hip-hop). -->
 		<div class="la-dhikr-session-controls" data-session-controls>
 			<button type="button"
 				class="la-dhikr-session-ctrl la-dhikr-session-ctrl--scene"
 				data-toggle-scenes
 				aria-expanded="false"
 				aria-label="Change scene">
-				<span class="la-dhikr-session-ctrl-emoji" data-current-scene-emoji aria-hidden="true">🌑</span>
+				<span class="la-dhikr-session-ctrl-emoji" data-current-scene-emoji aria-hidden="true">🌊</span>
 				<span class="la-dhikr-session-ctrl-label">Scenes</span>
-			</button>
-
-			<button type="button"
-				class="la-dhikr-session-ctrl la-dhikr-session-ctrl--audio is-on"
-				data-toggle-audio
-				aria-pressed="true"
-				aria-label="Toggle ambient audio">
-				<svg class="la-dhikr-session-ctrl-icon-on"  width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-				<svg class="la-dhikr-session-ctrl-icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
 			</button>
 		</div>
 
@@ -468,16 +471,21 @@ get_header();
 				</header>
 				<div class="la-dhikr-scene-library-body" data-scene-list-session role="radiogroup" aria-label="Background scene">
 					<?php
-					// Render scenes grouped by genre. First scene (Stillness)
-					// is the initial default — JS replaces this if the user
-					// previously picked something else on the landing.
-					$grouped = [ 'silent' => [], 'music' => [], 'islamic' => [] ];
+					// Render scenes grouped by audio-type genre (Wave 62).
+					// First scene in $la_scenes is the initial default; JS
+					// replaces it if the user previously picked something
+					// else on the landing.
+					$grouped = [];
 					foreach ( $la_scenes as $s ) {
-						$g = $s['genre'] ?? 'silent';
+						$g = $s['genre'] ?? 'nature';
+						if ( ! isset( $grouped[ $g ] ) ) $grouped[ $g ] = [];
 						$grouped[ $g ][] = $s;
 					}
-					$first_key = $la_scenes[0]['key'] ?? 'none';
-					foreach ( [ 'silent', 'music', 'islamic' ] as $g ) :
+					$first_key = $la_scenes[0]['key'] ?? 'ocean';
+					// Order: nature → silence → ambient → nasheed → hiphop.
+					// Most-mainstream/contemplative first; hip-hop last as
+					// the "modern energetic" option.
+					foreach ( [ 'nature', 'silence', 'ambient', 'nasheed', 'hiphop' ] as $g ) :
 						if ( empty( $grouped[ $g ] ) ) continue;
 						$meta = $la_scene_genres[ $g ] ?? [];
 					?>
