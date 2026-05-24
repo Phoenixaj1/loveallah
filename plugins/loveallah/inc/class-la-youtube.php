@@ -366,10 +366,22 @@ class LA_YouTube {
 		// Strip tab suffixes so we hit the canonical channel page.
 		$url = preg_replace( '#/(shorts|videos|featured|streams|playlists|community|about)/?$#', '', $source_url );
 		$url = rtrim( (string) $url, '/' );
+
+		// Wave 76: YouTube redirects unknown server IPs to consent.youtube.com
+		// asking to accept cookies before showing channel pages — that consent
+		// wall has no channelId, so resolve_channel_id failed for ~8 high-
+		// priority scholars (Mishary Alafasy, Sudais, Saad Al-Ghamdi, etc.).
+		// Sending CONSENT=YES+cb skips the wall, and a real Chrome user-agent
+		// avoids the simplified-bot HTML that lacks the inline JSON config.
 		$res = wp_remote_get( $url, [
-			'timeout'     => 12,
+			'timeout'     => 15,
 			'redirection' => 5,
-			'user-agent'  => 'Mozilla/5.0 (compatible; LoveAllah/1.0; +https://loveallah.app)',
+			'user-agent'  => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+			'headers'     => [
+				'Accept'          => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+				'Accept-Language' => 'en-GB,en;q=0.9',
+				'Cookie'          => 'CONSENT=YES+cb.20210328-17-p0.en+FX+999; SOCS=CAI',
+			],
 		] );
 		if ( is_wp_error( $res ) ) return '';
 		if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) return '';
@@ -385,6 +397,9 @@ class LA_YouTube {
 			'#"browseId":"(UC[A-Za-z0-9_-]{22})"#',
 			'#<meta itemprop="(?:channelId|identifier)" content="(UC[A-Za-z0-9_-]{22})"#',
 			'#data-channel-external-id="(UC[A-Za-z0-9_-]{22})"#',
+			// Catch-all: any link to /channel/UCxxx in the page (footer subscribe links,
+			// canonical URL, related-channel cards all use this). Most permissive last.
+			'#/channel/(UC[A-Za-z0-9_-]{22})#',
 		];
 		foreach ( $patterns as $p ) {
 			if ( preg_match( $p, $body, $m ) ) return $m[1];
