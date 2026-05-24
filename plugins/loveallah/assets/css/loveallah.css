@@ -4388,9 +4388,47 @@ body.is-dhikr-active .la-header {
 	font-variant-numeric: tabular-nums;
 }
 .la-mprayer-cell.is-next .la-mprayer-cell-time { color: #fff; }
+/* Wave 55 — jamaat time (second value per cell, under the begin time) */
+.la-mprayer-cell-jamaat {
+	display: inline-flex; align-items: center; gap: 3px;
+	margin-top: 1px;
+	font-size: 11px; font-weight: 700;
+	color: var(--la-ink-mid, #475569);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.01em;
+}
+.la-mprayer-cell-jamaat svg { opacity: 0.7; }
+.la-mprayer-cell-jamaat--dash {
+	font-size: 10px; color: var(--la-ink-faint);
+	opacity: 0.4;
+}
+.la-mprayer-cell.is-next .la-mprayer-cell-jamaat { color: rgba(255,255,255,0.92); }
+.la-mprayer-cell.is-next .la-mprayer-cell-jamaat svg { opacity: 0.85; }
+.la-mprayer-row.has-jamaat .la-mprayer-cell { padding: 8px 4px 7px; }
+
+.la-mprayer-legend {
+	display: flex; justify-content: center; gap: 14px;
+	margin: 8px 0 0;
+	font-size: 10px; font-weight: 600;
+	color: var(--la-ink-faint);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+.la-mprayer-legend-key {
+	display: inline-flex; align-items: center; gap: 4px;
+}
+.la-mprayer-legend-dot {
+	display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+	background: var(--la-ink-mid, #94a3b8);
+}
+.la-mprayer-legend-key svg { opacity: 0.6; }
+
 @media (max-width: 420px) {
 	.la-mprayer-cell-name { font-size: 8px; letter-spacing: 0.08em; }
 	.la-mprayer-cell-time { font-size: 12px; }
+	.la-mprayer-cell-jamaat { font-size: 10px; }
+	.la-mprayer-cell-jamaat svg { width: 7px; height: 7px; }
+	.la-mprayer-legend { font-size: 9px; gap: 10px; }
 }
 
 /* ─── Jumuah block — large, prominent, glows on Fridays ─── */

@@ -13,16 +13,78 @@ class LA_Prayer_Times {
 		if ( ! $mosque || empty( $mosque->latitude ) || empty( $mosque->longitude ) ) {
 			return [];
 		}
-		return self::for_lat_lng( (float) $mosque->latitude, (float) $mosque->longitude, (int) $mosque->id );
+		// If the masjid has a compute-config (e.g. Hanafi Asr), feed it
+		// to LA_Prayer_Compute. Otherwise the default Shafi'i path applies.
+		$cfg = ! empty( $mosque->prayer_compute_config_json )
+			? json_decode( $mosque->prayer_compute_config_json, true )
+			: [];
+		$method        = isset( $cfg['method'] )        ? (string) $cfg['method']        : 'ISNA';
+		$asr_juristic  = isset( $cfg['asr_juristic'] )  ? (int)    $cfg['asr_juristic']  : 1;
+		return self::for_lat_lng(
+			(float) $mosque->latitude,
+			(float) $mosque->longitude,
+			(int)   $mosque->id,
+			'',
+			$method,
+			$asr_juristic
+		);
+	}
+
+	/**
+	 * Apply the masjid's jamaat-offset JSON to a set of begin times.
+	 *
+	 * Each prayer entry in $offsets is either:
+	 *   { "type": "offset", "minutes": N }  → begin + N minutes
+	 *   { "type": "fixed",  "time":   "HH:MM" } → that exact clock time
+	 *
+	 * Returns an array shaped like the begin times (Fajr/Dhuhr/Asr/Maghrib/Isha
+	 * → "HH:MM") so the masjid page can render Begin vs Jamaat side by side.
+	 *
+	 * Defensive: silently ignores malformed entries and falls back to the begin
+	 * time so the row never disappears.
+	 */
+	public static function apply_jamaat_offsets( array $begin_times, $mosque ) : array {
+		if ( empty( $mosque->jamaat_offsets_json ) ) return [];
+		$offsets = json_decode( $mosque->jamaat_offsets_json, true );
+		if ( ! is_array( $offsets ) ) return [];
+
+		$out = [];
+		foreach ( [ 'Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha' ] as $name ) {
+			$begin = $begin_times[ $name ] ?? '';
+			if ( ! $begin ) continue;
+			$cfg = $offsets[ $name ] ?? null;
+			if ( ! is_array( $cfg ) ) { $out[ $name ] = $begin; continue; }
+
+			$type = $cfg['type'] ?? '';
+			if ( $type === 'fixed' && ! empty( $cfg['time'] ) ) {
+				$out[ $name ] = substr( (string) $cfg['time'], 0, 5 );
+			} elseif ( $type === 'offset' && isset( $cfg['minutes'] ) ) {
+				$out[ $name ] = self::add_minutes( $begin, (int) $cfg['minutes'] );
+			} else {
+				$out[ $name ] = $begin;
+			}
+		}
+		return $out;
+	}
+
+	private static function add_minutes( string $hhmm, int $delta ) : string {
+		if ( ! preg_match( '/^(\d{1,2}):(\d{2})/', $hhmm, $m ) ) return $hhmm;
+		$total = ( ( (int) $m[1] ) * 60 ) + ( (int) $m[2] ) + $delta;
+		// Wrap into 0..1439 in case offsets push us past midnight.
+		$total = ( ( $total % 1440 ) + 1440 ) % 1440;
+		return sprintf( '%02d:%02d', intdiv( $total, 60 ), $total % 60 );
 	}
 
 	/**
 	 * Compute prayer times for any lat/lng — used by the global geo strip
 	 * (visitor's own location) and for_mosque() (a specific masjid's GPS).
+	 *
+	 * $method = 'ISNA' (Fajr/Isha 15°), 'MWL' (Fajr 18°/Isha 17°), etc.
+	 * $asr_juristic = 1 (Shafi'i, default) or 2 (Hanafi).
 	 */
-	public static function for_lat_lng( float $lat, float $lng, ?int $mosque_id = null, string $timezone = '' ) : array {
+	public static function for_lat_lng( float $lat, float $lng, ?int $mosque_id = null, string $timezone = '', string $method = 'ISNA', int $asr_juristic = 1 ) : array {
 		$today = gmdate( 'd-m-Y' );
-		$cache_key = 'la_prayer_' . md5( $lat . '|' . $lng . '|' . $today . '|' . $timezone );
+		$cache_key = 'la_prayer_' . md5( $lat . '|' . $lng . '|' . $today . '|' . $timezone . '|' . $method . '|' . $asr_juristic );
 		$cached = get_transient( $cache_key );
 		if ( false !== $cached && is_array( $cached ) ) {
 			return $cached;
@@ -30,7 +92,7 @@ class LA_Prayer_Times {
 
 		// PRIMARY: local astronomical computation (no network, always works).
 		if ( class_exists( 'LA_Prayer_Compute' ) ) {
-			$timings = LA_Prayer_Compute::times_for( $lat, $lng, $timezone );
+			$timings = LA_Prayer_Compute::times_for( $lat, $lng, $timezone, $method, $asr_juristic );
 			if ( ! empty( $timings['Dhuhr'] ) ) {
 				set_transient( $cache_key, $timings, 12 * HOUR_IN_SECONDS );
 				return $timings;

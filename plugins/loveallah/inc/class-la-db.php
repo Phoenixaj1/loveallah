@@ -93,6 +93,8 @@ class LA_DB {
 			jumuah_time time DEFAULT NULL,
 			jumuah_khutbah_lang varchar(40) DEFAULT NULL,
 			second_jumuah_time time DEFAULT NULL,
+			jamaat_offsets_json longtext DEFAULT NULL,
+			prayer_compute_config_json longtext DEFAULT NULL,
 			claimed_user_id bigint(20) unsigned DEFAULT NULL,
 			claimed_at datetime DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -591,17 +593,46 @@ class LA_DB {
 		// Idempotent: if mosque #1 already exists with the old Ghamkol Sharif
 		// data, UPDATE it in place rather than inserting a duplicate (the
 		// schema has a UNIQUE KEY on slug, so direct inserts would fail).
+		//
+		// Wave 55: jamaat times are calculated from the astronomical begin
+		// times (computed from lat/lng) plus a per-prayer offset OR a fixed
+		// clock time. UK Hanafi masjids typically:
+		//   - hold Fajr 25-30 min after begin (give people time to wake/wudu)
+		//   - hold Dhuhr at a fixed 13:30 year-round (jamaah convenience)
+		//   - hold Asr ~15 min after the Hanafi Asr time
+		//   - hold Maghrib ~5 min after sunset (the brief allowed delay)
+		//   - hold Isha at a fixed clock time (so people aren't stuck waiting
+		//     for the very late summer astronomical Isha — varies by masjid)
+		// These are reasonable defaults; the masjid dashboard will let imams
+		// override on a monthly basis.
+		$arrahma_jamaat = [
+			'Fajr'    => [ 'type' => 'offset', 'minutes' => 30 ],
+			'Dhuhr'   => [ 'type' => 'fixed',  'time'    => '13:30' ],
+			'Asr'     => [ 'type' => 'offset', 'minutes' => 15 ],
+			'Maghrib' => [ 'type' => 'offset', 'minutes' => 5 ],
+			// Isha = +10 min from astronomical Isha. Always after begin
+			// (fiqh-safe) and reasonable year-round. A fixed time would
+			// either be before begin in summer (invalid) or impractically
+			// late in winter. Masjid admin updates monthly via dashboard.
+			'Isha'    => [ 'type' => 'offset', 'minutes' => 10 ],
+		];
+		// asr_juristic 2 = Hanafi (default UK practice). method ISNA
+		// (Fajr/Isha 15°) is the standard UK choice.
+		$arrahma_compute = [ 'asr_juristic' => 2, 'method' => 'ISNA' ];
+
 		$arrahma = [
-			'slug'                   => 'masjid-esa-ibn-maryam',
-			'name'                   => 'Masjid Esa Ibn Maryam',
-			'address'                => '14 Etwall Road, Hall Green',
-			'city'                   => 'Birmingham',
-			'country'                => 'United Kingdom',
-			'latitude'               => 52.4399,
-			'longitude'              => -1.8307,
-			'branding_color_primary' => '#1A8A7B', // ArRahma teal
-			'jumuah_time'            => '13:30:00',
-			'jumuah_khutbah_lang'    => 'English/Urdu',
+			'slug'                       => 'masjid-esa-ibn-maryam',
+			'name'                       => 'Masjid Esa Ibn Maryam',
+			'address'                    => '14 Etwall Road, Hall Green',
+			'city'                       => 'Birmingham',
+			'country'                    => 'United Kingdom',
+			'latitude'                   => 52.4399,
+			'longitude'                  => -1.8307,
+			'branding_color_primary'     => '#1A8A7B', // ArRahma teal
+			'jumuah_time'                => '13:30:00',
+			'jumuah_khutbah_lang'        => 'English/Urdu',
+			'jamaat_offsets_json'        => wp_json_encode( $arrahma_jamaat ),
+			'prayer_compute_config_json' => wp_json_encode( $arrahma_compute ),
 		];
 
 		$existing_id = (int) $wpdb->get_var(
@@ -622,16 +653,18 @@ class LA_DB {
 		) );
 		if ( ! $sulayman_exists ) {
 			$wpdb->insert( $t['mosques'], [
-				'slug'                   => 'masjid-sulayman-bin-dawud',
-				'name'                   => 'Masjid Sulayman Bin Dawud',
-				'address'                => '196 York Road, Hall Green',
-				'city'                   => 'Birmingham',
-				'country'                => 'United Kingdom',
-				'latitude'               => 52.4351,
-				'longitude'              => -1.8401,
-				'branding_color_primary' => '#1A8A7B',
-				'jumuah_time'            => '13:30:00',
-				'jumuah_khutbah_lang'    => 'English/Urdu',
+				'slug'                       => 'masjid-sulayman-bin-dawud',
+				'name'                       => 'Masjid Sulayman Bin Dawud',
+				'address'                    => '196 York Road, Hall Green',
+				'city'                       => 'Birmingham',
+				'country'                    => 'United Kingdom',
+				'latitude'                   => 52.4351,
+				'longitude'                  => -1.8401,
+				'branding_color_primary'     => '#1A8A7B',
+				'jumuah_time'                => '13:30:00',
+				'jumuah_khutbah_lang'        => 'English/Urdu',
+				'jamaat_offsets_json'        => wp_json_encode( $arrahma_jamaat ),
+				'prayer_compute_config_json' => wp_json_encode( $arrahma_compute ),
 			] );
 		}
 	}

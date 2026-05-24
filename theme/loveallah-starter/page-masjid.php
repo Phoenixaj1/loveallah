@@ -14,16 +14,48 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 $la_mosque  = la_chosen_mosque();
-$la_tz_msj  = wp_timezone_string() ?: 'Europe/London';
-if ( $la_tz_msj && ( $la_tz_msj[0] === '+' || $la_tz_msj[0] === '-' ) ) $la_tz_msj = 'UTC';
-$la_timings = $la_mosque
-	? LA_Prayer_Times::for_lat_lng( (float) $la_mosque->latitude, (float) $la_mosque->longitude, (int) $la_mosque->id, $la_tz_msj )
-	: [];
+// Resolve IANA timezone — WP setting if it's a region name, else Europe/London
+// (our home market). UTC offsets like "+00:00" don't survive PHP DateTime so
+// we fall back to a sensible default. Matches header.php's logic.
+$la_tz_raw  = wp_timezone_string();
+$la_tz_msj  = ( $la_tz_raw && ! preg_match( '/^[+\-]?\d{1,2}:?\d{0,2}$/', $la_tz_raw ) && $la_tz_raw !== 'UTC' )
+	? $la_tz_raw
+	: 'Europe/London';
+
+// Wave 55: use the masjid's compute config (Hanafi Asr for ArRahma).
+// If no compute config → defaults to Shafi'i / ISNA.
+if ( $la_mosque ) {
+	$la_cfg          = ! empty( $la_mosque->prayer_compute_config_json )
+		? json_decode( $la_mosque->prayer_compute_config_json, true )
+		: [];
+	$la_method       = isset( $la_cfg['method'] )       ? (string) $la_cfg['method']       : 'ISNA';
+	$la_asr_juristic = isset( $la_cfg['asr_juristic'] ) ? (int)    $la_cfg['asr_juristic'] : 1;
+	$la_timings      = LA_Prayer_Times::for_lat_lng(
+		(float) $la_mosque->latitude,
+		(float) $la_mosque->longitude,
+		(int)   $la_mosque->id,
+		$la_tz_msj,
+		$la_method,
+		$la_asr_juristic
+	);
+	// Jamaat times — derived from begin times + masjid's stored offsets.
+	// Empty array if the masjid hasn't configured any offsets.
+	$la_jamaat = LA_Prayer_Times::apply_jamaat_offsets( $la_timings, $la_mosque );
+} else {
+	$la_timings = [];
+	$la_jamaat  = [];
+}
+
 $la_next    = $la_timings ? LA_Prayer_Times::next_prayer( $la_timings ) : [];
 $la_events  = $la_mosque ? LA_Events::upcoming( (int) $la_mosque->id, 12 ) : [];
 
 // Jumuah time — masjid-managed if set, otherwise default to Dhuhr time.
+// Strip seconds from the DB time column ("13:30:00" → "13:30") so the
+// big Jumuah card matches the rest of the page's HH:MM formatting.
 $la_jumuah_time = $la_mosque->jumuah_time ?? '';
+if ( $la_jumuah_time ) {
+	$la_jumuah_time = substr( $la_jumuah_time, 0, 5 );
+}
 if ( ! $la_jumuah_time && ! empty( $la_timings['Dhuhr'] ) ) {
 	$la_jumuah_time = $la_timings['Dhuhr'];
 }
@@ -80,7 +112,7 @@ get_header();
 			</p>
 		</header>
 
-		<!-- PRAYER TIMES — single horizontal row -->
+		<!-- PRAYER TIMES — Begin + Jamaat side by side (Wave 55) -->
 		<?php if ( $la_timings ) : ?>
 			<section class="la-msection la-msection--prayers">
 				<?php if ( ! empty( $la_next['name'] ) ) : ?>
@@ -90,17 +122,39 @@ get_header();
 						<span class="la-mprayer-next-eta" data-countdown>—</span>
 					</div>
 				<?php endif; ?>
-				<div class="la-mprayer-row">
+
+				<?php
+				// If the masjid has published jamaat offsets we show two values
+				// per prayer (Begin · Jamaat). Otherwise just begin times.
+				$la_has_jamaat = ! empty( $la_jamaat );
+				?>
+				<div class="la-mprayer-row <?php echo $la_has_jamaat ? 'has-jamaat' : ''; ?>">
 					<?php foreach ( [ 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha' ] as $name ) :
 						if ( empty( $la_timings[ $name ] ) ) continue;
 						$is_next = ( ! empty( $la_next['name'] ) && $la_next['name'] === $name );
+						// Sunrise has no jamaat (no congregational prayer at sunrise).
+						$jamaat_t = ( $name !== 'Sunrise' && ! empty( $la_jamaat[ $name ] ) ) ? $la_jamaat[ $name ] : '';
 					?>
 						<div class="la-mprayer-cell <?php echo $is_next ? 'is-next' : ''; ?>">
 							<span class="la-mprayer-cell-name"><?php echo esc_html( $name ); ?></span>
 							<span class="la-mprayer-cell-time"><?php echo esc_html( $la_timings[ $name ] ); ?></span>
+							<?php if ( $jamaat_t ) : ?>
+								<span class="la-mprayer-cell-jamaat" aria-label="Jamaat time">
+									<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+									<?php echo esc_html( $jamaat_t ); ?>
+								</span>
+							<?php elseif ( $la_has_jamaat && $name === 'Sunrise' ) : ?>
+								<span class="la-mprayer-cell-jamaat la-mprayer-cell-jamaat--dash" aria-hidden="true">—</span>
+							<?php endif; ?>
 						</div>
 					<?php endforeach; ?>
 				</div>
+				<?php if ( $la_has_jamaat ) : ?>
+					<div class="la-mprayer-legend">
+						<span class="la-mprayer-legend-key"><span class="la-mprayer-legend-dot"></span>Begin</span>
+						<span class="la-mprayer-legend-key"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>Jamaat</span>
+					</div>
+				<?php endif; ?>
 			</section>
 		<?php endif; ?>
 
