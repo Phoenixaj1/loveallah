@@ -72,11 +72,14 @@ class LA_Algorithm {
 			$all = self::ranked_content_full( $affinities, $seen_once, [], $user_id, $session_id, $page, $type_filter );
 		}
 
-		// Dhikr only mixed in on page 0 AND only when not filtering (filtered views = pure content)
-		$dhikr = ( $page === 0 && empty( $type_filter ) ) ? self::today_remaining_dhikr( $user_id, $session_id ) : [];
+		// Wave 66: dhikr cards removed from the main feed. Dhikr lives
+		// on its own /dhikr/ page now (Solitude / Witness / Pulse /
+		// Names). Mixing it into the scroll-feed was friction that
+		// users didn't want.
+		$dhikr = [];
 
 		if ( empty( $all ) ) {
-			return $dhikr; // dhikr-only feed if no content
+			return []; // empty feed if no content (no dhikr fallback)
 		}
 
 		$total = count( $all );
@@ -116,31 +119,9 @@ class LA_Algorithm {
 		// at the top of the score list (e.g. a recently-ingested batch).
 		$content = self::diversify_by_scholar( $content );
 
-		// Interleave dhikr (page 0 only) + signup cards (page 0, anonymous, not captured, no filter)
-		$signups = ( $page === 0 && empty( $type_filter ) && self::should_show_signup( $user_id, $session_id ) )
-			? self::SIGNUP_POSITIONS
-			: [];
-
-		if ( ! empty( $dhikr ) || ! empty( $signups ) ) {
-			$feed = [];
-			$content_idx = 0;
-			$dhikr_idx   = 0;
-			$total_positions = max( $limit + count( $signups ), count( $content ) + count( $dhikr ) + count( $signups ) );
-
-			for ( $pos = 0; $pos < $total_positions; $pos++ ) {
-				if ( in_array( $pos, $signups, true ) ) {
-					$feed[] = self::signup_card_obj( $pos );
-				} elseif ( in_array( $pos, self::DHIKR_POSITIONS, true ) && $dhikr_idx < count( $dhikr ) ) {
-					$feed[] = $dhikr[ $dhikr_idx++ ];
-				} elseif ( $content_idx < count( $content ) ) {
-					$feed[] = $content[ $content_idx++ ];
-				} elseif ( $dhikr_idx < count( $dhikr ) ) {
-					$feed[] = $dhikr[ $dhikr_idx++ ];
-				}
-			}
-			return $feed;
-		}
-
+		// Wave 66: dhikr + signup card interruptions removed. Main feed
+		// is pure content now — dhikr has its own tab, identity uses
+		// the sign-in chip in the header instead of a mid-feed gate.
 		return $content;
 	}
 
