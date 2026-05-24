@@ -5547,6 +5547,17 @@ body.is-dhikr-active .la-header {
 	z-index: 200;
 	animation: la-fade-in 0.4s ease-out;
 }
+/* Wave 41 fix: display:flex on the celebrate sheet (and the pulse/names
+   session sections) overrides the HTML [hidden] attribute, so any
+   element with display:flex/grid needs an explicit [hidden] rule to
+   stay hidden by default. */
+.la-witness-celebrate[hidden],
+.la-pulse-session[hidden],
+.la-pulse-complete[hidden],
+.la-names-session[hidden],
+.la-names-complete[hidden],
+.la-pulse-setup[hidden],
+.la-names-setup[hidden] { display: none; }
 @keyframes la-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .la-witness-celebrate-inner {
 	text-align: center;
