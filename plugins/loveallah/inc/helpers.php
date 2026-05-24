@@ -45,6 +45,22 @@ function la_seed_session_cookie_early() : void {
 }
 
 /**
+ * Wave 68: return the identity string to use for tracking (seen-history,
+ * prayer log, saves, etc.). Prefers email-user 'e{id}' if signed in,
+ * else falls back to the anonymous cookie session.
+ *
+ * Use this EVERYWHERE you'd otherwise call la_get_or_set_session_id()
+ * for the purpose of identifying a user's tracking row. Don't modify
+ * la_get_or_set_session_id() itself — that's specifically the cookie
+ * session (used for the X-LA-Session header + cookie setting).
+ */
+function la_tracking_session_id() : string {
+	$cur = la_current_user();
+	if ( $cur && ! empty( $cur->id ) ) return 'e' . (int) $cur->id;
+	return la_get_or_set_session_id();
+}
+
+/**
  * Wave 64: return the currently signed-in user row (la_users) for the
  * device, or null. Cached per request so reads are cheap. Identity is a
  * cookie `la_user_token` set by POST /loveallah/v1/identity.
@@ -82,7 +98,8 @@ function la_chosen_mosque() {
 
 function la_unlock_state_for_view() : array {
 	$user_id = get_current_user_id() ?: null;
-	$session_id = la_get_or_set_session_id();
+	// Wave 68: tracking identity (prefers signed-in 'e{id}').
+	$session_id = la_tracking_session_id();
 	$state = LA_Unlock::today_state( $user_id, $session_id );
 	$completed = (int) $state->dhikr_completed;
 	return [
@@ -101,7 +118,12 @@ function la_unlock_state_for_view() : array {
  */
 function la_render_feed_main( string $type_filter = '' ) : void {
 	$user_id    = get_current_user_id() ?: null;
-	$session_id = la_get_or_set_session_id();
+	// Wave 68: la_tracking_session_id() returns 'e{user_id}' when signed
+	// in, else the cookie session. Critical for seen-history to work on
+	// the initial page render — without this, signed-in users saw the
+	// feed as anonymous because the cookie session_id had no history
+	// (it had all been migrated to 'e{id}' on signin).
+	$session_id = la_tracking_session_id();
 
 	// Feed pages personalise on session state (unlock, signups, affinities)
 	// so they must never be served from a shared cache.

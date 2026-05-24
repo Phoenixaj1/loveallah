@@ -22,8 +22,9 @@ foreach ( $duas as $d ) {
 
 // My Ameens for this identity
 $user_id    = get_current_user_id() ?: null;
-$session_id = function_exists( 'la_get_or_set_session_id' ) ? la_get_or_set_session_id() : null;
-$identity   = $user_id ? ( 'u' . (int) $user_id ) : ( $session_id ? ( 's' . $session_id ) : '' );
+// Wave 68: stable identity if signed in.
+$session_id = function_exists( 'la_tracking_session_id' ) ? la_tracking_session_id() : ( function_exists( 'la_get_or_set_session_id' ) ? la_get_or_set_session_id() : null );
+$identity   = $user_id ? ( 'u' . (int) $user_id ) : ( $session_id ? ( ( strncmp( $session_id, 'e', 1 ) === 0 ) ? $session_id : 's' . $session_id ) : '' );
 $my_ameen = [];
 if ( $identity && $duas ) {
 	$rows = $wpdb->get_col( $wpdb->prepare(

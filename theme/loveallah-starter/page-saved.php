@@ -10,7 +10,9 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 $la_user_id    = get_current_user_id() ?: null;
-$la_session_id = function_exists( 'la_get_or_set_session_id' ) ? la_get_or_set_session_id() : null;
+// Wave 68: la_tracking_session_id() returns 'e{user_id}' when signed
+// in so the user's saved videos persist across cookie clears + devices.
+$la_session_id = function_exists( 'la_tracking_session_id' ) ? la_tracking_session_id() : ( function_exists( 'la_get_or_set_session_id' ) ? la_get_or_set_session_id() : null );
 
 global $wpdb;
 $t        = LA_DB::tables();

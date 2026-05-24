@@ -41,9 +41,14 @@ class LA_YouTube {
 	// a freshly-seeded channel. At 30 per channel × 8 channels per tick =
 	// up to ~240s of oembed work — still under the 300s PHP timeout. Going
 	// higher would risk timeouts on first sync of new channels.
-	const MAX_PER_SYNC    = 30;       // Items to consider per scholar per run
+	// Wave 68: bumped ingestion to scale the catalog from a few hundred
+	// toward several thousand videos. 50 latest per channel × 255 active
+	// scholars = ~12,750 theoretical max. Even at 60% ingest success
+	// that's 7,500+ videos in the pool. Combined with 15 channels/tick
+	// the full rotation takes ~17 hours.
+	const MAX_PER_SYNC    = 50;       // Items to consider per scholar per run
 	const TIMEOUT_SEC     = 30;       // Per-subprocess timeout
-	const BATCH_PER_TICK  = 8;        // Scholars processed per hourly cron tick
+	const BATCH_PER_TICK  = 15;       // Scholars processed per hourly cron tick
 
 	/**
 	 * Locate yt-dlp binary. Cloudways installs it under ~/bin, others under /usr/local/bin.

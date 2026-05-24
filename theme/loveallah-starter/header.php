@@ -41,8 +41,10 @@ if ( class_exists( 'LA_DB' ) && function_exists( 'la_get_or_set_session_id' ) ) 
 	global $wpdb;
 	$t = LA_DB::tables();
 	$_uid = get_current_user_id();
-	$_sid = la_get_or_set_session_id();
-	$identity = $_uid ? ( 'u' . (int) $_uid ) : ( $_sid ? ( 's' . $_sid ) : '' );
+	// Wave 68: use la_tracking_session_id() so signed-in users' prayer
+	// log persists across cookie clears + devices.
+	$_sid = function_exists( 'la_tracking_session_id' ) ? la_tracking_session_id() : la_get_or_set_session_id();
+	$identity = $_uid ? ( 'u' . (int) $_uid ) : ( $_sid ? ( ( strncmp( $_sid, 'e', 1 ) === 0 ) ? $_sid : 's' . $_sid ) : '' );
 
 	if ( $identity && ! empty( $t['prayer_log'] ) && $la_timings ) {
 		// Build a list of prayers whose time + 30 min has elapsed today,

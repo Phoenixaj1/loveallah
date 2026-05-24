@@ -25,8 +25,9 @@ $la_t = LA_DB::tables();
 
 // Visitor identity for favourites — same scheme as elsewhere.
 $la_user_id    = get_current_user_id() ?: null;
-$la_session_id = function_exists( 'la_get_or_set_session_id' ) ? la_get_or_set_session_id() : null;
-$la_identity   = $la_user_id ? ( 'u' . (int) $la_user_id ) : ( $la_session_id ? ( 's' . $la_session_id ) : '' );
+// Wave 68: stable identity if signed in.
+$la_session_id = function_exists( 'la_tracking_session_id' ) ? la_tracking_session_id() : ( function_exists( 'la_get_or_set_session_id' ) ? la_get_or_set_session_id() : null );
+$la_identity   = $la_user_id ? ( 'u' . (int) $la_user_id ) : ( $la_session_id ? ( ( strncmp( $la_session_id, 'e', 1 ) === 0 ) ? $la_session_id : 's' . $la_session_id ) : '' );
 
 // SSR list: ALL mosques sorted by name. JS replaces this with a GPS
 // distance-sorted list once it has coordinates.
