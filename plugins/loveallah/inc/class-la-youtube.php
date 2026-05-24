@@ -233,11 +233,26 @@ class LA_YouTube {
 			return [ 'inserted' => 0, 'reason' => 'no_channel_id' ];
 		}
 
-		// Step 2 — fetch videos. RSS gives 15 latest; scraping the channel's
-		// /videos page yields ~30 more from ytInitialData. Merging both
-		// (deduped by video id) gets us ~30 unique videos per channel in one
-		// sync pass — 2× the RSS-only ceiling. Wave 78.
+		// Step 2 — fetch videos. Three sources in priority order, deduped
+		// by video id:
+		//   1. YouTube RSS (15 latest, fast, but top creators return 0)
+		//   2. Invidious public API (~60 videos, JSON, no auth)        ← Wave 79
+		//   3. /videos page scrape (~30 from ytInitialData, captcha-prone)
+		// Top creators like Mufti Menk fail #1 (RSS turned off) AND #3
+		// (Cloudways IP gets a captcha page). Invidious is the missing
+		// middle source — public YouTube proxies that pass through the
+		// real data without bot challenges.
 		$videos = self::rss_videos( $channel_id );
+		$invidious = self::invidious_videos( $channel_id );
+		if ( $invidious ) {
+			$known_ids = array_flip( array_column( $videos, 'id' ) );
+			foreach ( $invidious as $v ) {
+				if ( ! isset( $known_ids[ $v['id'] ] ) ) {
+					$videos[] = $v;
+					$known_ids[ $v['id'] ] = true;
+				}
+			}
+		}
 		$scraped = self::scrape_channel_videos( $scholar->source_url );
 		if ( $scraped ) {
 			$known_ids = array_flip( array_column( $videos, 'id' ) );
@@ -418,6 +433,92 @@ class LA_YouTube {
 			if ( preg_match( $p, $body, $m ) ) return $m[1];
 		}
 		return '';
+	}
+
+	/**
+	 * Wave 79: Invidious public-API channel video listing.
+	 *
+	 * Invidious is an open-source YouTube proxy with many public instances.
+	 * Their /api/v1/channels/{cid}/videos endpoint returns ~60 videos as
+	 * clean JSON, no auth, no captcha, no rate limiting from individual
+	 * instances. Top creators (Mufti Menk, Sudais, Alafasy) — whose RSS
+	 * feeds YouTube has turned off — pull cleanly through Invidious.
+	 *
+	 * We try a list of public instances in random order; first one that
+	 * returns videos wins. The instance list is editable via the
+	 * `la_invidious_instances` option (one URL per line) so admins can
+	 * swap in their own preferred mirrors when uptime drops.
+	 */
+	public static function invidious_instances() : array {
+		$opt = (string) get_option( 'la_invidious_instances', '' );
+		if ( $opt ) {
+			$rows = array_filter( array_map( 'trim', explode( "\n", $opt ) ) );
+			if ( $rows ) return $rows;
+		}
+		// Curated list of healthy public instances as of mid-2026.
+		// Pulled from https://api.invidious.io/ (community-maintained list).
+		return [
+			'https://invidious.nerdvpn.de',
+			'https://yewtu.be',
+			'https://invidious.privacyredirect.com',
+			'https://iv.nboeck.de',
+			'https://invidious.materialio.us',
+			'https://invidious.jing.rocks',
+			'https://invidious.protokolla.fi',
+			'https://invidious.private.coffee',
+		];
+	}
+
+	private static function invidious_videos( string $channel_id, int $limit = 60 ) : array {
+		if ( empty( $channel_id ) ) return [];
+		$instances = self::invidious_instances();
+		shuffle( $instances ); // rotate so we don't hammer one host
+
+		foreach ( $instances as $base ) {
+			$base = rtrim( $base, '/' );
+			$url  = $base . '/api/v1/channels/' . urlencode( $channel_id ) . '/videos';
+			$res = wp_remote_get( $url, [
+				'timeout'     => 10,
+				'redirection' => 3,
+				'user-agent'  => 'Mozilla/5.0 (compatible; LoveAllah/1.0; +https://loveallah.app)',
+				'headers'     => [ 'Accept' => 'application/json' ],
+			] );
+			if ( is_wp_error( $res ) ) continue;
+			$code = (int) wp_remote_retrieve_response_code( $res );
+			if ( $code !== 200 ) continue;
+			$body = (string) wp_remote_retrieve_body( $res );
+			if ( empty( $body ) || $body[0] !== '{' && $body[0] !== '[' ) continue;
+			$data = json_decode( $body, true );
+			// Invidious response shape: { videos: [ { videoId, title, published, lengthSeconds, ... } ], ... }
+			// Some instances return the videos array directly.
+			$rows = [];
+			if ( is_array( $data ) ) {
+				$rows = is_array( $data['videos'] ?? null ) ? $data['videos']
+				      : ( isset( $data[0]['videoId'] ) ? $data : [] );
+			}
+			if ( empty( $rows ) ) continue;
+
+			$videos = [];
+			foreach ( $rows as $r ) {
+				$vid = (string) ( $r['videoId'] ?? '' );
+				if ( strlen( $vid ) !== 11 ) continue;
+				$title = (string) ( $r['title'] ?? '' );
+				$pub_ts = (int) ( $r['published'] ?? 0 );
+				$pub = $pub_ts ? gmdate( 'Y-m-d H:i:s', $pub_ts ) : '';
+				// Description rarely populated on the channel-list response; we can
+				// leave it blank — algorithm doesn't depend on it.
+				$videos[] = [
+					'id'          => $vid,
+					'title'       => trim( $title ),
+					'published'   => $pub,
+					'thumbnail'   => "https://i.ytimg.com/vi/{$vid}/hqdefault.jpg",
+					'description' => '',
+				];
+				if ( count( $videos ) >= $limit ) break;
+			}
+			if ( $videos ) return $videos;
+		}
+		return [];
 	}
 
 	/**
