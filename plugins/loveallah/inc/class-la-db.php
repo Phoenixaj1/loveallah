@@ -1951,6 +1951,10 @@ class LA_DB {
 		// SAFETY purge — remove channels we can no longer host due to
 		// criminal convictions or platform-safety concerns. Idempotent.
 		self::purge_unsafe_scholars();
+
+		// Realign scholar types for known mistagged entries (e.g. legacy
+		// Alafasy rows with default='dhikr' instead of 'qirat'). Idempotent.
+		self::realign_scholar_types();
 	}
 
 	/**
@@ -1988,6 +1992,49 @@ class LA_DB {
 		}
 		// Also strip any orphan nasheed-typed feed posts left over
 		$wpdb->delete( $t['feed_posts'], [ 'type' => 'nasheed' ] );
+	}
+
+	/**
+	 * Realign scholar.default_content_type for known-mislabeled entries.
+	 * Different from purge_unsafe_scholars because the channels here ARE
+	 * legitimate — we just want them under the correct category. Their
+	 * posts will naturally re-classify on next ingest, and the Wave 47
+	 * runtime filter on (p.type AND s.default_content_type) immediately
+	 * stops surfacing their posts in the wrong feed.
+	 *
+	 * Why we can't fix this via seed_scholars alone: that updates by
+	 * exact username match. If production has the same human (Alafasy)
+	 * seeded under an alternate slug, the seed misses them entirely.
+	 */
+	private static function realign_scholar_types() {
+		global $wpdb;
+		$t = self::tables();
+
+		// Anyone tagged as a qari/reciter who got mislabeled as dhikr.
+		// Match by display name + URL pattern so we catch both the
+		// canonical 'misharyalafasy' slug AND any legacy alternate slug
+		// linking to the same channel.
+		$qari_realign = [
+			[ 'display_like' => '%Mishary%Alafasy%', 'set_type' => 'qirat' ],
+			[ 'display_like' => '%Sudais%',          'set_type' => 'qirat' ],
+			[ 'display_like' => '%Al-Ghamdi%',       'set_type' => 'qirat' ],
+			[ 'display_like' => '%Al-Mu\'aiqly%',     'set_type' => 'qirat' ],
+			[ 'display_like' => '%Al-Dosari%',       'set_type' => 'qirat' ],
+			[ 'display_like' => '%Abkar%',           'set_type' => 'qirat' ],
+			[ 'display_like' => '%Husary%',          'set_type' => 'qirat' ],
+			[ 'display_like' => '%Abdul Basit%',     'set_type' => 'qirat' ],
+			[ 'display_like' => '%Minshawi%',        'set_type' => 'qirat' ],
+		];
+
+		foreach ( $qari_realign as $rule ) {
+			$wpdb->query( $wpdb->prepare(
+				"UPDATE {$t['scholars']}
+				 SET default_content_type = %s
+				 WHERE display_name LIKE %s
+				   AND default_content_type != %s",
+				$rule['set_type'], $rule['display_like'], $rule['set_type']
+			) );
+		}
 	}
 
 	/**
