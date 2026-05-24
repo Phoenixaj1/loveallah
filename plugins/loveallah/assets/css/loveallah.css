@@ -66,23 +66,41 @@ button { font-family: inherit; }
 	position: sticky; top: 0; z-index: 50;
 }
 
-/* ─── Wave 83: Glass overlay header on the feed page ──────────────
-   On /home (the feed), the header floats over the video instead of
-   pushing it down — like the volume rail on the right. The video
-   takes the full viewport height, and the gradient is swapped for
-   a translucent blur so you still see the recitation breathing
-   through it. Other pages (/saved, /duas, /masjid, /connect) keep
-   the solid sticky bar because they have content-card layouts that
-   need the visual separator. */
+/* ─── Wave 83 / 83d: Floating glass card header on the feed page ──
+   On /home (the feed), the header is a FLOATING glass rectangle
+   with rounded corners on all 4 sides — sits 8px in from every
+   edge, lets the video reach the very top of the viewport behind
+   it. Looks like a card hovering over the recitation, not a strip
+   nailed to the chrome. Other pages keep the solid sticky bar.
+
+   Wave 83d also tightened internal padding (4px → 2px vertical,
+   10px → 8px horizontal) so the prayer cells don't push the bar
+   tall — the floating chip should feel light, not chunky. */
 body.home .la-header {
 	position: fixed;
-	top: 0; left: 0; right: 0;
+	top: 8px;
+	left: 8px;
+	right: 8px;
+	padding: 3px 8px;
 	background:
 		linear-gradient(180deg, rgba(44, 19, 56, 0.62) 0%, rgba(107, 24, 70, 0.55) 60%, rgba(237, 28, 108, 0.45) 100%);
-	backdrop-filter: blur(16px) saturate(140%);
-	-webkit-backdrop-filter: blur(16px) saturate(140%);
-	border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-	box-shadow: 0 2px 14px rgba(0, 0, 0, 0.18);
+	backdrop-filter: blur(18px) saturate(150%);
+	-webkit-backdrop-filter: blur(18px) saturate(150%);
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	border-radius: 18px;
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.30), 0 1px 0 rgba(255, 255, 255, 0.10) inset;
+}
+/* Wave 83d: tighter prayer cells inside the floating chip. */
+body.home .la-prayer-cell {
+	padding: 2px 1px;
+}
+body.home .la-prayer-cell-name { font-size: 9px; }
+body.home .la-prayer-cell-time { font-size: 12px; }
+@media (max-width: 600px) {
+	body.home .la-header { padding: 2px 6px; top: 6px; left: 6px; right: 6px; border-radius: 16px; }
+	body.home .la-prayer-cell { padding: 1px 0; }
+	body.home .la-prayer-cell-name { font-size: 8px; letter-spacing: 0.05em; }
+	body.home .la-prayer-cell-time { font-size: 10px; }
 }
 /* Feed snap area starts at y=0 now that the header is taken out of
    flow — first card fills the whole viewport with the glass header
