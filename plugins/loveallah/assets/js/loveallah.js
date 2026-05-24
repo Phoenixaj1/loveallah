@@ -69,20 +69,19 @@
 			target.setHours(h, m, 0, 0);
 			if (target < now) target.setDate(target.getDate() + 1);
 			let diff = Math.max(0, target - now);
-			const hrs = Math.floor(diff / 3600000);
-			// Wave 83: round UP to the next whole minute. Showing "0m" or
-			// "23s" feels weirdly precise / urgent for a prayer countdown;
-			// "1m" is honest and calm right up to the call. Tick interval
-			// also relaxed from 1s → 30s since we don't need second-by-
-			// second rerenders to stay accurate.
-			const mins = Math.ceil((diff % 3600000) / 60000);
+			const hrs  = Math.floor(diff / 3600000);
+			const mins = Math.floor((diff % 3600000) / 60000);
+			const secs = Math.floor((diff % 60000) / 1000);
+			// Wave 83b (per user): keep seconds for live precision, drop
+			// the "in " prefix — the value reads as a countdown on its own.
 			let txt;
-			if (hrs > 0) txt = `${hrs}h ${mins}m`;
-			else txt = `${Math.max(1, mins)}m`;
-			out.textContent = `in ${txt}`;
+			if (hrs > 0)       txt = `${hrs}h ${mins}m`;
+			else if (mins > 0) txt = `${mins}m ${String(secs).padStart(2,'0')}s`;
+			else               txt = `${secs}s`;
+			out.textContent = txt;
 		};
 		tick();
-		setInterval(tick, 30000);
+		setInterval(tick, 1000);
 	})();
 
 	// ============================================================
@@ -936,13 +935,16 @@
 			const target = new Date(now); target.setHours(hh, mm, 0, 0);
 			if (target < now) target.setDate(target.getDate() + 1);
 			const diffMs = target - now;
-			const totalMin = Math.floor(diffMs / 60000);
-			const h = Math.floor(totalMin / 60);
-			const m = totalMin % 60;
-			etaEl.textContent = h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
+			const h = Math.floor(diffMs / 3600000);
+			const m = Math.floor((diffMs % 3600000) / 60000);
+			const s = Math.floor((diffMs % 60000) / 1000);
+			// Wave 83b (per user): keep seconds, drop the "in " prefix.
+			if (h > 0)      etaEl.textContent = `${h}h ${m}m`;
+			else if (m > 0) etaEl.textContent = `${m}m ${String(s).padStart(2,'0')}s`;
+			else            etaEl.textContent = `${s}s`;
 		}
 		tick();
-		setInterval(tick, 30000);
+		setInterval(tick, 1000);
 	}
 	startCountdown();
 
