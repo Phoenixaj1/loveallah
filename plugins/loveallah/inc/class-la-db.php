@@ -171,14 +171,17 @@ class LA_DB {
 			source_url varchar(500) DEFAULT NULL,
 			youtube_channel_id varchar(40) DEFAULT NULL,
 			last_synced_at datetime DEFAULT NULL,
+			last_sync_error text DEFAULT NULL,
 			default_content_type varchar(40) NOT NULL DEFAULT 'reminder',
 			associated_charity varchar(255) DEFAULT NULL,
 			associated_masjid_id bigint(20) unsigned DEFAULT NULL,
+			status varchar(20) NOT NULL DEFAULT 'active',
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY username (username),
 			KEY youtube_channel_id (youtube_channel_id),
-			KEY default_content_type (default_content_type)
+			KEY default_content_type (default_content_type),
+			KEY status (status)
 		) $charset_collate;" );
 
 		dbDelta( "CREATE TABLE {$t['feed_posts']} (

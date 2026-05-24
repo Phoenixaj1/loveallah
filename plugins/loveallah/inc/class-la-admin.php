@@ -33,9 +33,10 @@ class LA_Admin {
 		add_action( 'admin_post_la_yt_sync_batch',   [ __CLASS__, 'handle_yt_sync_batch' ] );
 		add_action( 'admin_post_la_yt_sync_catchup', [ __CLASS__, 'handle_yt_sync_catchup' ] );
 		// Wave 70: bulk re-tag scholar content type + dhikr-video CRUD
-		add_action( 'admin_post_la_scholar_set_type', [ __CLASS__, 'handle_scholar_set_type' ] );
-		add_action( 'admin_post_la_dhikr_save',       [ __CLASS__, 'handle_dhikr_save' ] );
-		add_action( 'admin_post_la_dhikr_delete',     [ __CLASS__, 'handle_dhikr_delete' ] );
+		add_action( 'admin_post_la_scholar_set_type',   [ __CLASS__, 'handle_scholar_set_type' ] );
+		add_action( 'admin_post_la_scholar_set_status', [ __CLASS__, 'handle_scholar_set_status' ] );
+		add_action( 'admin_post_la_dhikr_save',         [ __CLASS__, 'handle_dhikr_save' ] );
+		add_action( 'admin_post_la_dhikr_delete',       [ __CLASS__, 'handle_dhikr_delete' ] );
 		add_action( 'admin_notices',      [ __CLASS__, 'flash_notice' ] );
 	}
 
@@ -222,11 +223,12 @@ class LA_Admin {
 		global $wpdb;
 		$t = LA_DB::tables();
 
-		// Wave 70: filters + search + per-channel metrics
-		$filter_type = sanitize_key( $_GET['type'] ?? '' );
-		$search      = sanitize_text_field( $_GET['q'] ?? '' );
-		$orderby     = sanitize_key( $_GET['orderby'] ?? 'videos' );
-		$valid_order = [ 'name', 'videos', 'views_30d', 'last_sync' ];
+		// Wave 70/71: filters + search + per-channel metrics + status
+		$filter_type   = sanitize_key( $_GET['type'] ?? '' );
+		$filter_status = sanitize_key( $_GET['status'] ?? 'active' ); // default: only show active
+		$search        = sanitize_text_field( $_GET['q'] ?? '' );
+		$orderby       = sanitize_key( $_GET['orderby'] ?? 'videos' );
+		$valid_order   = [ 'name', 'videos', 'views_30d', 'last_sync' ];
 		if ( ! in_array( $orderby, $valid_order, true ) ) $orderby = 'videos';
 
 		// Single query: scholars LEFT JOIN aggregated counts + 30-day views
@@ -235,6 +237,15 @@ class LA_Admin {
 		if ( $filter_type ) {
 			$where .= " AND s.default_content_type = %s";
 			$args[] = $filter_type;
+		}
+		if ( $filter_status && $filter_status !== 'all' ) {
+			if ( $filter_status === 'active' ) {
+				// Treat NULL / '' / 'active' as active (back-compat)
+				$where .= " AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )";
+			} else {
+				$where .= " AND s.status = %s";
+				$args[] = $filter_status;
+			}
 		}
 		if ( $search ) {
 			$where .= " AND (s.display_name LIKE %s OR s.username LIKE %s)";
@@ -335,6 +346,15 @@ class LA_Admin {
 				</label>
 				<input type="search" name="q" value="<?php echo esc_attr( $search ); ?>" placeholder="Search name or username…" style="min-width:220px;">
 				<label>
+					<span style="font-weight:600; margin-right:4px;">Status:</span>
+					<select name="status" onchange="this.form.submit()">
+						<option value="active"   <?php selected( $filter_status, 'active' ); ?>>Active only</option>
+						<option value="hidden"   <?php selected( $filter_status, 'hidden' ); ?>>Hidden</option>
+						<option value="archived" <?php selected( $filter_status, 'archived' ); ?>>Archived</option>
+						<option value="all"      <?php selected( $filter_status, 'all' ); ?>>All statuses</option>
+					</select>
+				</label>
+				<label>
 					<span style="font-weight:600; margin-right:4px;">Sort:</span>
 					<select name="orderby" onchange="this.form.submit()">
 						<option value="videos"    <?php selected( $orderby, 'videos' ); ?>>Most videos</option>
@@ -344,7 +364,7 @@ class LA_Admin {
 					</select>
 				</label>
 				<button class="button" type="submit">Apply</button>
-				<?php if ( $filter_type || $search ) : ?>
+				<?php if ( $filter_type || $search || $filter_status !== 'active' ) : ?>
 					<a class="button-link" href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>">Clear filters</a>
 				<?php endif; ?>
 			</form>
@@ -363,13 +383,26 @@ class LA_Admin {
 					$edit_url = admin_url( 'admin.php?page=loveallah-scholars&action=edit&id=' . (int) $s->id );
 					$del_url  = wp_nonce_url( admin_url( 'admin-post.php?action=la_delete&type=scholar&id=' . (int) $s->id ), 'la_delete_scholar_' . $s->id );
 					$verified_badge = $s->account_type === 'verified' ? ' <span style="color:#1A8A7B;" title="Verified — partnered">✓</span>' : '';
+					$status = $s->status ?? 'active';
+					if ( $status === '' ) $status = 'active';
+					$is_hidden = ( $status === 'hidden' || $status === 'archived' );
+					$row_dim_style = $is_hidden ? 'opacity:0.55;' : '';
 				?>
-					<tr>
+					<tr style="<?php echo esc_attr( $row_dim_style ); ?>">
 						<td>
-							<strong><a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $s->display_name ); ?></a></strong><?php echo $verified_badge; ?><br>
+							<strong><a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $s->display_name ); ?></a></strong><?php echo $verified_badge; ?>
+							<?php if ( $status === 'hidden' ) : ?>
+								<span style="background:#fef3c7; color:#92400e; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:6px; text-transform:uppercase; letter-spacing:0.05em;">Hidden</span>
+							<?php elseif ( $status === 'archived' ) : ?>
+								<span style="background:#fee2e2; color:#991b1b; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:6px; text-transform:uppercase; letter-spacing:0.05em;">Archived</span>
+							<?php endif; ?>
+							<br>
 							<code style="font-size:11px; color:#666;">@<?php echo esc_html( $s->username ); ?></code>
 							<?php if ( $s->source_url ) : ?>
 								· <a href="<?php echo esc_url( $s->source_url ); ?>" target="_blank" style="font-size:11px;">YouTube ↗</a>
+							<?php endif; ?>
+							<?php if ( ! empty( $s->last_sync_error ) ) : ?>
+								<div style="margin-top:4px; font-size:11px; color:#a00; max-width:340px;" title="<?php echo esc_attr( $s->last_sync_error ); ?>">⚠ <?php echo esc_html( mb_substr( $s->last_sync_error, 0, 80 ) ); ?></div>
 							<?php endif; ?>
 						</td>
 						<td>
@@ -397,9 +430,20 @@ class LA_Admin {
 						<td style="font-size:12px; color:#666;">
 							<?php echo $s->last_synced_at ? esc_html( human_time_diff( strtotime( $s->last_synced_at ) ) . ' ago' ) : '<span style="color:#a00;">never</span>'; ?>
 						</td>
-						<td>
-							<a href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit', 'loveallah' ); ?></a> ·
-							<a href="<?php echo esc_url( $del_url ); ?>" style="color:#a00;" onclick="return confirm('<?php esc_attr_e( 'Delete this scholar? Their posts stay but become orphaned.', 'loveallah' ); ?>');"><?php esc_html_e( 'Delete', 'loveallah' ); ?></a>
+						<td style="white-space:nowrap;">
+							<a href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit', 'loveallah' ); ?></a>
+							<?php
+							// Hide/show toggle — single-click to flip status
+							$next_status = $is_hidden ? 'active' : 'hidden';
+							$toggle_label = $is_hidden ? __( 'Show', 'loveallah' ) : __( 'Hide', 'loveallah' );
+							$toggle_color = $is_hidden ? '#1A8A7B' : '#b45309';
+							$toggle_url = wp_nonce_url(
+								admin_url( 'admin-post.php?action=la_scholar_set_status&id=' . (int) $s->id . '&status=' . $next_status ),
+								'la_scholar_set_status_' . $s->id
+							);
+							?>
+							· <a href="<?php echo esc_url( $toggle_url ); ?>" style="color:<?php echo esc_attr( $toggle_color ); ?>; font-weight:700;" title="<?php echo $is_hidden ? esc_attr__( 'Re-enable this scholar — content appears in feeds again', 'loveallah' ) : esc_attr__( 'Hide all content from this scholar — feed excludes them', 'loveallah' ); ?>"><?php echo esc_html( $toggle_label ); ?></a>
+							· <a href="<?php echo esc_url( $del_url ); ?>" style="color:#a00;" onclick="return confirm('<?php esc_attr_e( 'Delete this scholar permanently? Their posts become orphaned. For temporary blocks use Hide instead.', 'loveallah' ); ?>');"><?php esc_html_e( 'Delete', 'loveallah' ); ?></a>
 						</td>
 					</tr>
 				<?php endforeach; ?>
@@ -410,6 +454,26 @@ class LA_Admin {
 			</table>
 		</div>
 		<?php self::admin_css();
+	}
+
+	// Wave 71: hide/show/archive a scholar with one click
+	public static function handle_scholar_set_status() : void {
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+		$id = (int) ( $_GET['id'] ?? 0 );
+		check_admin_referer( 'la_scholar_set_status_' . $id );
+		$status = sanitize_key( $_GET['status'] ?? 'active' );
+		$allowed = [ 'active', 'hidden', 'archived' ];
+		if ( $id && in_array( $status, $allowed, true ) ) {
+			global $wpdb;
+			$t = LA_DB::tables();
+			$wpdb->update( $t['scholars'], [ 'status' => $status ], [ 'id' => $id ] );
+			$label = $status === 'hidden' ? __( 'hidden from feeds', 'loveallah' )
+			       : ( $status === 'archived' ? __( 'archived', 'loveallah' )
+			       : __( 're-enabled', 'loveallah' ) );
+			set_transient( 'la_admin_notice', sprintf( __( 'Channel %s.', 'loveallah' ), $label ), 10 );
+		}
+		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah-scholars' ) );
+		exit;
 	}
 
 	// Wave 70: inline category re-tag (dropdown on the scholars list)

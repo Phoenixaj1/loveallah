@@ -276,6 +276,11 @@ class LA_Algorithm {
 			        p.published_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
 			        OR p.created_at >= DATE_SUB( NOW(), INTERVAL 60 DAY )
 			   )
+			   -- Wave 71: hide all content from non-active scholars
+			   -- (status = 'hidden' or 'archived'). NULL or '' is treated
+			   -- as active for back-compat with rows that pre-date the
+			   -- column.
+			   AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )
 			   {$binged_where}
 			   {$type_where}
 			 ORDER BY GREATEST(p.published_at, p.created_at) DESC";
@@ -292,6 +297,7 @@ class LA_Algorithm {
 				 FROM {$t['feed_posts']} p
 				 LEFT JOIN {$t['scholars']} s ON s.id = p.scholar_id
 				 WHERE ( p.expires_at IS NULL OR p.expires_at > NOW() )
+				   AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )
 				   {$binged_where}
 				   {$type_where}
 				 ORDER BY p.published_at DESC";

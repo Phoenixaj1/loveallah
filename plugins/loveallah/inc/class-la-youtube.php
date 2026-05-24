@@ -50,9 +50,9 @@ class LA_YouTube {
 	//   Skip-if-fresh (Wave 69) means a fully-synced channel is a near-
 	//   zero-cost check.
 	const MAX_PER_SYNC       = 50;    // Items per scholar in steady state
-	const CATCH_UP_PULL      = 100;   // Items for undersized channels
-	const CATCH_UP_THRESHOLD = 20;    // < this many videos = catch-up mode
-	const TIMEOUT_SEC        = 30;    // Per-subprocess timeout
+	const CATCH_UP_PULL      = 200;   // Wave 71: items for undersized channels — deeper historical pull
+	const CATCH_UP_THRESHOLD = 30;    // < this many videos = catch-up mode
+	const TIMEOUT_SEC        = 60;    // Per-subprocess timeout (bumped for deeper pulls)
 	const BATCH_PER_TICK     = 15;    // Scholars processed per hourly cron tick
 
 	/**
@@ -127,6 +127,8 @@ class LA_YouTube {
 
 		// Compute per-channel video counts in one query so we can
 		// surface undersized channels first.
+		// Wave 71: skip hidden/archived channels — they're not part of
+		// the catalog and we shouldn't waste yt-dlp calls on them.
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT s.*,
 			        COALESCE(p.video_count, 0) AS video_count
@@ -137,6 +139,7 @@ class LA_YouTube {
 			   GROUP BY scholar_id
 			 ) p ON p.scholar_id = s.id
 			 WHERE s.source_url IS NOT NULL AND s.source_url <> ''
+			   AND ( s.status IS NULL OR s.status = '' OR s.status = 'active' )
 			 ORDER BY
 			   (s.last_synced_at IS NULL) DESC,
 			   (COALESCE(p.video_count, 0) < %d) DESC,
@@ -217,7 +220,13 @@ class LA_YouTube {
 		}
 
 		if ( empty( $list ) ) {
-			$wpdb->update( $t['scholars'], [ 'last_synced_at' => current_time( 'mysql' ) ], [ 'id' => (int) $scholar->id ] );
+			// Wave 71: record WHY the channel returned nothing so the
+			// admin diagnostic page can show the reason (bot-blocked,
+			// channel-not-found, no /shorts tab, etc).
+			$wpdb->update( $t['scholars'], [
+				'last_synced_at'  => current_time( 'mysql' ),
+				'last_sync_error' => 'No videos returned by yt-dlp (channel may be empty, bot-blocked, or have no /shorts or /videos tab)',
+			], [ 'id' => (int) $scholar->id ] );
 			return [ 'inserted' => 0, 'reason' => 'no_content_tabs' ];
 		}
 
@@ -323,7 +332,10 @@ class LA_YouTube {
 			$inserted++;
 		}
 
-		$wpdb->update( $t['scholars'], [ 'last_synced_at' => current_time( 'mysql' ) ], [ 'id' => (int) $scholar->id ] );
+		$wpdb->update( $t['scholars'], [
+			'last_synced_at'  => current_time( 'mysql' ),
+			'last_sync_error' => null,
+		], [ 'id' => (int) $scholar->id ] );
 		return [ 'inserted' => $inserted, 'fetched' => count( $list ), 'tab' => $used_tab ];
 	}
 
