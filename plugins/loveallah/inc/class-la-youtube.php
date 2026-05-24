@@ -191,6 +191,25 @@ class LA_YouTube {
 		return $result;
 	}
 
+	/**
+	 * Wave 75: RSS-based ingestion (HTTP only — no shell required).
+	 *
+	 * Cloudways' production php.ini disables shell_exec, exec, proc_open,
+	 * popen, passthru, system, escapeshellcmd — so yt-dlp (which we used
+	 * pre-Wave 75) is completely impossible on this host. Every yt-dlp
+	 * call was silently failing for weeks before we surfaced the error
+	 * via the Wave 74 diagnostic.
+	 *
+	 * The new path uses YouTube's public RSS feed:
+	 *   https://www.youtube.com/feeds/videos.xml?channel_id=UCxxx
+	 *
+	 * Pros: no auth, no rate limits, plain XML, no bot detection.
+	 * Cons: only 15 latest videos per channel (enough for steady-state
+	 *       + initial backfill = 349 × 15 ≈ 5,200 video roster).
+	 *
+	 * For deeper backfill (the Wave 73 "365 day import" mode), we'd need
+	 * the YouTube Data API v3 — out of scope for this hotfix.
+	 */
 	public static function sync_scholar( $scholar, array $opts = [] ) : array {
 		global $wpdb;
 		$t = LA_DB::tables();
@@ -200,151 +219,88 @@ class LA_YouTube {
 		}
 
 		$type      = $scholar->default_content_type ?? 'reminder';
-		$max_dur   = self::max_duration_for( $type );
-		$tabs      = self::tabs_for( $type );
-
-		// Wave 73: caller can request a DEEP pull (used by "import 365 days"
-		// on the add-scholar form) — fetches up to 500 latest videos in one
-		// shot regardless of how many we already have. Skip-if-fresh is also
-		// disabled in deep mode so we definitely ingest everything we can.
 		$deep_mode = ! empty( $opts['deep'] );
 
-		// Wave 69: catch-up mode for undersized channels — pull deeper
-		// to fill out the catalog on first contact, then back off.
+		// Step 1 — resolve channel_id. Cached on the scholars row after
+		// first lookup so future syncs skip the extra HTTP hop.
+		$channel_id = self::ensure_channel_id( $scholar );
+		if ( empty( $channel_id ) ) {
+			$update_data = [ 'last_synced_at' => current_time( 'mysql' ) ];
+			if ( self::has_sync_error_column() ) {
+				$update_data['last_sync_error'] = 'Could not resolve YouTube channel_id from source_url';
+			}
+			$wpdb->update( $t['scholars'], $update_data, [ 'id' => (int) $scholar->id ] );
+			return [ 'inserted' => 0, 'reason' => 'no_channel_id' ];
+		}
+
+		// Step 2 — fetch the RSS feed (15 latest videos).
+		$videos = self::rss_videos( $channel_id );
+		if ( empty( $videos ) ) {
+			$update_data = [ 'last_synced_at' => current_time( 'mysql' ) ];
+			if ( self::has_sync_error_column() ) {
+				$update_data['last_sync_error'] = 'RSS feed returned no videos (channel may be empty or feed blocked)';
+			}
+			$wpdb->update( $t['scholars'], $update_data, [ 'id' => (int) $scholar->id ] );
+			return [ 'inserted' => 0, 'reason' => 'rss_empty' ];
+		}
+
+		// Step 3 — SKIP-IF-FRESH: RSS returns newest-first. If we already
+		// have the top 3, nothing changed upstream — bail out to save
+		// the per-row INSERT existence checks.
 		$existing_count = isset( $scholar->video_count )
 			? (int) $scholar->video_count
 			: (int) $wpdb->get_var( $wpdb->prepare(
 				"SELECT COUNT(*) FROM {$t['feed_posts']} WHERE scholar_id = %d",
 				(int) $scholar->id
 			) );
-		$pull_limit = $deep_mode
-			? self::DEEP_PULL_LIMIT
-			: ( ( $existing_count < self::CATCH_UP_THRESHOLD ) ? self::CATCH_UP_PULL : self::MAX_PER_SYNC );
-
-		// Detect search-URL channels so we don't pointlessly call yt-dlp
-		// twice with the same URL (the /shorts and /videos suffixes are
-		// stripped for query-string URLs in url_for_tab).
-		$is_search = strpos( (string) $scholar->source_url, '?' ) !== false;
-
-		// Try each tab in order until we get a list
-		$list     = [];
-		$used_tab = null;
-		$tabs_to_try = $is_search ? [ 'search' ] : $tabs;
-		foreach ( $tabs_to_try as $tab ) {
-			$url  = self::url_for_tab( $scholar->source_url, $tab );
-			$list = self::flat_list( $url, $pull_limit );
-			if ( ! empty( $list ) ) { $used_tab = $tab; break; }
-		}
-
-		if ( empty( $list ) ) {
-			// Wave 71: record WHY the channel returned nothing so the
-			// admin diagnostic page can show the reason. Defensive: only
-			// write last_sync_error if the column exists.
-			$update_data = [ 'last_synced_at' => current_time( 'mysql' ) ];
-			if ( self::has_sync_error_column() ) {
-				$update_data['last_sync_error'] = 'No videos returned by yt-dlp (channel may be empty, bot-blocked, or have no /shorts or /videos tab)';
-			}
-			$wpdb->update( $t['scholars'], $update_data, [ 'id' => (int) $scholar->id ] );
-			return [ 'inserted' => 0, 'reason' => 'no_content_tabs' ];
-		}
-
-		// Wave 69: SKIP-IF-FRESH optimisation. If we already have the
-		// channel's most recent N videos (the first few items in $list
-		// since yt-dlp returns newest-first), nothing has changed
-		// upstream — skip the expensive per-video metadata fetches
-		// for items we'd reject anyway. Only kicks in for steady-state
-		// channels (those NOT in catch-up mode AND not in deep mode) —
-		// newly-discovered channels still get the full sweep.
-		if ( ! $deep_mode && $existing_count >= self::CATCH_UP_THRESHOLD && count( $list ) >= 3 ) {
-			$top_three = array_slice( $list, 0, 3 );
-			$urls = array_map( function ( $v ) {
-				return "https://www.youtube.com/watch?v={$v['id']}";
-			}, $top_three );
-			$placeholders = implode( ',', array_fill( 0, count( $urls ), '%s' ) );
+		if ( ! $deep_mode && $existing_count >= self::CATCH_UP_THRESHOLD && count( $videos ) >= 3 ) {
+			$top_ids = array_slice( array_column( $videos, 'id' ), 0, 3 );
+			$top_urls = array_merge(
+				array_map( function ( $id ) { return "https://www.youtube.com/watch?v={$id}"; },  $top_ids ),
+				array_map( function ( $id ) { return "https://www.youtube.com/shorts/{$id}"; },  $top_ids )
+			);
+			$ph = implode( ',', array_fill( 0, count( $top_urls ), '%s' ) );
 			$known = (int) $wpdb->get_var( $wpdb->prepare(
-				"SELECT COUNT(*) FROM {$t['feed_posts']}
-				 WHERE original_source_url IN ($placeholders)
-				    OR original_source_url IN (" . implode( ',', array_fill( 0, count( $urls ), '%s' ) ) . ")",
-				array_merge(
-					$urls,
-					array_map( function ( $v ) {
-						return "https://www.youtube.com/shorts/{$v['id']}";
-					}, $top_three )
-				)
+				"SELECT COUNT(*) FROM {$t['feed_posts']} WHERE original_source_url IN ($ph)",
+				...$top_urls
 			) );
 			if ( $known >= 3 ) {
 				$wpdb->update( $t['scholars'], [ 'last_synced_at' => current_time( 'mysql' ) ], [ 'id' => (int) $scholar->id ] );
-				return [ 'inserted' => 0, 'fetched' => count( $list ), 'tab' => $used_tab, 'skipped_fresh' => true ];
+				return [ 'inserted' => 0, 'fetched' => count( $videos ), 'via' => 'rss', 'skipped_fresh' => true ];
 			}
 		}
 
+		// Step 4 — insert new videos. Orientation/duration filters are
+		// dropped here because RSS doesn't carry that metadata (yt-dlp
+		// fetched it via single_metadata before). The trade-off: we
+		// accept some landscape videos for visual types, but the catalog
+		// fills out instantly. Frontend already renders any aspect ratio
+		// gracefully (object-fit: cover on the iframe wrapper).
 		$inserted = 0;
-		foreach ( $list as $v ) {
-			// search-derived items go through watch?v= since we can't know
-			// whether they're shorts or longform.
-			$source_url = $used_tab === 'shorts'
-				? "https://www.youtube.com/shorts/{$v['id']}"
-				: "https://www.youtube.com/watch?v={$v['id']}";
+		foreach ( $videos as $v ) {
+			$source_url = "https://www.youtube.com/watch?v={$v['id']}";
+			$shorts_url = "https://www.youtube.com/shorts/{$v['id']}";
 
 			$exists = (int) $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM {$t['feed_posts']} WHERE original_source_url = %s LIMIT 1",
-				$source_url
+				"SELECT id FROM {$t['feed_posts']}
+				 WHERE original_source_url IN (%s, %s) LIMIT 1",
+				$source_url, $shorts_url
 			) );
 			if ( $exists ) continue;
-
-			// Audio-first types (qirat, dhikr, lecture, mindfulness) don't need
-			// portrait orientation — the content IS the voice, the visual is
-			// static or backdrop. Accept any orientation from /videos for those.
-			// Also treat search-derived items as audio-first: the user explicitly
-			// chose a search URL because there's no canonical channel (typically
-			// classical qaris or curated cross-channel topical search), so the
-			// portrait check makes no sense there.
-			$audio_first = in_array( $type, [ 'qirat', 'dhikr', 'lecture', 'mindfulness' ], true )
-			            || $used_tab === 'search';
-
-			if ( $used_tab === 'shorts' ) {
-				// FAST PATH: portrait is guaranteed by YouTube's Shorts format.
-				// Skip yt-dlp per-video metadata fetch (bot-blocked on cloud IPs)
-				// and use lightweight oEmbed for title verification.
-				$oembed = self::oembed( $v['id'] );
-				$title  = $oembed['title'] ?? $v['title'];
-				$caption = '';
-				$duration = 0;
-				$published_at = gmdate( 'Y-m-d H:i:s' );
-			} elseif ( $audio_first ) {
-				// Audio-first /videos: accept without portrait check (since voice
-				// is the content). Use oEmbed instead of bot-blocked single_metadata.
-				$oembed = self::oembed( $v['id'] );
-				$title  = $oembed['title'] ?? $v['title'];
-				$caption = '';
-				$duration = 0;
-				$published_at = gmdate( 'Y-m-d H:i:s' );
-			} else {
-				// Visual /videos: orientation matters — must verify via metadata fetch.
-				$meta = self::single_metadata( $v['id'] );
-				if ( empty( $meta ) ) continue;
-				if ( ! self::is_portrait( $meta ) ) continue;
-				if ( $meta['duration'] > 0 && $meta['duration'] > $max_dur ) continue;
-				$title    = $v['title'];
-				$caption  = self::trim_caption( $meta['description'] );
-				$duration = (int) $meta['duration'];
-				$published_at = self::parse_ytdlp_date( $meta['upload_date'] ) ?: gmdate( 'Y-m-d H:i:s' );
-			}
 
 			$wpdb->insert( $t['feed_posts'], [
 				'scholar_id'          => (int) $scholar->id,
 				'type'                => $type,
-				'title'               => mb_substr( $title, 0, 250 ),
-				'caption'             => $caption,
+				'title'               => mb_substr( $v['title'], 0, 250 ),
+				'caption'             => mb_substr( $v['description'] ?? '', 0, 220 ),
 				'video_url'           => "https://www.youtube.com/embed/{$v['id']}",
-				'thumbnail_url'       => "https://i.ytimg.com/vi/{$v['id']}/hqdefault.jpg",
+				'thumbnail_url'       => ! empty( $v['thumbnail'] ) ? $v['thumbnail'] : "https://i.ytimg.com/vi/{$v['id']}/hqdefault.jpg",
 				'original_source_url' => $source_url,
-				'duration_sec'        => $duration,
-				'published_at'        => $published_at,
+				'duration_sec'        => 0,
+				'published_at'        => ! empty( $v['published'] ) ? $v['published'] : gmdate( 'Y-m-d H:i:s' ),
 				// `created_at` is when WE ingested it (drives the +200 freshness
-				// boost in LA_Algorithm). MySQL's CURRENT_TIMESTAMP default would
-				// work too, but stamping explicitly keeps the value identical
-				// across sites with non-UTC server timezones.
+				// boost in LA_Algorithm). Stamp explicitly so values are
+				// identical across sites with non-UTC server timezones.
 				'created_at'          => current_time( 'mysql', true ),
 			] );
 			$inserted++;
@@ -355,7 +311,149 @@ class LA_YouTube {
 			$update_data['last_sync_error'] = null;
 		}
 		$wpdb->update( $t['scholars'], $update_data, [ 'id' => (int) $scholar->id ] );
-		return [ 'inserted' => $inserted, 'fetched' => count( $list ), 'tab' => $used_tab ];
+		return [ 'inserted' => $inserted, 'fetched' => count( $videos ), 'via' => 'rss' ];
+	}
+
+	/**
+	 * Returns the cached channel_id from the scholars row, or resolves
+	 * it now (HTTP fetch of the channel page) and caches the result.
+	 */
+	private static function ensure_channel_id( $scholar ) : string {
+		global $wpdb;
+		$t = LA_DB::tables();
+
+		if ( isset( $scholar->youtube_channel_id ) && ! empty( $scholar->youtube_channel_id ) ) {
+			return (string) $scholar->youtube_channel_id;
+		}
+
+		// Some seed rows already use /channel/UCxxx URLs — extract directly.
+		if ( preg_match( '#/channel/(UC[A-Za-z0-9_-]{20,})#', (string) $scholar->source_url, $m ) ) {
+			$cid = $m[1];
+			self::cache_channel_id( (int) $scholar->id, $cid );
+			return $cid;
+		}
+
+		$cid = self::resolve_channel_id( (string) $scholar->source_url );
+		if ( $cid ) self::cache_channel_id( (int) $scholar->id, $cid );
+		return $cid;
+	}
+
+	/** Defensive cache write — column may not exist on legacy installs yet. */
+	private static function cache_channel_id( int $scholar_id, string $cid ) : void {
+		global $wpdb;
+		$t = LA_DB::tables();
+		static $has_col = null;
+		if ( $has_col === null ) {
+			$has_col = (bool) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+				   AND COLUMN_NAME = 'youtube_channel_id'",
+				$t['scholars']
+			) );
+		}
+		if ( $has_col ) {
+			$wpdb->update( $t['scholars'], [ 'youtube_channel_id' => $cid ], [ 'id' => $scholar_id ] );
+		}
+	}
+
+	/**
+	 * Scrapes the YouTube channel page to find the UC-prefixed channel_id.
+	 * Tries multiple HTML patterns since YouTube changes its inline-config
+	 * shape periodically. Returns empty string if nothing matches.
+	 */
+	private static function resolve_channel_id( string $source_url ) : string {
+		if ( empty( $source_url ) ) return '';
+		// Strip tab suffixes so we hit the canonical channel page.
+		$url = preg_replace( '#/(shorts|videos|featured|streams|playlists|community|about)/?$#', '', $source_url );
+		$url = rtrim( (string) $url, '/' );
+		$res = wp_remote_get( $url, [
+			'timeout'     => 12,
+			'redirection' => 5,
+			'user-agent'  => 'Mozilla/5.0 (compatible; LoveAllah/1.0; +https://loveallah.app)',
+		] );
+		if ( is_wp_error( $res ) ) return '';
+		if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) return '';
+		$body = (string) wp_remote_retrieve_body( $res );
+		if ( empty( $body ) ) return '';
+
+		// YouTube embeds channel_id in several places. Check the common ones,
+		// stop at the first hit. The UC-prefix length (24 chars total) keeps
+		// the regex safe against picking up unrelated UC* strings.
+		$patterns = [
+			'#"channelId":"(UC[A-Za-z0-9_-]{22})"#',
+			'#"externalId":"(UC[A-Za-z0-9_-]{22})"#',
+			'#"browseId":"(UC[A-Za-z0-9_-]{22})"#',
+			'#<meta itemprop="(?:channelId|identifier)" content="(UC[A-Za-z0-9_-]{22})"#',
+			'#data-channel-external-id="(UC[A-Za-z0-9_-]{22})"#',
+		];
+		foreach ( $patterns as $p ) {
+			if ( preg_match( $p, $body, $m ) ) return $m[1];
+		}
+		return '';
+	}
+
+	/**
+	 * Fetches the YouTube RSS feed for a channel and parses out the
+	 * 15 latest videos. Returns array of [id, title, published, thumbnail, description].
+	 */
+	private static function rss_videos( string $channel_id ) : array {
+		$url = 'https://www.youtube.com/feeds/videos.xml?channel_id=' . urlencode( $channel_id );
+		$res = wp_remote_get( $url, [ 'timeout' => 10, 'redirection' => 3 ] );
+		if ( is_wp_error( $res ) ) return [];
+		if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) return [];
+		$body = (string) wp_remote_retrieve_body( $res );
+		if ( empty( $body ) ) return [];
+
+		// SimpleXML throws PHP warnings into the page output on parse errors;
+		// suppress them so admin pages don't fill with libxml noise.
+		$prev_errors = libxml_use_internal_errors( true );
+		$xml = simplexml_load_string( $body );
+		libxml_clear_errors();
+		libxml_use_internal_errors( $prev_errors );
+		if ( $xml === false ) return [];
+
+		$ns           = $xml->getNamespaces( true );
+		$yt_ns_uri    = $ns['yt']    ?? 'http://www.youtube.com/xml/schemas/2015';
+		$media_ns_uri = $ns['media'] ?? 'http://search.yahoo.com/mrss/';
+
+		$videos = [];
+		foreach ( $xml->entry as $entry ) {
+			$yt  = $entry->children( $yt_ns_uri );
+			$vid = (string) $yt->videoId;
+			if ( empty( $vid ) ) continue;
+
+			$published = '';
+			$raw_pub   = (string) $entry->published;
+			if ( $raw_pub ) {
+				$ts = strtotime( $raw_pub );
+				if ( $ts ) $published = gmdate( 'Y-m-d H:i:s', $ts );
+			}
+
+			$thumb = '';
+			$desc  = '';
+			$media_root = $entry->children( $media_ns_uri );
+			if ( isset( $media_root->group ) ) {
+				$group_kids = $media_root->group->children( $media_ns_uri );
+				if ( isset( $group_kids->thumbnail ) ) {
+					foreach ( $group_kids->thumbnail as $th ) {
+						$thumb = (string) $th['url'];
+						break;
+					}
+				}
+				if ( isset( $group_kids->description ) ) {
+					$desc = trim( (string) $group_kids->description );
+				}
+			}
+
+			$videos[] = [
+				'id'          => $vid,
+				'title'       => trim( (string) $entry->title ),
+				'published'   => $published,
+				'thumbnail'   => $thumb,
+				'description' => $desc,
+			];
+		}
+		return $videos;
 	}
 
 	/** Cached column-existence check for last_sync_error. */

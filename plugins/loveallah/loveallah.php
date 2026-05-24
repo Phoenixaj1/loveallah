@@ -15,8 +15,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'LA_VERSION',  '0.34.0' );
-define( 'LA_DB_VERSION', 30 );
+define( 'LA_VERSION',  '0.35.0' );
+define( 'LA_DB_VERSION', 31 );
 define( 'LA_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LA_URL', plugin_dir_url( __FILE__ ) );
 define( 'LA_FILE', __FILE__ );
