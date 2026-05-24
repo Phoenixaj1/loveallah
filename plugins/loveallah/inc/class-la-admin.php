@@ -709,6 +709,20 @@ class LA_Admin {
 						<td><textarea class="large-text" rows="3" id="bio" name="bio"><?php echo esc_textarea( $s->bio ?? '' ); ?></textarea></td></tr>
 					<tr><th><label for="associated_charity"><?php esc_html_e( 'Associated charity', 'loveallah' ); ?></label></th>
 						<td><input class="regular-text" type="text" id="associated_charity" name="associated_charity" value="<?php echo esc_attr( $s->associated_charity ?? '' ); ?>"></td></tr>
+					<?php // Wave 73: 365-day deep import. Only offered for NEW
+					      // scholars — existing ones use the catch-up button
+					      // on the dashboard. Defaults to ON since it's the
+					      // whole point of adding a new channel. ?>
+					<?php if ( ! $s ) : ?>
+					<tr><th><label for="deep_import"><?php esc_html_e( 'Import last 365 days now', 'loveallah' ); ?></label></th>
+						<td>
+							<label style="font-weight:600;">
+								<input type="checkbox" id="deep_import" name="deep_import" value="1" checked>
+								<?php esc_html_e( 'Pull up to 500 latest videos from this channel immediately after saving', 'loveallah' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Runs yt-dlp deep mode in the background. You\'ll see live progress on the next screen. Safe to close the tab — the import keeps running.', 'loveallah' ); ?></p>
+						</td></tr>
+					<?php endif; ?>
 				</tbody></table>
 				<?php submit_button( $s ? __( 'Update scholar', 'loveallah' ) : __( 'Create scholar', 'loveallah' ) ); ?>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>" class="button"><?php esc_html_e( 'Cancel', 'loveallah' ); ?></a>
@@ -739,7 +753,73 @@ class LA_Admin {
 			$wpdb->update( $t['scholars'], $data, [ 'id' => $id ] );
 		} else {
 			$wpdb->insert( $t['scholars'], $data );
+			$id = (int) $wpdb->insert_id;
 		}
+
+		// Wave 73: "Import last 365 days" — when ticked, immediately run
+		// a DEEP sync_scholar for this channel (up to 500 latest videos
+		// pulled via yt-dlp, all that pass the orientation/duration
+		// filters get inserted). Streams progress and stays alive
+		// regardless of browser close.
+		$do_deep = ! empty( $_POST['deep_import'] );
+		if ( $do_deep && $id ) {
+			ignore_user_abort( true );
+			@set_time_limit( 0 );
+			$scholar = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$t['scholars']} WHERE id = %d", $id ) );
+			$display = $scholar->display_name ?? 'channel';
+
+			nocache_headers();
+			header( 'Content-Type: text/html; charset=utf-8' );
+			header( 'X-Accel-Buffering: no' );
+			echo str_repeat( ' ', 1024 );
+			flush();
+			?>
+			<!doctype html>
+			<html><head><meta charset="utf-8"><title>Importing — Love Allah</title>
+			<style>
+				body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1A0D26; color: #F8ECD0; padding: 32px; max-width: 720px; margin: 0 auto; line-height: 1.5; }
+				h1 { color: #F4D982; font-weight: 800; }
+				.row { padding: 10px 14px; background: rgba(255,255,255,0.06); border-left: 3px solid #C9A961; margin: 8px 0; border-radius: 6px; }
+				.done { border-left-color: #4ade80; }
+				.totals { font-size: 18px; font-weight: 700; color: #F4D982; margin-top: 20px; padding: 14px 18px; background: rgba(232,199,111,0.10); border-radius: 10px; }
+				a { color: #F4D982; }
+			</style>
+			</head><body>
+			<h1>📚 365-day import: <?php echo esc_html( $display ); ?></h1>
+			<p>Pulling up to <?php echo (int) LA_YouTube::DEEP_PULL_LIMIT; ?> latest videos from this channel. Filtering by orientation + duration. <strong>Safe to close this tab — the import keeps running.</strong></p>
+			<?php
+			echo '<div class="row">Starting deep yt-dlp pull (this can take 1-3 minutes for prolific channels)…</div>';
+			flush();
+			$start = microtime( true );
+			try {
+				$r = LA_YouTube::sync_scholar( $scholar, [ 'deep' => true ] );
+				$elapsed = (int) ( microtime( true ) - $start );
+				$inserted = (int) ( $r['inserted'] ?? 0 );
+				$fetched  = (int) ( $r['fetched']  ?? 0 );
+				$reason   = $r['reason'] ?? '';
+				printf(
+					'<div class="row done">✓ yt-dlp returned %d videos · %d ingested into the catalog · elapsed %ds</div>',
+					$fetched, $inserted, $elapsed
+				);
+				if ( $reason ) {
+					printf( '<div class="row">Note: %s</div>', esc_html( $reason ) );
+				}
+				printf(
+					'<div class="totals">Done! Added <strong>%d new videos</strong> from %s in %ds.</div>',
+					$inserted, esc_html( $display ), $elapsed
+				);
+			} catch ( Throwable $e ) {
+				printf( '<div class="row" style="border-left-color:#ef4444;">Error: %s</div>', esc_html( $e->getMessage() ) );
+			}
+			printf(
+				'<p style="margin-top:20px;"><a href="%s">← Back to scholars</a> · <a href="%s">Add another</a></p>',
+				esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ),
+				esc_url( admin_url( 'admin.php?page=loveallah-scholars&action=add' ) )
+			);
+			echo '</body></html>';
+			exit;
+		}
+
 		set_transient( 'la_admin_notice', __( 'Scholar saved.', 'loveallah' ), 30 );
 		wp_safe_redirect( admin_url( 'admin.php?page=loveallah-scholars' ) );
 		exit;

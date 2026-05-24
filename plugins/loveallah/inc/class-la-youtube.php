@@ -51,6 +51,7 @@ class LA_YouTube {
 	//   zero-cost check.
 	const MAX_PER_SYNC       = 50;    // Items per scholar in steady state
 	const CATCH_UP_PULL      = 200;   // Wave 71: items for undersized channels — deeper historical pull
+	const DEEP_PULL_LIMIT    = 500;   // Wave 73: "import last 365 days" mode — pull up to 500 latest
 	const CATCH_UP_THRESHOLD = 30;    // < this many videos = catch-up mode
 	const TIMEOUT_SEC        = 60;    // Per-subprocess timeout (bumped for deeper pulls)
 	const BATCH_PER_TICK     = 15;    // Scholars processed per hourly cron tick
@@ -190,7 +191,7 @@ class LA_YouTube {
 		return $result;
 	}
 
-	public static function sync_scholar( $scholar ) : array {
+	public static function sync_scholar( $scholar, array $opts = [] ) : array {
 		global $wpdb;
 		$t = LA_DB::tables();
 
@@ -202,19 +203,23 @@ class LA_YouTube {
 		$max_dur   = self::max_duration_for( $type );
 		$tabs      = self::tabs_for( $type );
 
+		// Wave 73: caller can request a DEEP pull (used by "import 365 days"
+		// on the add-scholar form) — fetches up to 500 latest videos in one
+		// shot regardless of how many we already have. Skip-if-fresh is also
+		// disabled in deep mode so we definitely ingest everything we can.
+		$deep_mode = ! empty( $opts['deep'] );
+
 		// Wave 69: catch-up mode for undersized channels — pull deeper
 		// to fill out the catalog on first contact, then back off.
-		// $scholar->video_count is populated by sync_next_batch's JOIN,
-		// or we fetch it here if a caller passes us a raw scholar row.
 		$existing_count = isset( $scholar->video_count )
 			? (int) $scholar->video_count
 			: (int) $wpdb->get_var( $wpdb->prepare(
 				"SELECT COUNT(*) FROM {$t['feed_posts']} WHERE scholar_id = %d",
 				(int) $scholar->id
 			) );
-		$pull_limit = ( $existing_count < self::CATCH_UP_THRESHOLD )
-			? self::CATCH_UP_PULL
-			: self::MAX_PER_SYNC;
+		$pull_limit = $deep_mode
+			? self::DEEP_PULL_LIMIT
+			: ( ( $existing_count < self::CATCH_UP_THRESHOLD ) ? self::CATCH_UP_PULL : self::MAX_PER_SYNC );
 
 		// Detect search-URL channels so we don't pointlessly call yt-dlp
 		// twice with the same URL (the /shorts and /videos suffixes are
@@ -248,9 +253,9 @@ class LA_YouTube {
 		// since yt-dlp returns newest-first), nothing has changed
 		// upstream — skip the expensive per-video metadata fetches
 		// for items we'd reject anyway. Only kicks in for steady-state
-		// channels (those NOT in catch-up mode) — newly-discovered
-		// channels still get the full sweep.
-		if ( $existing_count >= self::CATCH_UP_THRESHOLD && count( $list ) >= 3 ) {
+		// channels (those NOT in catch-up mode AND not in deep mode) —
+		// newly-discovered channels still get the full sweep.
+		if ( ! $deep_mode && $existing_count >= self::CATCH_UP_THRESHOLD && count( $list ) >= 3 ) {
 			$top_three = array_slice( $list, 0, 3 );
 			$urls = array_map( function ( $v ) {
 				return "https://www.youtube.com/watch?v={$v['id']}";
