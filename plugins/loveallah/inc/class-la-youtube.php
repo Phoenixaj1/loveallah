@@ -421,6 +421,71 @@ class LA_YouTube {
 	}
 
 	/**
+	 * Wave 78d: probe helpers — return raw diagnostics for the Sync Now
+	 * admin page so we can see why a channel isn't pulling.
+	 */
+	public static function debug_probe( $scholar ) : array {
+		$out = [
+			'source_url'     => (string) ( $scholar->source_url ?? '' ),
+			'cached_cid'     => (string) ( $scholar->youtube_channel_id ?? '' ),
+			'resolved_cid'   => '',
+			'rss_status'     => '',
+			'rss_body_len'   => 0,
+			'rss_entries'    => 0,
+			'scrape_status'  => '',
+			'scrape_body_len'=> 0,
+			'scrape_url'     => '',
+			'scrape_uc_hits' => 0,
+			'scrape_vid_hits'=> 0,
+			'scrape_mobile'  => false,
+		];
+		$cid = $out['cached_cid'];
+		if ( ! $cid ) {
+			$cid = self::resolve_channel_id( $out['source_url'] );
+			$out['resolved_cid'] = $cid;
+		}
+		// RSS probe
+		if ( $cid ) {
+			$rss_url = 'https://www.youtube.com/feeds/videos.xml?channel_id=' . urlencode( $cid );
+			$rss = wp_remote_get( $rss_url, [ 'timeout' => 10, 'redirection' => 3 ] );
+			if ( is_wp_error( $rss ) ) {
+				$out['rss_status'] = 'wp_error: ' . $rss->get_error_message();
+			} else {
+				$out['rss_status']   = (string) wp_remote_retrieve_response_code( $rss );
+				$body                = (string) wp_remote_retrieve_body( $rss );
+				$out['rss_body_len'] = strlen( $body );
+				$out['rss_entries']  = substr_count( $body, '<entry>' );
+			}
+		}
+		// Scrape probe — same headers/url as scrape_channel_videos
+		$scrape_url = preg_replace( '#/(shorts|videos|featured|streams|playlists|community|about)/?$#', '', $out['source_url'] );
+		$scrape_url = rtrim( (string) $scrape_url, '/' ) . '/videos?app=desktop&hl=en';
+		$out['scrape_url'] = $scrape_url;
+		$sr = wp_remote_get( $scrape_url, [
+			'timeout' => 15,
+			'redirection' => 5,
+			'user-agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+			'headers' => [
+				'Accept'          => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+				'Accept-Language' => 'en-GB,en;q=0.9',
+				'Cookie'          => 'CONSENT=YES+cb.20210328-17-p0.en+FX+999; SOCS=CAI; PREF=f6=4000000',
+			],
+		] );
+		if ( is_wp_error( $sr ) ) {
+			$out['scrape_status'] = 'wp_error: ' . $sr->get_error_message();
+		} else {
+			$out['scrape_status']   = (string) wp_remote_retrieve_response_code( $sr );
+			$body                   = (string) wp_remote_retrieve_body( $sr );
+			$out['scrape_body_len'] = strlen( $body );
+			// Count occurrences of UC channelIds and videoIds
+			$out['scrape_uc_hits']  = preg_match_all( '/UC[A-Za-z0-9_-]{22}/', $body, $junk );
+			$out['scrape_vid_hits'] = preg_match_all( '/"videoId":"[A-Za-z0-9_-]{11}"/', $body, $junk );
+			$out['scrape_mobile']   = ( strpos( $body, 'm.youtube.com' ) !== false ) && ( strpos( $body, '"videoId"' ) === false );
+		}
+		return $out;
+	}
+
+	/**
 	 * Wave 78: scrape the channel's /videos page for additional video ids
 	 * beyond the 15-row RSS ceiling. YouTube's ytInitialData blob in the
 	 * page HTML contains ~30 video entries across the videos + shorts tabs.

@@ -542,7 +542,29 @@ class LA_Admin {
 		<h1>⚡ Sync now: <?php echo esc_html( $scholar->display_name ); ?></h1>
 		<div class="box">Source: <code><?php echo esc_html( $scholar->source_url ); ?></code></div>
 		<div class="box">Videos before: <strong><?php echo $before; ?></strong></div>
-		<?php flush();
+		<?php
+		// Wave 78d: pre-run probe — exposes RSS + scrape state so we know
+		// WHY a channel returns nothing before sync_scholar's verdict.
+		$probe = LA_YouTube::debug_probe( $scholar );
+		?>
+		<div class="box">
+			<strong>🔬 Probe</strong><br>
+			cached channel_id: <code><?php echo esc_html( $probe['cached_cid'] ?: '(none)' ); ?></code><br>
+			<?php if ( ! $probe['cached_cid'] && $probe['resolved_cid'] ) : ?>
+				resolved channel_id: <code><?php echo esc_html( $probe['resolved_cid'] ); ?></code><br>
+			<?php endif; ?>
+			RSS: status=<code><?php echo esc_html( $probe['rss_status'] ); ?></code>
+			· body=<?php echo (int) $probe['rss_body_len']; ?>B
+			· entries=<strong><?php echo (int) $probe['rss_entries']; ?></strong><br>
+			Scrape URL: <code><?php echo esc_html( $probe['scrape_url'] ); ?></code><br>
+			Scrape: status=<code><?php echo esc_html( $probe['scrape_status'] ); ?></code>
+			· body=<?php echo (int) $probe['scrape_body_len']; ?>B
+			· UC-hits=<?php echo (int) $probe['scrape_uc_hits']; ?>
+			· vidId-hits=<strong><?php echo (int) $probe['scrape_vid_hits']; ?></strong>
+			· mobile-fallback=<?php echo $probe['scrape_mobile'] ? 'YES' : 'no'; ?>
+		</div>
+		<?php
+		flush();
 		$start = microtime( true );
 		$result = [];
 		try {
