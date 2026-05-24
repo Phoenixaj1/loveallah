@@ -3150,6 +3150,70 @@
 // scroller's own touch handling. Use the browser's native refresh.
 
 // ============================================================
+// WAVE 59 — Dhikr hub: info button → sheet with full description
+// Each card has a small "i" button. Tapping it opens a centred
+// modal showing the full (un-truncated) description + a "Begin"
+// CTA that navigates to the mode. The card itself remains a link
+// so tapping anywhere else still goes to the mode.
+// ============================================================
+(function initDhikrHubInfoSheet() {
+	const sheet = document.querySelector('[data-info-sheet]');
+	if (!sheet) return;
+
+	const nameEl = sheet.querySelector('[data-info-name]');
+	const tagEl  = sheet.querySelector('[data-info-tag]');
+	const descEl = sheet.querySelector('[data-info-desc]');
+	const iconEl = sheet.querySelector('[data-info-icon]');
+	const ctaEl  = sheet.querySelector('[data-info-cta]');
+
+	function openFromCard(card) {
+		const name  = card.querySelector('.la-dhikr-hub-card-name')?.textContent.trim() || '';
+		const tag   = card.querySelector('.la-dhikr-hub-card-tag')?.textContent.trim() || '';
+		const desc  = card.querySelector('.la-dhikr-hub-card-desc')?.textContent.trim() || '';
+		const href  = card.getAttribute('href') || '#';
+		const iconSrc = card.querySelector('.la-dhikr-hub-card-icon svg');
+
+		nameEl.textContent = name;
+		tagEl.textContent  = tag;
+		descEl.textContent = desc;
+		ctaEl.setAttribute('href', href);
+
+		// Move the icon SVG markup into the sheet's icon container
+		iconEl.innerHTML = iconSrc ? iconSrc.outerHTML : '';
+
+		sheet.removeAttribute('hidden');
+		document.body.style.overflow = 'hidden';
+	}
+
+	function close() {
+		sheet.setAttribute('hidden', '');
+		document.body.style.overflow = '';
+	}
+
+	// Intercept clicks on [data-info] buttons inside the dhikr hub.
+	// The card is an <a>, so we must preventDefault + stopPropagation
+	// so the browser doesn't navigate to the mode.
+	document.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-info]');
+		if (btn && btn.closest('.la-dhikr-hub-card')) {
+			e.preventDefault();
+			e.stopPropagation();
+			const card = btn.closest('.la-dhikr-hub-card');
+			openFromCard(card);
+			return;
+		}
+		if (e.target.closest('[data-info-close]')) {
+			close();
+		}
+	});
+
+	// Escape key closes
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape' && !sheet.hasAttribute('hidden')) close();
+	});
+})();
+
+// ============================================================
 // WAVE 56 — Masjid list: GPS, favourites, expand cards
 // The page renders an SSR list first (so it's never blank). On
 // load we ask for GPS; once we have coords, fetch /masjids/nearby

@@ -5656,6 +5656,153 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	backdrop-filter: blur(20px);
 }
 
+/* ─── Info button on each card (Wave 59) ───────────────────── */
+.la-dhikr-hub-card-info {
+	position: absolute;
+	top: 9px; right: 9px;
+	z-index: 3;
+	width: 28px; height: 28px;
+	display: flex; align-items: center; justify-content: center;
+	background: rgba(232, 199, 111, 0.08);
+	border: 1px solid rgba(232, 199, 111, 0.24);
+	border-radius: 50%;
+	color: #C9A961;
+	font-family: inherit;
+	cursor: pointer;
+	padding: 0;
+	transition: background 0.18s ease, transform 0.18s var(--la-spring), border-color 0.18s ease;
+}
+.la-dhikr-hub-card-info svg { width: 15px; height: 15px; }
+.la-dhikr-hub-card-info:hover {
+	background: rgba(232, 199, 111, 0.18);
+	border-color: rgba(232, 199, 111, 0.50);
+	color: #F4D982;
+}
+.la-dhikr-hub-card-info:active { transform: scale(0.92); }
+@media (min-width: 600px) {
+	.la-dhikr-hub-card-info { top: 12px; right: 12px; width: 32px; height: 32px; }
+	.la-dhikr-hub-card-info svg { width: 17px; height: 17px; }
+}
+
+/* ─── Info sheet (modal) ───────────────────────────────────── */
+.la-dhikr-hub-sheet {
+	position: fixed;
+	inset: 0;
+	z-index: 1100;
+	display: flex; align-items: center; justify-content: center;
+	padding: 20px;
+	animation: la-info-sheet-fade 0.22s ease;
+}
+.la-dhikr-hub-sheet[hidden] { display: none; }
+
+.la-dhikr-hub-sheet-backdrop {
+	position: absolute; inset: 0;
+	background: rgba(11, 3, 22, 0.74);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	border: none;
+	cursor: pointer;
+	padding: 0;
+}
+.la-dhikr-hub-sheet-panel {
+	position: relative;
+	max-width: 380px; width: 100%;
+	padding: 30px 26px 22px;
+	background:
+		linear-gradient(155deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
+		linear-gradient(155deg, #1F0C2C, #160820);
+	border-radius: 22px;
+	border: 1px solid rgba(232, 199, 111, 0.30);
+	box-shadow:
+		0 30px 80px rgba(0,0,0,0.55),
+		0 0 60px rgba(232, 199, 111, 0.08),
+		0 0 0 1px rgba(255,255,255,0.04) inset;
+	text-align: center;
+	color: #F4E4C1;
+	animation: la-info-sheet-pop 0.32s var(--la-spring);
+}
+@keyframes la-info-sheet-fade {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+@keyframes la-info-sheet-pop {
+	from { opacity: 0; transform: translateY(12px) scale(0.96); }
+	to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+.la-dhikr-hub-sheet-x {
+	position: absolute;
+	top: 12px; right: 12px;
+	width: 32px; height: 32px;
+	display: flex; align-items: center; justify-content: center;
+	background: rgba(255,255,255,0.05);
+	border: 1px solid rgba(232, 199, 111, 0.18);
+	border-radius: 50%;
+	color: rgba(244, 228, 193, 0.70);
+	cursor: pointer;
+	padding: 0;
+	transition: background 0.18s ease, color 0.18s ease;
+}
+.la-dhikr-hub-sheet-x:hover {
+	background: rgba(232, 199, 111, 0.12);
+	color: #F4D982;
+}
+
+.la-dhikr-hub-sheet-icon {
+	width: 62px; height: 62px;
+	margin: 0 auto 16px;
+	display: flex; align-items: center; justify-content: center;
+	border-radius: 18px;
+	background: linear-gradient(155deg, rgba(232, 199, 111, 0.20), rgba(232, 199, 111, 0.06));
+	border: 1px solid rgba(232, 199, 111, 0.30);
+	color: #E8C76F;
+	box-shadow: 0 0 24px rgba(232, 199, 111, 0.16) inset;
+}
+.la-dhikr-hub-sheet-icon svg { width: 34px; height: 34px; }
+
+.la-dhikr-hub-sheet-name {
+	font-size: 24px; font-weight: 800;
+	letter-spacing: -0.015em;
+	color: #F8ECD0;
+	margin: 0 0 6px;
+	line-height: 1.15;
+}
+.la-dhikr-hub-sheet-tag {
+	font-size: 10.5px; font-weight: 700;
+	text-transform: uppercase; letter-spacing: 0.14em;
+	color: #C9A961;
+	margin-bottom: 14px;
+}
+.la-dhikr-hub-sheet-desc {
+	font-size: 14.5px; line-height: 1.55;
+	color: rgba(244, 228, 193, 0.82);
+	margin: 0 0 22px;
+}
+
+.la-dhikr-hub-sheet-cta {
+	display: inline-flex; align-items: center; gap: 8px;
+	padding: 13px 24px;
+	background: linear-gradient(135deg, #C9A961, #8E763F);
+	color: #1A0D26;
+	border-radius: 999px;
+	font-family: inherit;
+	font-size: 14px; font-weight: 800;
+	letter-spacing: 0.02em;
+	text-decoration: none;
+	box-shadow:
+		0 10px 30px rgba(232, 199, 111, 0.22),
+		0 0 0 1px rgba(232, 199, 111, 0.36) inset;
+	transition: transform 0.18s var(--la-spring), box-shadow 0.18s ease;
+}
+.la-dhikr-hub-sheet-cta:hover {
+	transform: translateY(-1px);
+	box-shadow:
+		0 14px 36px rgba(232, 199, 111, 0.30),
+		0 0 0 1px rgba(232, 199, 111, 0.50) inset;
+	text-decoration: none;
+}
+.la-dhikr-hub-sheet-cta:active { transform: translateY(0) scale(0.97); }
+
 /* ─── WITNESS — dhikr-only feed + tap counter ─────────── */
 /* Must be a column flex container so the inherited .la-feed-snap
    (flex: 1 1 0) expands to fill — otherwise it collapses to 0 and

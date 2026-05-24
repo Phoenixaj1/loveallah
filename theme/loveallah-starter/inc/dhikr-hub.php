@@ -47,6 +47,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 		<!-- Solitude — current orb experience -->
 		<a class="la-dhikr-hub-card la-dhikr-hub-card--solitude" href="<?php echo esc_url( home_url( '/dhikr/?mode=solitude' ) ); ?>">
 			<div class="la-dhikr-hub-card-frame" aria-hidden="true"></div>
+			<button type="button" class="la-dhikr-hub-card-info" data-info aria-label="More about this path">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+			</button>
 			<div class="la-dhikr-hub-card-icon" aria-hidden="true">
 				<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
 					<circle cx="24" cy="24" r="14"/>
@@ -62,6 +65,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 		<!-- Witness — feed of dhikr content + tap counter -->
 		<a class="la-dhikr-hub-card la-dhikr-hub-card--witness" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">
 			<div class="la-dhikr-hub-card-frame" aria-hidden="true"></div>
+			<button type="button" class="la-dhikr-hub-card-info" data-info aria-label="More about this path">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+			</button>
 			<div class="la-dhikr-hub-card-icon" aria-hidden="true">
 				<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
 					<rect x="8" y="10" width="32" height="28" rx="4"/>
@@ -76,6 +82,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 		<!-- Pulse — BPM-driven flow state -->
 		<a class="la-dhikr-hub-card la-dhikr-hub-card--pulse" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>">
 			<div class="la-dhikr-hub-card-frame" aria-hidden="true"></div>
+			<button type="button" class="la-dhikr-hub-card-info" data-info aria-label="More about this path">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+			</button>
 			<div class="la-dhikr-hub-card-icon" aria-hidden="true">
 				<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
 					<circle cx="24" cy="24" r="5" fill="currentColor" stroke="none"/>
@@ -91,6 +100,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 		<!-- Names — 99 Names contemplation -->
 		<a class="la-dhikr-hub-card la-dhikr-hub-card--names" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">
 			<div class="la-dhikr-hub-card-frame" aria-hidden="true"></div>
+			<button type="button" class="la-dhikr-hub-card-info" data-info aria-label="More about this path">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+			</button>
 			<div class="la-dhikr-hub-card-icon" aria-hidden="true">
 				<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M12 32c0-10 6-16 12-16s12 6 12 16"/>
@@ -108,4 +120,23 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 	<p class="la-dhikr-hub-footnote">
 		Any path counts toward today's remembrance — choose what your heart needs.
 	</p>
+
+	<!-- Info sheet: opens when a card's [data-info] is tapped. One global
+	     instance — JS fills in title/icon/description from the source card. -->
+	<div class="la-dhikr-hub-sheet" data-info-sheet hidden role="dialog" aria-modal="true" aria-labelledby="la-info-sheet-title">
+		<button type="button" class="la-dhikr-hub-sheet-backdrop" data-info-close aria-label="Close"></button>
+		<div class="la-dhikr-hub-sheet-panel">
+			<button type="button" class="la-dhikr-hub-sheet-x" data-info-close aria-label="Close">
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+			</button>
+			<div class="la-dhikr-hub-sheet-icon" data-info-icon aria-hidden="true"></div>
+			<h2 class="la-dhikr-hub-sheet-name" id="la-info-sheet-title" data-info-name></h2>
+			<div class="la-dhikr-hub-sheet-tag" data-info-tag></div>
+			<p class="la-dhikr-hub-sheet-desc" data-info-desc></p>
+			<a class="la-dhikr-hub-sheet-cta" data-info-cta href="#">
+				<span>Begin</span>
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+			</a>
+		</div>
+	</div>
 </main>
