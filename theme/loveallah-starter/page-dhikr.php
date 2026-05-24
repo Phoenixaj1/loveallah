@@ -147,34 +147,76 @@ unset( $p );
 // landing now uses count-based pacing per the Sunnah.
 $la_durations = [ 3, 7, 11, 21 ];
 
-// Modes — the stations of dhikr in Sufi sciences
+// Modes — Wave 61: locked to Heart (Qalbi). Tongue/Secret were removed
+// because nobody used them and they added noise to the landing UI.
+// Heart is the default Sufi practice anyway: silent breath, dhikr
+// enters the heart. The session UI no longer renders the Station row.
 $la_modes = [
-	[ 'key' => 'lisani', 'label' => 'Tongue', 'desc' => 'Audible, with recitation playing' ],
-	[ 'key' => 'qalbi',  'label' => 'Heart',  'desc' => 'Silent, breath only — the dhikr enters the heart' ],
-	[ 'key' => 'sirri',  'label' => 'Secret', 'desc' => 'No Arabic shown — pure presence' ],
+	[ 'key' => 'qalbi', 'label' => 'Heart', 'desc' => 'Silent, breath only — the dhikr enters the heart' ],
 ];
 
 // Background scenes — each has a YouTube ambient loop AND a CSS-gradient
 // fallback so the experience never goes blank if YT fails.
+//
+// Wave 61: scenes are now grouped into 3 GENRES surfaced as section
+// headers in the in-session scene library. The user can scroll through
+// the whole list during meditation and switch live.
+//   genre = 'silent' | 'music' | 'islamic'
+//   silent  → no audio, or pure nature (no melody)
+//   music   → relaxation / ambient music underneath the visual
+//   islamic → duff-based nasheeds (drum-based, permissible-music
+//             tradition — distinguished from ambient music so users
+//             who want strictly halal audio have an explicit choice)
+//
 //   video: YouTube ID — VERIFIED via oEmbed API (see commit notes).
-//   Swap the IDs below for whatever ambient loops you prefer. Always
-//   verify with `curl -s -o /dev/null -w "%{http_code}" \
+//   Always verify new IDs with `curl -s -o /dev/null -w "%{http_code}" \
 //   "https://www.youtube.com/oembed?url=...&format=json"` returns 200.
 $la_scenes = [
+	// ─── SILENT ──────────────────────────────────────────────
+	[ 'key' => 'none',    'genre' => 'silent', 'emoji' => '🌑', 'label' => 'Stillness',
+	  'desc' => 'Pure dark, nothing else',   'video' => '' ],
+	[ 'key' => 'ocean',   'genre' => 'silent', 'emoji' => '🌊', 'label' => 'Ocean',
+	  'desc' => 'Waves only — no music',     'video' => 'NJXzcQJi_A8' ],
+	[ 'key' => 'forest',  'genre' => 'silent', 'emoji' => '🌿', 'label' => 'Forest',
+	  'desc' => 'Birds at dawn — no music',  'video' => 'BHACKCNDMW8' ],
+
+	// ─── WITH MUSIC ──────────────────────────────────────────
 	// "COSMIC RELAXATION: 8 HOURS of 4K Deep Space NASA Footage" by Nature
-	// Relaxation Films — actual cosmos / nebula footage from Hubble, not
-	// the NASA TV news stream. Re-verified after the previous ID showed
-	// "video unavailable" + the live stream cycled to talking-head content.
-	[ 'key' => 'cosmos',  'emoji' => '✨', 'label' => 'Cosmos',   'desc' => 'Deep space — Hubble + nebulae', 'video' => 'Y_plhk1FUQA' ],
+	// Relaxation Films — actual cosmos / nebula footage from Hubble.
+	[ 'key' => 'cosmos',  'genre' => 'music',  'emoji' => '✨', 'label' => 'Cosmos',
+	  'desc' => 'Deep space — Hubble + ambient music', 'video' => 'Y_plhk1FUQA' ],
 	// "Sahara Desert 4K - Scenic Relaxation Film" by Scenic Relaxation —
-	// drifting dunes, the fajr-light aesthetic we want.
-	[ 'key' => 'desert',  'emoji' => '🌅', 'label' => 'Sahara',   'desc' => 'Drifting dunes at first light', 'video' => 'gFmDx9oj3DU' ],
-	[ 'key' => 'forest',  'emoji' => '🌿', 'label' => 'Forest',   'desc' => 'Green canopy at dawn',          'video' => 'BHACKCNDMW8' ],
-	[ 'key' => 'ocean',   'emoji' => '🌊', 'label' => 'Ocean',    'desc' => '10hr peaceful ocean ambience', 'video' => 'NJXzcQJi_A8' ],
-	// "Makkah Live HD" by Muhammad Ali — community re-broadcast of the
-	// official Saudi Quran TV Haram feed.
-	[ 'key' => 'kaaba',   'emoji' => '🕋', 'label' => 'Haram',    'desc' => 'The tawaf, live from Makkah',   'video' => 'bNY8a2BB5Gc' ],
-	[ 'key' => 'none',    'emoji' => '🌑', 'label' => 'Stillness','desc' => 'Pure dark, nothing else',       'video' => '' ],
+	// drifting dunes with cinematic score.
+	[ 'key' => 'desert',  'genre' => 'music',  'emoji' => '🌅', 'label' => 'Sahara',
+	  'desc' => 'Dunes at first light — cinematic score', 'video' => 'gFmDx9oj3DU' ],
+
+	// ─── ISLAMIC MUSIC (duff-based) ──────────────────────────
+	// Mevlan Kurtishi — Astaghfirullah Dhikr (duff + vocals, no
+	// pitched instruments). 1hr loop.
+	[ 'key' => 'duff_astaghfirullah', 'genre' => 'islamic', 'emoji' => '🥁',
+	  'label' => 'Astaghfirullah Duff', 'desc' => 'Mevlan Kurtishi — duff + vocal loop',
+	  'video' => 'r4YrbaVbqPk' ],
+	// Adam Islamic Animation — Allahu Akbar 1hr (duff + takbir, no
+	// melodic instruments).
+	[ 'key' => 'duff_takbir',         'genre' => 'islamic', 'emoji' => '🪘',
+	  'label' => 'Allahu Akbar Duff', 'desc' => 'Takbir nasheed — duff drumming',
+	  'video' => 'n9oLl0HjV3Y' ],
+	// "Makkah Live HD" — live tawaf audio (mostly silent + occasional
+	// talbiyah). The traditional choice; not duff but obviously Islamic.
+	[ 'key' => 'kaaba',               'genre' => 'islamic', 'emoji' => '🕋',
+	  'label' => 'Haram', 'desc' => 'Live tawaf from Makkah',
+	  'video' => 'bNY8a2BB5Gc' ],
+	// Omar Hisham — 1 Hour Salat on the Prophet (salawat with duff).
+	[ 'key' => 'duff_salawat',        'genre' => 'islamic', 'emoji' => '🌙',
+	  'label' => 'Salawat Duff', 'desc' => 'Omar Hisham — 1hr salawat loop',
+	  'video' => 'maHPe1byTfk' ],
+];
+
+// Genre metadata for the in-session library headers.
+$la_scene_genres = [
+	'silent'  => [ 'label' => 'Without music',     'sub' => 'Pure visual or natural sound' ],
+	'music'   => [ 'label' => 'Ambient music',     'sub' => 'Cinematic visuals + soundtrack' ],
+	'islamic' => [ 'label' => 'Islamic music',     'sub' => 'Duff-based — no melodic instruments' ],
 ];
 
 // Soundscape picker removed Wave 21 — the SCENE video already carries the
@@ -256,21 +298,12 @@ get_header();
 			</div>
 		</div>
 
-		<!-- STATION — inline pill row (was bulky 3-card grid) -->
-		<div class="la-dhikr-pickrow">
-			<div class="la-dhikr-pickrow-label">Station</div>
-			<div class="la-dhikr-mode-row" data-mode-list role="radiogroup" aria-label="Mode">
-				<?php foreach ( $la_modes as $i => $m ) : ?>
-					<button type="button"
-						class="la-dhikr-mode-pill <?php echo $i === 1 ? 'is-selected' : ''; ?>"
-						role="radio"
-						aria-checked="<?php echo $i === 1 ? 'true' : 'false'; ?>"
-						data-mode="<?php echo esc_attr( $m['key'] ); ?>"
-						title="<?php echo esc_attr( $m['desc'] ); ?>">
-						<?php echo esc_html( $m['label'] ); ?>
-					</button>
-				<?php endforeach; ?>
-			</div>
+		<?php // Wave 61: Station row removed. Heart (Qalbi) is now the
+			  // only mode — silent breath, the default Sufi practice.
+			  // A hidden input keeps the JS path working without UI noise. ?>
+		<input type="hidden" data-mode-list value="qalbi">
+		<div class="la-dhikr-mode-row" data-mode-list-fallback hidden>
+			<button type="button" class="la-dhikr-mode-pill is-selected" role="radio" aria-checked="true" data-mode="qalbi">Heart</button>
 		</div>
 
 		<!-- SCENE — emoji-only chips, super compact -->
@@ -384,34 +417,29 @@ get_header();
 			</div>
 		</div>
 
-		<!-- Rhythm slider — adjust breath cycle speed in real time. -->
-		<div class="la-dhikr-rhythm" data-rhythm-control>
-			<button type="button" class="la-dhikr-rhythm-btn" data-rhythm="slower" aria-label="Slower">−</button>
-			<div class="la-dhikr-rhythm-meta">
-				<div class="la-dhikr-rhythm-label">Rhythm</div>
-				<div class="la-dhikr-rhythm-value" data-rhythm-value>8s</div>
-			</div>
-			<button type="button" class="la-dhikr-rhythm-btn" data-rhythm="faster" aria-label="Faster">+</button>
-		</div>
+		<?php // Wave 61: rhythm +/- slider removed. The arc-based auto-ramp
+			  // (set on phrase) decides cadence — user input added noise
+			  // without improving the experience. Heart-coach prompts
+			  // gently guide breath without explicit BPM controls. ?>
 
 		<!-- Progress arc -->
 		<div class="la-dhikr-progress" aria-hidden="true">
 			<div class="la-dhikr-progress-fill" data-progress-fill></div>
 		</div>
 
-		<!-- Wave 60: in-session controls (scene switcher + audio toggle).
-		     Floats above the bottom-left so it doesn't compete with the
-		     rhythm slider on the right. Picker is collapsed by default —
-		     tap the scene chip to reveal the full list, tap the speaker
-		     to mute/unmute the ambient audio. -->
+		<!-- Wave 61: in-session controls.
+		     The scene chip opens a vertical scrollable LIBRARY of scenes
+		     grouped by genre (Without music · Ambient music · Islamic
+		     music). The user can switch scenes during the meditation
+		     so they can audition until they find what they want. -->
 		<div class="la-dhikr-session-controls" data-session-controls>
 			<button type="button"
 				class="la-dhikr-session-ctrl la-dhikr-session-ctrl--scene"
 				data-toggle-scenes
 				aria-expanded="false"
 				aria-label="Change scene">
-				<span class="la-dhikr-session-ctrl-emoji" data-current-scene-emoji aria-hidden="true">✨</span>
-				<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+				<span class="la-dhikr-session-ctrl-emoji" data-current-scene-emoji aria-hidden="true">🌑</span>
+				<span class="la-dhikr-session-ctrl-label">Scenes</span>
 			</button>
 
 			<button type="button"
@@ -422,21 +450,66 @@ get_header();
 				<svg class="la-dhikr-session-ctrl-icon-on"  width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
 				<svg class="la-dhikr-session-ctrl-icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
 			</button>
+		</div>
 
-			<div class="la-dhikr-session-scenes" data-session-scenes hidden role="radiogroup" aria-label="Background scene">
-				<?php foreach ( $la_scenes as $i => $s ) : ?>
-					<button type="button"
-						class="la-dhikr-session-scene <?php echo $i === 0 ? 'is-selected' : ''; ?>"
-						role="radio"
-						aria-checked="<?php echo $i === 0 ? 'true' : 'false'; ?>"
-						data-session-scene="<?php echo esc_attr( $s['key'] ); ?>"
-						data-session-scene-video="<?php echo esc_attr( $s['video'] ?? '' ); ?>"
-						data-session-scene-emoji="<?php echo esc_attr( $s['emoji'] ); ?>"
-						title="<?php echo esc_attr( $s['label'] . ' — ' . $s['desc'] ); ?>">
-						<span class="la-dhikr-session-scene-emoji" aria-hidden="true"><?php echo $s['emoji']; ?></span>
-						<span class="la-dhikr-session-scene-label"><?php echo esc_html( $s['label'] ); ?></span>
+		<!-- Scene library — slides up from the bottom when the chip is
+		     tapped. Vertical scroll. Each genre has its own section
+		     header so users see at a glance what's silent vs musical
+		     vs Islamic. -->
+		<div class="la-dhikr-scene-library" data-scene-library hidden role="dialog" aria-modal="true" aria-label="Background scenes">
+			<button type="button" class="la-dhikr-scene-library-scrim" data-scenes-close aria-label="Close"></button>
+			<div class="la-dhikr-scene-library-panel">
+				<div class="la-dhikr-scene-library-handle" aria-hidden="true"></div>
+				<header class="la-dhikr-scene-library-head">
+					<h3>Choose a scene</h3>
+					<button type="button" class="la-dhikr-scene-library-x" data-scenes-close aria-label="Close">
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 					</button>
-				<?php endforeach; ?>
+				</header>
+				<div class="la-dhikr-scene-library-body" data-scene-list-session role="radiogroup" aria-label="Background scene">
+					<?php
+					// Render scenes grouped by genre. First scene (Stillness)
+					// is the initial default — JS replaces this if the user
+					// previously picked something else on the landing.
+					$grouped = [ 'silent' => [], 'music' => [], 'islamic' => [] ];
+					foreach ( $la_scenes as $s ) {
+						$g = $s['genre'] ?? 'silent';
+						$grouped[ $g ][] = $s;
+					}
+					$first_key = $la_scenes[0]['key'] ?? 'none';
+					foreach ( [ 'silent', 'music', 'islamic' ] as $g ) :
+						if ( empty( $grouped[ $g ] ) ) continue;
+						$meta = $la_scene_genres[ $g ] ?? [];
+					?>
+						<section class="la-dhikr-scene-library-section">
+							<header class="la-dhikr-scene-library-section-head">
+								<div class="la-dhikr-scene-library-section-title"><?php echo esc_html( $meta['label'] ?? '' ); ?></div>
+								<div class="la-dhikr-scene-library-section-sub"><?php echo esc_html( $meta['sub'] ?? '' ); ?></div>
+							</header>
+							<?php foreach ( $grouped[ $g ] as $s ) :
+								$is_first = ( $s['key'] === $first_key );
+							?>
+								<button type="button"
+									class="la-dhikr-scene-library-item <?php echo $is_first ? 'is-selected' : ''; ?>"
+									role="radio"
+									aria-checked="<?php echo $is_first ? 'true' : 'false'; ?>"
+									data-session-scene="<?php echo esc_attr( $s['key'] ); ?>"
+									data-session-scene-video="<?php echo esc_attr( $s['video'] ?? '' ); ?>"
+									data-session-scene-emoji="<?php echo esc_attr( $s['emoji'] ); ?>"
+									data-session-scene-genre="<?php echo esc_attr( $s['genre'] ?? '' ); ?>">
+									<span class="la-dhikr-scene-library-item-emoji" aria-hidden="true"><?php echo $s['emoji']; ?></span>
+									<span class="la-dhikr-scene-library-item-text">
+										<span class="la-dhikr-scene-library-item-label"><?php echo esc_html( $s['label'] ); ?></span>
+										<span class="la-dhikr-scene-library-item-desc"><?php echo esc_html( $s['desc'] ); ?></span>
+									</span>
+									<span class="la-dhikr-scene-library-item-check" aria-hidden="true">
+										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+									</span>
+								</button>
+							<?php endforeach; ?>
+						</section>
+					<?php endforeach; ?>
+				</div>
 			</div>
 		</div>
 	</section>

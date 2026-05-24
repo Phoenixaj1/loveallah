@@ -1866,16 +1866,17 @@
 		// Apply on first paint
 		applyScene(selected.scene);
 
-		// ─── Wave 60: in-session scene switcher + audio toggle ───────
-		// Bottom-left floating control on the session screen. The scene
-		// chip opens a strip of all available scenes; tap one to swap
-		// the background video without ending the session. The speaker
-		// chip mutes/unmutes the ambient audio (state persists).
+		// ─── Wave 60/61: in-session scene library + audio toggle ─────
+		// "Scenes" chip opens a bottom-sheet library (data-scene-library)
+		// with all scenes grouped by genre: Without music · Ambient music ·
+		// Islamic music. Users scroll the list and tap to switch scenes
+		// mid-session. Audio toggle mutes/unmutes ambient — pref persists.
 		const sessionControls = root.querySelector('[data-session-controls]');
 		const toggleScenesBtn = sessionControls?.querySelector('[data-toggle-scenes]');
 		const toggleAudioBtn  = sessionControls?.querySelector('[data-toggle-audio]');
-		const sessionScenes   = sessionControls?.querySelector('[data-session-scenes]');
 		const currentEmojiEl  = sessionControls?.querySelector('[data-current-scene-emoji]');
+		const sceneLibrary    = root.querySelector('[data-scene-library]');
+		const sceneListSession = root.querySelector('[data-scene-list-session]');
 		// Pull initial mute state from localStorage so the user's last
 		// choice carries between sessions.
 		let audioOn = localStorage.getItem('la_dhikr_audio') !== 'off';
@@ -1885,7 +1886,6 @@
 			toggleAudioBtn.classList.toggle('is-on', audioOn);
 			toggleAudioBtn.classList.toggle('is-off', !audioOn);
 			toggleAudioBtn.setAttribute('aria-pressed', audioOn ? 'true' : 'false');
-			// bgYtPlayer is defined later in the same IIFE — null-safe.
 			if (typeof bgYtPlayer !== 'undefined' && bgYtPlayer) {
 				try {
 					if (audioOn) { bgYtPlayer.unMute?.(); bgYtPlayer.setVolume?.(30); }
@@ -1896,25 +1896,47 @@
 
 		function refreshSessionSceneEmoji(sceneKey) {
 			if (!currentEmojiEl) return;
-			const chip = sessionScenes?.querySelector(`[data-session-scene="${sceneKey}"]`);
-			if (chip) currentEmojiEl.textContent = chip.getAttribute('data-session-scene-emoji') || '✨';
+			const chip = sceneListSession?.querySelector(`[data-session-scene="${sceneKey}"]`);
+			if (chip) currentEmojiEl.textContent = chip.getAttribute('data-session-scene-emoji') || '🌑';
 		}
 
-		// Initial render — pick up the landing's selected scene
+		function openSceneLibrary() {
+			if (!sceneLibrary) return;
+			sceneLibrary.removeAttribute('hidden');
+			toggleScenesBtn?.setAttribute('aria-expanded', 'true');
+			document.body.classList.add('la-dhikr-library-open');
+			// Scroll the currently-selected scene into view
+			const sel = sceneListSession?.querySelector('.is-selected');
+			if (sel) setTimeout(() => sel.scrollIntoView({ block: 'center', behavior: 'instant' }), 50);
+		}
+		function closeSceneLibrary() {
+			if (!sceneLibrary) return;
+			sceneLibrary.setAttribute('hidden', '');
+			toggleScenesBtn?.setAttribute('aria-expanded', 'false');
+			document.body.classList.remove('la-dhikr-library-open');
+		}
+
+		// Initial: sync the library's selected state with the landing pick
 		refreshSessionSceneEmoji(selected.scene);
-		// Sync session scene radios with the landing's choice
-		sessionScenes?.querySelectorAll('[data-session-scene]').forEach((b) => {
+		sceneListSession?.querySelectorAll('[data-session-scene]').forEach((b) => {
 			const isSel = b.getAttribute('data-session-scene') === selected.scene;
 			b.classList.toggle('is-selected', isSel);
 			b.setAttribute('aria-checked', isSel ? 'true' : 'false');
 		});
 
 		toggleScenesBtn?.addEventListener('click', () => {
-			if (!sessionScenes) return;
-			const hidden = sessionScenes.hasAttribute('hidden');
-			if (hidden) sessionScenes.removeAttribute('hidden');
-			else        sessionScenes.setAttribute('hidden', '');
-			toggleScenesBtn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+			const isOpen = sceneLibrary && !sceneLibrary.hasAttribute('hidden');
+			if (isOpen) closeSceneLibrary();
+			else        openSceneLibrary();
+		});
+		// Close button(s) inside the library (scrim + X)
+		sceneLibrary?.querySelectorAll('[data-scenes-close]').forEach((el) => {
+			el.addEventListener('click', closeSceneLibrary);
+		});
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape' && sceneLibrary && !sceneLibrary.hasAttribute('hidden')) {
+				closeSceneLibrary();
+			}
 		});
 
 		toggleAudioBtn?.addEventListener('click', () => {
@@ -1923,28 +1945,26 @@
 			refreshSessionAudio();
 		});
 
-		sessionScenes?.querySelectorAll('[data-session-scene]').forEach((btn) => {
+		sceneListSession?.querySelectorAll('[data-session-scene]').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				const newScene = btn.getAttribute('data-session-scene');
-				if (!newScene || newScene === selected.scene) return;
-				selected.scene = newScene;
-				persistPrefs();
-				// Update radio state
-				sessionScenes.querySelectorAll('[data-session-scene]').forEach((b) => {
-					const isSel = b === btn;
-					b.classList.toggle('is-selected', isSel);
-					b.setAttribute('aria-checked', isSel ? 'true' : 'false');
-				});
-				refreshSessionSceneEmoji(newScene);
-				applyScene(newScene);
-				loadBackgroundVideo(newScene);
-				// Apply current audio preference to the new iframe (slight
-				// delay since the player needs to be ready)
-				setTimeout(refreshSessionAudio, 1500);
-				// Auto-collapse the picker after a choice — keeps the
-				// session UI minimal
-				sessionScenes.setAttribute('hidden', '');
-				toggleScenesBtn?.setAttribute('aria-expanded', 'false');
+				if (!newScene) return;
+				if (newScene !== selected.scene) {
+					selected.scene = newScene;
+					persistPrefs();
+					sceneListSession.querySelectorAll('[data-session-scene]').forEach((b) => {
+						const isSel = b === btn;
+						b.classList.toggle('is-selected', isSel);
+						b.setAttribute('aria-checked', isSel ? 'true' : 'false');
+					});
+					refreshSessionSceneEmoji(newScene);
+					applyScene(newScene);
+					loadBackgroundVideo(newScene);
+					setTimeout(refreshSessionAudio, 1500);
+				}
+				// Stay open so the user can audition another scene if
+				// they don't like this one. They close via X / scrim /
+				// the Scenes chip itself.
 			});
 		});
 
