@@ -3201,3 +3201,211 @@
 	});
 })();
 
+// ============================================================
+// WAVE 56 — Masjid list: GPS, favourites, expand cards
+// The page renders an SSR list first (so it's never blank). On
+// load we ask for GPS; once we have coords, fetch /masjids/nearby
+// and replace the list with a distance-sorted version. Favourites
+// always pin to the top.
+// ============================================================
+(function initMasjidList() {
+	const root = document.querySelector('[data-masjid-list]');
+	if (!root) return;
+
+	const apiRoot   = (window.LA && LA.apiRoot)   || '/wp-json/loveallah/v1/';
+	const nonce     = (window.LA && LA.nonce)     || '';
+	const favSect   = root.querySelector('[data-favourites-section]');
+	const favList   = root.querySelector('[data-favourites-list]');
+	const nearList  = root.querySelector('[data-nearby-list]');
+	const loadingEl = root.querySelector('[data-list-loading]');
+	const emptyEl   = root.querySelector('[data-list-empty]');
+	const subEl     = root.querySelector('[data-list-sub]');
+	const headingEl = root.querySelector('[data-nearby-heading]');
+	const gpsBtn    = root.querySelector('[data-gps-button]');
+
+	// Delegate clicks on cards: expand/collapse, favourite toggle.
+	root.addEventListener('click', (e) => {
+		const favBtn = e.target.closest('[data-fav-btn]');
+		if (favBtn) {
+			e.preventDefault();
+			e.stopPropagation();
+			const card = favBtn.closest('[data-masjid-card]');
+			if (card) toggleFavourite(card);
+			return;
+		}
+		const toggle = e.target.closest('[data-card-toggle]');
+		if (toggle) {
+			const card = toggle.closest('[data-masjid-card]');
+			if (card) toggleExpand(card);
+		}
+	});
+
+	function toggleExpand(card) {
+		const body = card.querySelector('[data-card-body]');
+		const head = card.querySelector('[data-card-toggle]');
+		if (!body) return;
+		const isOpen = !body.hasAttribute('hidden');
+		if (isOpen) {
+			body.setAttribute('hidden', '');
+			head.setAttribute('aria-expanded', 'false');
+			card.classList.remove('is-expanded');
+		} else {
+			body.removeAttribute('hidden');
+			head.setAttribute('aria-expanded', 'true');
+			card.classList.add('is-expanded');
+		}
+	}
+
+	function toggleFavourite(card) {
+		const slug = card.dataset.mosqueSlug;
+		if (!slug) return;
+		const wasFav = card.classList.contains('is-favourite');
+		const action = wasFav ? 'remove' : 'add';
+
+		// Optimistic UI update
+		card.classList.toggle('is-favourite', !wasFav);
+		const star = card.querySelector('[data-fav-btn]');
+		if (star) {
+			star.classList.toggle('is-on', !wasFav);
+			star.setAttribute('aria-pressed', (!wasFav).toString());
+			const svgPoly = star.querySelector('polygon');
+			if (svgPoly) svgPoly.setAttribute('fill', !wasFav ? 'currentColor' : 'none');
+		}
+
+		fetch(apiRoot + 'masjids/favourite', {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+			body: JSON.stringify({ slug, action })
+		})
+			.then(r => r.json())
+			.then(() => repositionCard(card, !wasFav))
+			.catch(() => {
+				// Revert on failure
+				card.classList.toggle('is-favourite', wasFav);
+				if (star) {
+					star.classList.toggle('is-on', wasFav);
+					star.setAttribute('aria-pressed', wasFav.toString());
+				}
+			});
+	}
+
+	function repositionCard(card, becameFavourite) {
+		if (becameFavourite) {
+			favList.appendChild(card);
+			favSect.removeAttribute('hidden');
+		} else {
+			nearList.insertBefore(card, nearList.firstChild);
+			if (!favList.children.length) favSect.setAttribute('hidden', '');
+		}
+	}
+
+	function renderCard(m) {
+		// Compact client-side card builder — mirrors la_masjid_card_html()
+		// in PHP but only for cards added/replaced post-GPS. Keeps the
+		// favourite-toggle delegation, expand toggle, etc working without
+		// a server round-trip.
+		const isFav = !!m.is_favourite;
+		const distLabel = (m.distance_mi != null) ? `${m.distance_mi} mi` :
+		                  (m.distance_km != null) ? `${m.distance_km} km` : '—';
+		const next = m.next || {};
+		const nextLine = next.name && next.jamaat
+			? `<div class="la-masjid-card-next">
+			      <span class="la-masjid-card-next-name">${escapeHtml(next.name)}</span>
+			      <span class="la-masjid-card-next-jamaat">${escapeHtml(next.jamaat)} jamaat</span>
+			      ${next.begin && next.begin !== next.jamaat ? `<span class="la-masjid-card-next-begin">· begins ${escapeHtml(next.begin)}</span>` : ''}
+			   </div>`
+			: '';
+		const brandStyle = m.brand_colour ? ` style="--masjid-brand: ${escapeHtml(m.brand_colour)};"` : '';
+		const wrap = document.createElement('div');
+		wrap.innerHTML = `
+			<article class="la-masjid-card${isFav ? ' is-favourite' : ''}"
+				data-masjid-card
+				data-mosque-id="${m.id}"
+				data-mosque-slug="${escapeHtml(m.slug)}"${brandStyle}>
+				<button type="button" class="la-masjid-card-head" data-card-toggle aria-expanded="false">
+					<div class="la-masjid-card-glyph" aria-hidden="true">🕌</div>
+					<div class="la-masjid-card-main">
+						<h3 class="la-masjid-card-name">${escapeHtml(m.name)}</h3>
+						<div class="la-masjid-card-meta">
+							<span class="la-masjid-card-dist" data-card-dist>${distLabel}</span>
+							<span class="la-masjid-card-addr">${escapeHtml(m.address || m.city || '')}</span>
+						</div>
+						${nextLine}
+					</div>
+					<span class="la-masjid-card-fav ${isFav ? 'is-on' : ''}"
+						data-fav-btn
+						role="button"
+						aria-label="${isFav ? 'Remove favourite' : 'Favourite this masjid'}"
+						aria-pressed="${isFav}">
+						<svg width="22" height="22" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+					</span>
+				</button>
+				<div class="la-masjid-card-body" data-card-body hidden></div>
+			</article>`;
+		return wrap.firstElementChild;
+	}
+
+	function escapeHtml(s) {
+		return String(s == null ? '' : s)
+			.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+	}
+
+	function fetchNearby(lat, lng) {
+		if (loadingEl) loadingEl.removeAttribute('hidden');
+		const url = lat && lng
+			? `${apiRoot}masjids/nearby?lat=${lat}&lng=${lng}&limit=20`
+			: `${apiRoot}masjids/nearby?limit=20`;
+		return fetch(url, { credentials: 'include' })
+			.then(r => r.json())
+			.then((data) => {
+				if (loadingEl) loadingEl.setAttribute('hidden', '');
+				const list = (data && data.masjids) || [];
+				if (!list.length) {
+					if (emptyEl) emptyEl.removeAttribute('hidden');
+					return;
+				}
+				if (emptyEl) emptyEl.setAttribute('hidden', '');
+
+				// Split into favourites + nearby; rebuild both lists.
+				favList.innerHTML  = '';
+				nearList.innerHTML = '';
+				const haveDistance = list.some(m => m.distance_mi != null);
+				list.forEach((m) => {
+					const card = renderCard(m);
+					if (m.is_favourite) favList.appendChild(card);
+					else                nearList.appendChild(card);
+				});
+				if (favList.children.length) favSect.removeAttribute('hidden');
+				else                         favSect.setAttribute('hidden', '');
+				if (headingEl && haveDistance) headingEl.textContent = 'Nearest to you';
+			})
+			.catch(() => {
+				if (loadingEl) loadingEl.setAttribute('hidden', '');
+			});
+	}
+
+	function requestGps() {
+		if (!navigator.geolocation) { fetchNearby(null, null); return; }
+		if (loadingEl) loadingEl.removeAttribute('hidden');
+		if (subEl) subEl.textContent = 'Finding masjids near you…';
+		navigator.geolocation.getCurrentPosition(
+			(pos) => {
+				if (subEl) subEl.textContent = 'Tap the star to favourite — your chosen masjids pin to the top.';
+				fetchNearby(pos.coords.latitude, pos.coords.longitude);
+			},
+			() => {
+				// GPS denied — keep SSR list, offer button to retry
+				if (subEl) subEl.textContent = 'Showing all masjids. Share your location to sort by distance.';
+				if (gpsBtn) gpsBtn.removeAttribute('hidden');
+				if (loadingEl) loadingEl.setAttribute('hidden', '');
+			},
+			{ enableHighAccuracy: true, timeout: 10000, maximumAge: 5 * 60 * 1000 }
+		);
+	}
+
+	if (gpsBtn) gpsBtn.addEventListener('click', requestGps);
+	requestGps();
+})();
+

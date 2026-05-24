@@ -6284,3 +6284,340 @@ body.is-dhikr-active .la-header {
 }
 @keyframes la-feed-pull-spin { to { transform: rotate(360deg); } }
 
+/* ============================================================
+   WAVE 56 — Masjid list (GPS-driven local masjids)
+   ============================================================ */
+.la-app--masjid-list {
+	padding: 14px 14px calc(var(--la-tabbar-h, 64px) + 24px + var(--la-safe-bottom, 0px));
+	max-width: 640px;
+	margin: 0 auto;
+}
+.la-masjid-list-head {
+	margin: 4px 4px 18px;
+	display: flex; flex-direction: column; gap: 4px;
+}
+.la-masjid-list-eyebrow {
+	font-size: 10px; font-weight: 700;
+	letter-spacing: 0.18em; text-transform: uppercase;
+	color: var(--la-ink-faint, #94a3b8);
+}
+.la-masjid-list-title {
+	font-size: 26px; font-weight: 800;
+	letter-spacing: -0.02em;
+	color: var(--la-ink-dark);
+	margin: 2px 0 0;
+}
+.la-masjid-list-sub {
+	font-size: 13px; color: var(--la-ink-mid, #475569);
+	margin: 4px 0 0; line-height: 1.4;
+}
+.la-masjid-list-gps {
+	align-self: flex-start;
+	margin-top: 10px;
+	display: inline-flex; align-items: center; gap: 6px;
+	padding: 7px 14px 7px 11px;
+	background: var(--la-bg-soft);
+	border: 1px solid rgba(0,0,0,0.08);
+	border-radius: 999px;
+	font-family: inherit;
+	font-size: 12px; font-weight: 700;
+	color: var(--la-ink-dark);
+	cursor: pointer;
+}
+.la-masjid-list-gps:active { transform: scale(0.97); }
+
+.la-masjid-list-section {
+	margin: 0 0 22px;
+}
+.la-masjid-list-section[hidden] { display: none; }
+.la-masjid-list-section-head {
+	display: flex; align-items: center; gap: 8px;
+	margin: 0 4px 10px;
+}
+.la-masjid-list-section-head h2 {
+	font-size: 12px; font-weight: 800;
+	letter-spacing: 0.12em; text-transform: uppercase;
+	color: var(--la-ink-mid, #475569);
+	margin: 0;
+}
+.la-masjid-list-section-icon {
+	font-size: 14px; line-height: 1;
+	color: var(--la-ink-mid, #475569);
+	display: inline-flex; align-items: center;
+}
+
+.la-masjid-list-cards {
+	display: flex; flex-direction: column;
+	gap: 10px;
+}
+
+.la-masjid-list-loading {
+	display: flex; align-items: center; justify-content: center;
+	gap: 10px;
+	padding: 24px 16px;
+	color: var(--la-ink-mid, #475569);
+	font-size: 13px;
+}
+.la-masjid-list-spinner {
+	width: 18px; height: 18px;
+	border: 2px solid rgba(0,0,0,0.08);
+	border-top-color: var(--la-primary);
+	border-radius: 50%;
+	animation: la-masjid-spin 0.8s linear infinite;
+}
+@keyframes la-masjid-spin { to { transform: rotate(360deg); } }
+
+.la-masjid-list-empty {
+	padding: 24px 16px;
+	text-align: center;
+	color: var(--la-ink-faint, #94a3b8);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.la-masjid-list-footnote {
+	margin: 24px 4px 0;
+	font-size: 11.5px;
+	color: var(--la-ink-faint, #94a3b8);
+	text-align: center;
+	line-height: 1.5;
+}
+.la-masjid-list-footnote a {
+	color: var(--la-primary);
+	text-decoration: none;
+	font-weight: 700;
+}
+
+/* ─── Individual card ─── */
+.la-masjid-card {
+	--masjid-brand: var(--la-primary);
+	background: #fff;
+	border: 1px solid rgba(0,0,0,0.07);
+	border-radius: 16px;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+	overflow: hidden;
+	transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+.la-masjid-card.is-favourite {
+	border-color: color-mix(in srgb, var(--masjid-brand) 35%, transparent);
+	box-shadow: 0 6px 20px color-mix(in srgb, var(--masjid-brand) 14%, transparent),
+	            0 0 0 1px color-mix(in srgb, var(--masjid-brand) 25%, transparent) inset;
+}
+.la-masjid-card.is-expanded {
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.la-masjid-card-head {
+	display: flex; align-items: flex-start; gap: 12px;
+	width: 100%;
+	padding: 14px 14px 14px 14px;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	text-align: left;
+	font-family: inherit;
+	color: inherit;
+}
+.la-masjid-card-glyph {
+	flex-shrink: 0;
+	width: 44px; height: 44px;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 22px;
+	background: color-mix(in srgb, var(--masjid-brand) 12%, transparent);
+	border-radius: 12px;
+	margin-top: 2px;
+}
+.la-masjid-card-main {
+	flex: 1; min-width: 0;
+	display: flex; flex-direction: column; gap: 2px;
+}
+.la-masjid-card-name {
+	font-size: 15.5px; font-weight: 800;
+	letter-spacing: -0.01em;
+	color: var(--la-ink-dark);
+	margin: 0;
+	line-height: 1.25;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.la-masjid-card-meta {
+	display: flex; align-items: center; gap: 8px;
+	font-size: 11.5px;
+	color: var(--la-ink-faint, #94a3b8);
+	font-weight: 500;
+	overflow: hidden;
+	margin-top: 2px;
+}
+.la-masjid-card-dist {
+	display: inline-flex; align-items: center;
+	font-weight: 700;
+	color: var(--masjid-brand);
+	font-variant-numeric: tabular-nums;
+	flex-shrink: 0;
+}
+.la-masjid-card-addr {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.la-masjid-card-next {
+	display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px;
+	margin-top: 6px;
+	font-size: 12px;
+	color: var(--la-ink-mid, #475569);
+	font-variant-numeric: tabular-nums;
+}
+.la-masjid-card-next-name {
+	font-weight: 800;
+	color: var(--la-ink-dark);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	font-size: 10px;
+}
+.la-masjid-card-next-jamaat {
+	font-weight: 700;
+	color: var(--masjid-brand);
+}
+.la-masjid-card-next-begin {
+	font-size: 11px;
+	color: var(--la-ink-faint, #94a3b8);
+}
+
+.la-masjid-card-fav {
+	flex-shrink: 0;
+	width: 40px; height: 40px;
+	display: flex; align-items: center; justify-content: center;
+	border-radius: 50%;
+	color: var(--la-ink-faint, #cbd5e1);
+	background: transparent;
+	cursor: pointer;
+	transition: color 0.18s ease, background 0.18s ease, transform 0.18s var(--la-spring, ease);
+	margin-top: 2px;
+}
+.la-masjid-card-fav.is-on {
+	color: #fbbf24;
+}
+.la-masjid-card-fav:active { transform: scale(0.88); }
+.la-masjid-card-fav:hover {
+	background: rgba(251, 191, 36, 0.08);
+	color: #fbbf24;
+}
+
+/* ─── Expanded body ─── */
+.la-masjid-card-body {
+	padding: 0 14px 14px 14px;
+	border-top: 1px solid rgba(0,0,0,0.05);
+	margin-top: -2px;
+	padding-top: 14px;
+	display: flex; flex-direction: column; gap: 12px;
+}
+.la-masjid-card-body[hidden] { display: none; }
+
+.la-masjid-card-prayers {
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
+	gap: 4px;
+}
+.la-masjid-card-prayer {
+	display: flex; flex-direction: column; align-items: center;
+	gap: 1px;
+	padding: 7px 2px;
+	border-radius: 9px;
+	background: var(--la-bg-soft);
+	font-variant-numeric: tabular-nums;
+}
+.la-masjid-card-prayer.is-next {
+	background: var(--masjid-brand);
+	color: #fff;
+}
+.la-masjid-card-prayer-name {
+	font-size: 8px; font-weight: 800;
+	letter-spacing: 0.08em; text-transform: uppercase;
+	color: var(--la-ink-faint, #94a3b8);
+}
+.la-masjid-card-prayer.is-next .la-masjid-card-prayer-name { color: rgba(255,255,255,0.85); }
+.la-masjid-card-prayer-begin {
+	font-size: 12px; font-weight: 800;
+	color: var(--la-ink-dark);
+}
+.la-masjid-card-prayer.is-next .la-masjid-card-prayer-begin { color: #fff; }
+.la-masjid-card-prayer-jamaat {
+	font-size: 10px; font-weight: 700;
+	color: var(--masjid-brand);
+}
+.la-masjid-card-prayer.is-next .la-masjid-card-prayer-jamaat { color: rgba(255,255,255,0.92); }
+
+.la-masjid-card-jumuah {
+	display: flex; align-items: center; gap: 8px;
+	padding: 10px 14px;
+	background: color-mix(in srgb, var(--masjid-brand) 8%, transparent);
+	border-radius: 12px;
+	font-size: 13px;
+}
+.la-masjid-card-jumuah-icon { font-size: 16px; }
+.la-masjid-card-jumuah-label {
+	font-weight: 800; letter-spacing: -0.01em;
+	color: var(--la-ink-dark);
+}
+.la-masjid-card-jumuah-time {
+	font-weight: 800;
+	color: var(--masjid-brand);
+	font-variant-numeric: tabular-nums;
+}
+.la-masjid-card-jumuah-lang {
+	margin-left: auto;
+	font-size: 11px;
+	color: var(--la-ink-faint, #94a3b8);
+	font-weight: 600;
+}
+
+.la-masjid-card-events {
+	display: flex; flex-direction: column; gap: 8px;
+}
+.la-masjid-card-events-head {
+	font-size: 10px; font-weight: 800;
+	letter-spacing: 0.10em; text-transform: uppercase;
+	color: var(--la-ink-faint, #94a3b8);
+}
+.la-masjid-card-event {
+	display: flex; align-items: center; gap: 10px;
+	padding: 8px 10px;
+	background: var(--la-bg-soft);
+	border-radius: 10px;
+}
+.la-masjid-card-event-date {
+	flex-shrink: 0;
+	width: 40px; height: 40px;
+	display: flex; flex-direction: column; align-items: center; justify-content: center;
+	background: #fff;
+	border: 1px solid rgba(0,0,0,0.06);
+	border-radius: 8px;
+}
+.la-masjid-card-event-day {
+	font-size: 15px; font-weight: 800; line-height: 1;
+	color: var(--la-ink-dark);
+}
+.la-masjid-card-event-month {
+	font-size: 8px; font-weight: 800;
+	letter-spacing: 0.08em;
+	color: var(--la-ink-faint, #94a3b8);
+}
+.la-masjid-card-event-meta { flex: 1; min-width: 0; }
+.la-masjid-card-event-title {
+	font-size: 13px; font-weight: 700;
+	color: var(--la-ink-dark);
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.la-masjid-card-event-when {
+	font-size: 11px;
+	color: var(--la-ink-faint, #94a3b8);
+}
+
+@media (max-width: 380px) {
+	.la-masjid-card-glyph { width: 38px; height: 38px; font-size: 19px; }
+	.la-masjid-card-name { font-size: 14.5px; }
+	.la-masjid-card-prayer-begin { font-size: 11px; }
+	.la-masjid-card-prayer-jamaat { font-size: 9px; }
+}
+

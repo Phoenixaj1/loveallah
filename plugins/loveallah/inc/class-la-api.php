@@ -153,6 +153,23 @@ class LA_API {
 			'permission_callback' => '__return_true',
 		] );
 
+		// Wave 56: full nearby payload — masjid + jamaat times + favourite
+		// flag — for the rebuilt masjid tab. Separate from /nearest (which
+		// is the minimal header dropdown) so the heavier query doesn't
+		// run on every header render.
+		register_rest_route( self::NS, '/masjids/nearby', [
+			'methods'  => 'GET',
+			'callback' => [ __CLASS__, 'masjids_nearby' ],
+			'permission_callback' => '__return_true',
+		] );
+
+		// Toggle a masjid as favourite for the current identity.
+		register_rest_route( self::NS, '/masjids/favourite', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'masjids_favourite' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+		] );
+
 		// Geo prayer times — visitor's own location, computed locally
 		// (Aladhan is firewalled from Cloudways).
 		register_rest_route( self::NS, '/prayer-times', [
@@ -399,6 +416,127 @@ class LA_API {
 				'distance_km' => round( (float) $m->distance_km, 1 ),
 			];
 		}, $rows ) ];
+	}
+
+	/**
+	 * Wave 56: full nearby masjids list for the rebuilt masjid tab.
+	 *
+	 * GET /loveallah/v1/masjids/nearby?lat=X&lng=Y&limit=20
+	 *
+	 * If lat/lng omitted, falls back to listing all mosques by name —
+	 * gives a working response even when GPS is denied (offline / IP
+	 * geo fallback is the next layer up, handled by the client).
+	 *
+	 * Each row includes the masjid's next-prayer (with jamaat time
+	 * if configured) and whether the current identity has favourited
+	 * it. Cap at 30 results.
+	 */
+	public static function masjids_nearby( WP_REST_Request $req ) {
+		global $wpdb;
+		$t = LA_DB::tables();
+
+		$lat   = (float) $req->get_param( 'lat' );
+		$lng   = (float) $req->get_param( 'lng' );
+		$limit = (int)   $req->get_param( 'limit' );
+		if ( $limit <= 0 || $limit > 30 ) $limit = 20;
+
+		if ( $lat && $lng ) {
+			$rows = LA_Mosques::nearest( $lat, $lng, $limit );
+		} else {
+			$rows = $wpdb->get_results( $wpdb->prepare(
+				"SELECT * FROM {$t['mosques']} ORDER BY name ASC LIMIT %d",
+				$limit
+			) );
+			foreach ( $rows as $r ) { $r->distance_km = null; }
+		}
+
+		$identity = self::identity_str( $req );
+		$fav_ids  = [];
+		if ( $identity ) {
+			$fav_ids = $wpdb->get_col( $wpdb->prepare(
+				"SELECT mosque_id FROM {$t['masjid_favourites']} WHERE identity = %s",
+				$identity
+			) );
+			$fav_ids = array_map( 'intval', $fav_ids );
+		}
+
+		$out = [];
+		foreach ( $rows as $m ) {
+			$timings = LA_Prayer_Times::for_mosque( $m );
+			$jamaat  = LA_Prayer_Times::apply_jamaat_offsets( $timings, $m );
+			$next    = LA_Prayer_Times::next_prayer( $timings );
+			$next_name = $next['name'] ?? '';
+			$out[] = [
+				'id'           => (int) $m->id,
+				'slug'         => $m->slug,
+				'name'         => $m->name,
+				'address'      => trim( ( $m->address ?? '' ) . ( ! empty( $m->city ) ? ', ' . $m->city : '' ), ', ' ),
+				'city'         => $m->city,
+				'distance_km'  => isset( $m->distance_km ) ? round( (float) $m->distance_km, 1 ) : null,
+				'distance_mi'  => isset( $m->distance_km ) ? round( ( (float) $m->distance_km ) * 0.621371, 1 ) : null,
+				'brand_colour' => $m->branding_color_primary ?? null,
+				'jumuah'       => $m->jumuah_time ? substr( $m->jumuah_time, 0, 5 ) : null,
+				'jumuah_lang'  => $m->jumuah_khutbah_lang ?? null,
+				'next'         => [
+					'name'   => $next_name,
+					'begin'  => $next_name && isset( $timings[ $next_name ] ) ? $timings[ $next_name ] : null,
+					'jamaat' => $next_name && isset( $jamaat[  $next_name ] ) ? $jamaat[  $next_name ] : null,
+				],
+				'is_favourite' => in_array( (int) $m->id, $fav_ids, true ),
+			];
+		}
+
+		// Favourites pinned to top (preserving distance order within each group)
+		usort( $out, function( $a, $b ) {
+			if ( $a['is_favourite'] !== $b['is_favourite'] ) return $b['is_favourite'] - $a['is_favourite'];
+			$ad = $a['distance_km'] ?? PHP_INT_MAX;
+			$bd = $b['distance_km'] ?? PHP_INT_MAX;
+			return $ad <=> $bd;
+		} );
+
+		return [ 'masjids' => $out ];
+	}
+
+	/**
+	 * Toggle a masjid favourite for the current identity.
+	 *
+	 * POST /loveallah/v1/masjids/favourite { slug, action: "add"|"remove" }
+	 *
+	 * Returns the new state so the client can update its UI without a
+	 * follow-up GET.
+	 */
+	public static function masjids_favourite( WP_REST_Request $req ) {
+		$identity = self::identity_str( $req );
+		if ( ! $identity ) {
+			return new WP_Error( 'no_identity', 'No identity (cookie/login required)', [ 'status' => 401 ] );
+		}
+		$slug   = sanitize_title( (string) $req->get_param( 'slug' ) );
+		$action = (string) $req->get_param( 'action' );
+		if ( ! $slug ) {
+			return new WP_Error( 'bad_request', 'slug required', [ 'status' => 400 ] );
+		}
+		$m = LA_Mosques::get_by_slug( $slug );
+		if ( ! $m ) {
+			return new WP_Error( 'not_found', 'Mosque not found', [ 'status' => 404 ] );
+		}
+
+		global $wpdb;
+		$t = LA_DB::tables();
+
+		if ( $action === 'remove' ) {
+			$wpdb->delete( $t['masjid_favourites'], [
+				'identity'  => $identity,
+				'mosque_id' => (int) $m->id,
+			] );
+			return [ 'ok' => true, 'is_favourite' => false ];
+		}
+
+		// default: add (idempotent — unique key on identity+mosque)
+		$wpdb->query( $wpdb->prepare(
+			"INSERT IGNORE INTO {$t['masjid_favourites']} (identity, mosque_id) VALUES (%s, %d)",
+			$identity, (int) $m->id
+		) );
+		return [ 'ok' => true, 'is_favourite' => true ];
 	}
 
 	// ─── Prayer-log endpoints ───

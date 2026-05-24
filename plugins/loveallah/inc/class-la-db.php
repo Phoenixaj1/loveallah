@@ -31,6 +31,7 @@ class LA_DB {
 			'event_rsvps'       => $wpdb->prefix . 'la_event_rsvps',
 			'skill_listings'    => $wpdb->prefix . 'la_skill_listings',
 			'dhikr_videos'      => $wpdb->prefix . 'la_dhikr_videos',
+			'masjid_favourites' => $wpdb->prefix . 'la_masjid_favourites',
 		];
 	}
 
@@ -58,6 +59,7 @@ class LA_DB {
 			// (insert-or-update by unique key, or count-and-skip-if-exists)
 			// so re-running them on existing installs is safe.
 			self::seed_mosque();
+			self::seed_birmingham_masjids();
 			self::seed_scholars();
 			self::seed_duas();
 			self::seed_skill_listings();
@@ -403,6 +405,20 @@ class LA_DB {
 			UNIQUE KEY youtube_id (youtube_id),
 			KEY phrase (phrase)
 		) $charset_collate;" );
+
+		// Wave 56: user favourites — one row per (identity, mosque) pair.
+		// identity = "u{user_id}" if logged in, "s{session_id}" if anonymous.
+		// The masjid tab pins favourites at the top of the nearby list.
+		dbDelta( "CREATE TABLE {$t['masjid_favourites']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			identity varchar(100) NOT NULL,
+			mosque_id bigint(20) unsigned NOT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY identity_mosque (identity, mosque_id),
+			KEY identity (identity),
+			KEY mosque_id (mosque_id)
+		) $charset_collate;" );
 	}
 
 	public static function seed() {
@@ -666,6 +682,77 @@ class LA_DB {
 				'jamaat_offsets_json'        => wp_json_encode( $arrahma_jamaat ),
 				'prayer_compute_config_json' => wp_json_encode( $arrahma_compute ),
 			] );
+		}
+	}
+
+	/**
+	 * Wave 56: seed a handful of well-known Birmingham masjids so the
+	 * GPS-based local-masjids list isn't empty at launch. Each gets the
+	 * standard UK Hanafi jamaat defaults — individual masjids can override
+	 * later via admin/claim flow.
+	 *
+	 * Coordinates are approximate (from OS Maps / Google Maps). Idempotent:
+	 * checks slug uniqueness before insert.
+	 */
+	private static function seed_birmingham_masjids() {
+		global $wpdb;
+		$t = self::tables();
+
+		$default_jamaat = [
+			'Fajr'    => [ 'type' => 'offset', 'minutes' => 30 ],
+			'Dhuhr'   => [ 'type' => 'fixed',  'time'    => '13:30' ],
+			'Asr'     => [ 'type' => 'offset', 'minutes' => 15 ],
+			'Maghrib' => [ 'type' => 'offset', 'minutes' => 5 ],
+			'Isha'    => [ 'type' => 'offset', 'minutes' => 10 ],
+		];
+		$default_compute = [ 'asr_juristic' => 2, 'method' => 'ISNA' ];
+		$j = wp_json_encode( $default_jamaat );
+		$c = wp_json_encode( $default_compute );
+
+		$masjids = [
+			[ 'slug' => 'birmingham-central-mosque',         'name' => 'Birmingham Central Mosque',
+			  'address' => '180 Belgrave Middleway', 'city' => 'Birmingham', 'country' => 'United Kingdom',
+			  'latitude' => 52.4659, 'longitude' => -1.8908, 'jumuah_time' => '13:30:00', 'jumuah_khutbah_lang' => 'English/Urdu' ],
+
+			[ 'slug' => 'green-lane-masjid',                 'name' => 'Green Lane Masjid',
+			  'address' => '20 Green Lane', 'city' => 'Birmingham', 'country' => 'United Kingdom',
+			  'latitude' => 52.4793, 'longitude' => -1.8615, 'jumuah_time' => '13:30:00', 'jumuah_khutbah_lang' => 'English' ],
+
+			[ 'slug' => 'central-jamia-ghamkol-sharif',      'name' => 'Central Jamia Masjid Ghamkol Sharif',
+			  'address' => 'Golden Hillock Road', 'city' => 'Birmingham', 'country' => 'United Kingdom',
+			  'latitude' => 52.4612, 'longitude' => -1.8580, 'jumuah_time' => '13:30:00', 'jumuah_khutbah_lang' => 'Urdu' ],
+
+			[ 'slug' => 'masjid-hamza-lozells',              'name' => 'Masjid Hamza',
+			  'address' => 'Wills Street, Lozells', 'city' => 'Birmingham', 'country' => 'United Kingdom',
+			  'latitude' => 52.5024, 'longitude' => -1.9054, 'jumuah_time' => '13:30:00', 'jumuah_khutbah_lang' => 'English/Urdu' ],
+
+			[ 'slug' => 'suffah-ul-islam',                   'name' => 'Suffah ul-Islam',
+			  'address' => '79 Hagley Road', 'city' => 'Birmingham', 'country' => 'United Kingdom',
+			  'latitude' => 52.4778, 'longitude' => -1.9259, 'jumuah_time' => '13:30:00', 'jumuah_khutbah_lang' => 'English' ],
+
+			[ 'slug' => 'ghausia-jamia-masjid',              'name' => 'Ghausia Jamia Masjid',
+			  'address' => 'Bordesley Green East', 'city' => 'Birmingham', 'country' => 'United Kingdom',
+			  'latitude' => 52.4729, 'longitude' => -1.8463, 'jumuah_time' => '13:30:00', 'jumuah_khutbah_lang' => 'Urdu' ],
+
+			[ 'slug' => 'ukim-cambridge-mosque',             'name' => 'UKIM Birmingham (Cambridge Mosque)',
+			  'address' => 'Cambridge Road, Moseley', 'city' => 'Birmingham', 'country' => 'United Kingdom',
+			  'latitude' => 52.4380, 'longitude' => -1.8893, 'jumuah_time' => '13:30:00', 'jumuah_khutbah_lang' => 'English' ],
+
+			[ 'slug' => 'spring-hill-masjid',                'name' => 'Spring Hill Masjid',
+			  'address' => 'Spring Hill', 'city' => 'Birmingham', 'country' => 'United Kingdom',
+			  'latitude' => 52.4854, 'longitude' => -1.9165, 'jumuah_time' => '13:30:00', 'jumuah_khutbah_lang' => 'English/Urdu' ],
+		];
+
+		foreach ( $masjids as $m ) {
+			$exists = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t['mosques']} WHERE slug = %s",
+				$m['slug']
+			) );
+			if ( $exists ) continue;
+			$wpdb->insert( $t['mosques'], array_merge( $m, [
+				'jamaat_offsets_json'        => $j,
+				'prayer_compute_config_json' => $c,
+			] ) );
 		}
 	}
 
