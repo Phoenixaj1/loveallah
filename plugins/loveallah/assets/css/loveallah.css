@@ -6387,7 +6387,7 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	left: 50%; top: 40%;
 	z-index: 0;
 	width: 380px; height: 380px;
-	transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%) scale(1);
 	background-image: url('../img/pulse-heart-bg.jpg');
 	background-size: cover;
 	/* Anchor the heart's chambers (the "main part") at the visual
@@ -6401,16 +6401,25 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	   than cutting off at a rectangle edge. */
 	-webkit-mask-image: radial-gradient(circle at center, #000 0%, #000 32%, rgba(0,0,0,0.5) 55%, transparent 80%);
 	        mask-image: radial-gradient(circle at center, #000 0%, #000 32%, rgba(0,0,0,0.5) 55%, transparent 80%);
-	opacity: 0.95;
-	filter: saturate(1.05) brightness(0.90);
-	animation: la-pulse-bg-breathe 14s ease-in-out infinite;
+	/* Wave 63: darker so the white Arabic over the heart stays
+	   clearly legible. Brightness 0.55 + saturate 0.78 keeps the
+	   artwork visible as a presence behind the type, not competing
+	   with it for attention. */
+	opacity: 0.92;
+	filter: saturate(0.78) brightness(0.55) contrast(1.05);
+	transition: transform 0.18s ease-out;
+}
+.la-pulse-bg-image.is-beating {
+	animation: la-pulse-bg-beat var(--la-pulse-dur, 700ms) ease-out;
+}
+@keyframes la-pulse-bg-beat {
+	0%   { transform: translate(-50%, -50%) scale(1.00); filter: saturate(0.78) brightness(0.55) contrast(1.05); }
+	18%  { transform: translate(-50%, -50%) scale(1.06); filter: saturate(0.90) brightness(0.70) contrast(1.05); }
+	38%  { transform: translate(-50%, -50%) scale(1.03); }
+	100% { transform: translate(-50%, -50%) scale(1.00); filter: saturate(0.78) brightness(0.55) contrast(1.05); }
 }
 @media (max-width: 480px) {
 	.la-pulse-bg-image { width: 320px; height: 320px; }
-}
-@keyframes la-pulse-bg-breathe {
-	0%, 100% { transform: translate(-50%, -50%) scale(1.00); }
-	50%      { transform: translate(-50%, -50%) scale(1.05); }
 }
 /* Bottom HUD reading band (kept as a separate layer so we don't dim
    the centre — heart needs to stay luminous). */

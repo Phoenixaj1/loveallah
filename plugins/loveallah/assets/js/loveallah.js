@@ -2801,6 +2801,7 @@
 	const bpmDisplay    = root.querySelector('[data-pulse-bpm-display]');
 	const coreEl        = root.querySelector('[data-pulse-core]');
 	const ringEls       = root.querySelectorAll('[data-pulse-ring]');
+	const heartBgEl     = root.querySelector('.la-pulse-bg-image');
 	const holdBtn       = root.querySelector('[data-pulse-hold]');
 	const deepenBtn     = root.querySelector('[data-pulse-deepen]');
 	const endBtn        = root.querySelector('[data-pulse-end]');
@@ -2868,6 +2869,15 @@
 		void coreEl?.offsetWidth;
 		coreEl?.classList.add('is-beating');
 		coreEl?.style.setProperty('--la-pulse-dur', (60000 / currentBpm * 0.9) + 'ms');
+
+		// Wave 63: heart backdrop pulses in sync with the beat — the
+		// artwork looks like it's pumping with the pulse rings
+		if (heartBgEl) {
+			heartBgEl.classList.remove('is-beating');
+			void heartBgEl.offsetWidth;
+			heartBgEl.classList.add('is-beating');
+			heartBgEl.style.setProperty('--la-pulse-dur', (60000 / currentBpm * 0.9) + 'ms');
+		}
 
 		// Update displays
 		if (countDisplay) countDisplay.textContent = String(beatCount);
