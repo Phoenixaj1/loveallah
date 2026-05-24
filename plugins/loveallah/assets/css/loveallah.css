@@ -5448,13 +5448,16 @@ body.is-dhikr-active .la-header {
 @media (min-width: 720px) {
 	.la-app--witness { max-width: none; box-shadow: none; }
 }
+/* HUD: back arrow + running tally only. No target picker — we can't
+   predict what's being chanted in any given clip, so a target like
+   "0 of 33" makes no sense. Just a tally that grows. */
 .la-witness-hud {
 	position: fixed;
 	top: var(--la-header-h, 110px);
 	left: 50%;
 	transform: translateX(-50%);
 	display: flex; align-items: center; gap: 14px;
-	padding: 10px 14px;
+	padding: 10px 16px;
 	background: rgba(0,0,0,0.55);
 	-webkit-backdrop-filter: blur(16px);
 	backdrop-filter: blur(16px);
@@ -5473,30 +5476,68 @@ body.is-dhikr-active .la-header {
 	text-decoration: none;
 }
 .la-witness-back-link:hover { background: rgba(255,255,255,0.18); text-decoration: none; }
-.la-witness-hud-progress {
+.la-witness-hud-tally {
 	display: flex; align-items: baseline; gap: 6px;
 	font-variant-numeric: tabular-nums;
+	line-height: 1;
 }
 .la-witness-hud-count {
 	font-size: 26px; font-weight: 900;
 	color: #fff;
 	min-width: 1.5ch;
-	text-align: center;
+	text-align: right;
 }
-.la-witness-hud-target {
-	font-size: 13px; font-weight: 600;
+.la-witness-hud-label {
+	font-size: 11px; font-weight: 600;
 	color: rgba(255,255,255,0.7);
+	letter-spacing: 0.02em;
+	text-transform: lowercase;
 }
-.la-witness-target-pick {
-	background: rgba(255,255,255,0.10);
-	border: 1px solid rgba(255,255,255,0.16);
+
+/* Empty state — when no dhikr-typed content is yet in the pool.
+   Centred card pointing users at the other three modes. */
+.la-witness-empty {
+	flex: 1 1 0;
+	min-height: 0;
+	display: flex; align-items: center; justify-content: center;
+	padding: 40px 28px;
+	background: linear-gradient(180deg, #fff, #fafafa);
+}
+.la-witness-empty-inner { text-align: center; max-width: 380px; }
+.la-witness-empty-glyph {
+	font-size: 80px; line-height: 1;
+	color: rgba(237,28,108,0.18);
+	margin-bottom: 14px;
+}
+.la-witness-empty-title {
+	font-size: 22px; font-weight: 900; letter-spacing: -0.02em;
+	color: var(--la-ink-dark);
+	margin: 0 0 10px;
+}
+.la-witness-empty-body {
+	font-size: 14px; line-height: 1.6;
+	color: var(--la-ink-muted);
+	margin: 0 0 24px;
+}
+.la-witness-empty-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.la-witness-empty-btn {
+	display: inline-flex; align-items: center; justify-content: center;
+	padding: 10px 18px;
+	border-radius: 999px;
+	background: #fff;
+	color: var(--la-ink-dark);
+	border: 1.5px solid rgba(0,0,0,0.10);
+	font-size: 13px; font-weight: 800;
+	text-decoration: none;
+	transition: all 0.15s var(--la-easing);
+}
+.la-witness-empty-btn:hover { border-color: var(--la-primary); color: var(--la-primary); text-decoration: none; }
+.la-witness-empty-btn--primary {
+	background: var(--la-primary);
 	color: #fff;
-	border-radius: 10px;
-	padding: 5px 8px;
-	font-size: 13px; font-weight: 700;
-	cursor: pointer;
+	border-color: var(--la-primary);
 }
-.la-witness-target-pick option { color: #000; }
+.la-witness-empty-btn--primary:hover { background: var(--la-primary-deep, #c91460); color: #fff; }
 
 .la-witness-tap {
 	position: fixed;

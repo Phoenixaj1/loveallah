@@ -1,11 +1,17 @@
 <?php
 /**
- * Dhikr Witness — feed of dhikr content + tap-along counter.
+ * Dhikr Witness — feed of actual dhikr circles + chant-along counter.
  *
- * Reuses LA_Algorithm to pull `type=dhikr` posts (plus qari recitations
- * that include tahajjud / tasbeeh). Each card carries a big "+1" tap
- * button that increments a session counter — the user chants along
- * with the scholar on screen and taps each repetition.
+ * Filtered strictly to `type=dhikr` content. We cannot predict what the
+ * sheikh is reciting in any given clip (it might be Subhanallah, it
+ * might be Salawat, it might be La ilaha illa Allah) — so there is no
+ * pre-set count target. The user just chants along with whatever's on
+ * screen and taps a counter for their own tally.
+ *
+ * Wave 43: previously fell back to qirat (Quran recitation) when the
+ * dhikr pool was small. That polluted the feed with content that is
+ * NOT dhikr. Removed — show pure dhikr only, with a graceful empty
+ * state if no content has been ingested yet.
  *
  * @package LoveAllah
  */
@@ -14,14 +20,8 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 $user_id    = get_current_user_id() ?: null;
 $session_id = la_get_or_set_session_id();
 
-// Pull dhikr-type content for the witness feed. Falls back to qirat
-// (recitations) if no dhikr-typed posts have arrived yet — most qari
-// recitations include extended tasbeeh segments useful to follow along.
+// Pure dhikr content only — no qirat / lecture fallback.
 $cards = LA_Algorithm::for_user( $user_id, $session_id, 20, 0, 'dhikr' );
-if ( count( $cards ) < 5 ) {
-	$qirat = LA_Algorithm::for_user( $user_id, $session_id, 15, 0, 'qirat' );
-	foreach ( $qirat as $q ) $cards[] = $q;
-}
 
 // Decorate saved/liked state for the right rail
 $post_ids = [];
@@ -39,60 +39,63 @@ foreach ( $cards as $c ) {
 ?>
 <main class="la-app la-app--witness">
 
-	<!-- Floating count + target HUD (updates as user taps +1) -->
+	<!-- Floating session tally — just counts the user's taps, no target.
+	     What's playing on screen might be any dhikr; we can't predict and
+	     don't try. The tap is the user's own remembrance, counted. -->
 	<div class="la-witness-hud" data-witness-hud>
-		<div class="la-witness-back">
-			<a href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" class="la-witness-back-link" aria-label="Back to dhikr modes">
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-			</a>
-		</div>
-		<div class="la-witness-hud-progress">
+		<a href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" class="la-witness-back-link" aria-label="Back to dhikr modes">
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+		</a>
+		<div class="la-witness-hud-tally">
 			<div class="la-witness-hud-count" data-witness-count>0</div>
-			<div class="la-witness-hud-target">of <span data-witness-target>33</span></div>
+			<div class="la-witness-hud-label">chants this session</div>
 		</div>
-		<select class="la-witness-target-pick" data-witness-target-pick aria-label="Sunnah count target">
-			<option value="33">33</option>
-			<option value="100">100</option>
-			<option value="300">300</option>
-		</select>
 	</div>
 
-	<!-- Feed -->
-	<div class="la-feed-snap la-feed-snap--witness" data-feed data-witness>
-		<?php foreach ( $cards as $card ) {
-			echo LA_FeedRender::card( $card );
-		} ?>
+	<?php if ( ! empty( $cards ) ) : ?>
+		<!-- Feed of dhikr-only content. Vertical-snap so each clip is one
+		     full-viewport item. The user chants along with whatever the
+		     sheikh is doing — Subhanallah, Salawat, La ilaha — taking
+		     guidance from the audio and tapping the +1 each time. -->
+		<div class="la-feed-snap la-feed-snap--witness" data-feed data-witness>
+			<?php foreach ( $cards as $card ) {
+				echo LA_FeedRender::card( $card );
+			} ?>
 
-		<?php if ( empty( $cards ) ) : ?>
-			<article class="la-snap la-snap--empty">
-				<div class="la-snap-inner">
-					<h3>No dhikr content yet</h3>
-					<p>We're pulling more in. Try Solitude or Pulse in the meantime — they're ready now.</p>
-					<a class="la-dhikr-primary" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" style="margin-top:18px;">Back</a>
+			<div class="la-feed-loader" data-feed-loader hidden>
+				<div class="la-feed-loader-spinner" aria-hidden="true"></div>
+				<span><?php esc_html_e( 'Loading more', 'loveallah' ); ?></span>
+			</div>
+			<div class="la-feed-sentinel" data-feed-sentinel aria-hidden="true"></div>
+		</div>
+
+		<!-- BIG tap-to-count button. Each tap = one chant logged for this
+		     session. No target, no celebration sheet, no surprise modals
+		     — just a steady tally that grows with the user. -->
+		<button class="la-witness-tap" type="button" data-witness-tap aria-label="Tap to count">
+			<span class="la-witness-tap-plus">+1</span>
+			<span class="la-witness-tap-label">Chant along</span>
+		</button>
+
+	<?php else : ?>
+		<!-- No dhikr-typed content ingested yet. We don't fall back to qirat
+		     because that's Quran recitation, not dhikr — different worship.
+		     Suggest Pulse / Solitude / Names instead. -->
+		<section class="la-witness-empty">
+			<div class="la-witness-empty-inner">
+				<div class="la-witness-empty-glyph" aria-hidden="true">◯</div>
+				<h2 class="la-witness-empty-title">Gathering dhikr circles</h2>
+				<p class="la-witness-empty-body">
+					We're pulling halaqa and tasbih recordings in. Until they arrive,
+					try one of the other paths — your remembrance counts in any of them.
+				</p>
+				<div class="la-witness-empty-actions">
+					<a href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>" class="la-witness-empty-btn la-witness-empty-btn--primary">Try Pulse</a>
+					<a href="<?php echo esc_url( home_url( '/dhikr/?mode=solitude' ) ); ?>" class="la-witness-empty-btn">Solitude</a>
+					<a href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>" class="la-witness-empty-btn">Names</a>
 				</div>
-			</article>
-		<?php endif; ?>
-
-		<div class="la-feed-loader" data-feed-loader hidden>
-			<div class="la-feed-loader-spinner" aria-hidden="true"></div>
-			<span><?php esc_html_e( 'Loading more', 'loveallah' ); ?></span>
-		</div>
-		<div class="la-feed-sentinel" data-feed-sentinel aria-hidden="true"></div>
-	</div>
-
-	<!-- BIG tap-to-count button anchored to the bottom of the viewport -->
-	<button class="la-witness-tap" type="button" data-witness-tap aria-label="Tap to count dhikr">
-		<span class="la-witness-tap-plus">+1</span>
-		<span class="la-witness-tap-label">Tap as you chant</span>
-	</button>
-
-	<!-- Milestone celebration (shows on hitting target) -->
-	<div class="la-witness-celebrate" data-witness-celebrate hidden>
-		<div class="la-witness-celebrate-inner">
-			<div class="la-witness-celebrate-arabic" dir="rtl" lang="ar">سُبْحَانَ ٱللَّٰه</div>
-			<div class="la-witness-celebrate-text">Remembered</div>
-			<button type="button" class="la-witness-celebrate-btn" data-witness-celebrate-close>Continue</button>
-		</div>
-	</div>
+			</div>
+		</section>
+	<?php endif; ?>
 
 </main>

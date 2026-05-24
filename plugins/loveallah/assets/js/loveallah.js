@@ -2616,30 +2616,24 @@
 })();
 
 // ============================================================
-// WAVE 40 — Dhikr WITNESS (feed + tap counter)
+// WAVE 40 / Wave 43 — Dhikr WITNESS (chant-along feed + tally)
+// Pure dhikr-typed content. We can't predict what's recited in any
+// given clip, so there's no fixed count target — just a running
+// tally of the user's own taps. Every 33 taps logs a dhikr
+// completion server-side (silently, no celebration modal).
 // ============================================================
 (function initWitness() {
 	const root = document.querySelector('.la-app--witness');
 	if (!root) return;
 
-	const hudCount  = root.querySelector('[data-witness-count]');
-	const hudTarget = root.querySelector('[data-witness-target]');
-	const targetPick = root.querySelector('[data-witness-target-pick]');
+	const hudCount = root.querySelector('[data-witness-count]');
 	const tapBtn   = root.querySelector('[data-witness-tap]');
-	const celebrate = root.querySelector('[data-witness-celebrate]');
-	const closeBtn  = root.querySelector('[data-witness-celebrate-close]');
+	if (!tapBtn) return; // empty state — nothing to wire up
 
-	let target = parseInt(localStorage.getItem('la_witness_target') || '33', 10);
-	let count  = 0;
-
-	if (hudTarget) hudTarget.textContent = String(target);
-	if (targetPick) targetPick.value = String(target);
-
-	targetPick?.addEventListener('change', (e) => {
-		target = parseInt(e.target.value, 10) || 33;
-		localStorage.setItem('la_witness_target', String(target));
-		if (hudTarget) hudTarget.textContent = String(target);
-	});
+	// Restore session tally from sessionStorage so a page refresh
+	// (e.g. PWA returning from background) doesn't reset progress.
+	let count = parseInt(sessionStorage.getItem('la_witness_count') || '0', 10);
+	if (hudCount) hudCount.textContent = String(count);
 
 	function spawnFloat(x, y) {
 		const f = document.createElement('div');
@@ -2651,37 +2645,32 @@
 		setTimeout(() => f.remove(), 1100);
 	}
 
-	tapBtn?.addEventListener('click', (e) => {
+	tapBtn.addEventListener('click', (e) => {
 		count++;
 		if (hudCount) hudCount.textContent = String(count);
+		sessionStorage.setItem('la_witness_count', String(count));
 		tapBtn.classList.remove('is-popping');
 		void tapBtn.offsetWidth;
 		tapBtn.classList.add('is-popping');
-		if (navigator.vibrate) navigator.vibrate(12);
+		// Heartbeat-pattern haptic per tap so the user gets the same
+		// "ba-bum" feedback Pulse uses — feels deliberate, not noisy.
+		if (navigator.vibrate) navigator.vibrate([18, 50, 18]);
 		const rect = tapBtn.getBoundingClientRect();
 		spawnFloat(rect.left + rect.width / 2, rect.top + 10);
 
-		// Milestone reached → celebrate, log to server, ask if they want to continue
-		if (count >= target) {
-			setTimeout(() => {
-				celebrate.hidden = false;
-				if (navigator.vibrate) navigator.vibrate([18, 30, 18, 30, 40]);
-				// Log a tasbeeh-completion as a dhikr-completion server-side
-				try {
-					fetch(`${LA.apiRoot}dhikr/complete`, {
-						method: 'POST',
-						headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
-						cache: 'no-store',
-					}).catch(() => {});
-				} catch (_) {}
-			}, 200);
+		// Quietly log a dhikr completion every 33 taps (sunnah landmark).
+		// No modal, no interruption — the user keeps chanting. We get
+		// the streak credit; they get the flow state.
+		if (count > 0 && count % 33 === 0) {
+			if (navigator.vibrate) navigator.vibrate([25, 60, 25, 60, 40]); // gentle landmark cue
+			try {
+				fetch(`${LA.apiRoot}dhikr/complete`, {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+					cache: 'no-store',
+				}).catch(() => {});
+			} catch (_) {}
 		}
-	});
-
-	closeBtn?.addEventListener('click', () => {
-		celebrate.hidden = true;
-		count = 0;
-		if (hudCount) hudCount.textContent = '0';
 	});
 })();
 
