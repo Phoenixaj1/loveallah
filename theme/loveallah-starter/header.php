@@ -158,23 +158,11 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 			</a>
 
 			<?php
-			// Wave 64: sign-in pill (or initials chip if already signed in).
-			// Sits in the header next to the brand mark so it's reachable on
-			// every page. Click → opens the global la-signin-sheet from footer.
+			// Wave 64/65: figure out current user for the actions row below.
+			// (Chip rendered inside .la-header-actions, NOT here, so it doesn't
+			// compete with the prayer-bar for row space.)
 			$la_user = function_exists( 'la_current_user' ) ? la_current_user() : null;
 			?>
-			<?php if ( $la_user ) : ?>
-				<span class="la-account-chip" title="<?php echo esc_attr( $la_user->email ); ?>">
-					<span class="la-account-chip-initial" aria-hidden="true"><?php
-						echo esc_html( strtoupper( substr( $la_user->name ?: $la_user->email, 0, 1 ) ) );
-					?></span>
-				</span>
-			<?php else : ?>
-				<button type="button" class="la-account-signin" data-action="signin" aria-label="Sign in">
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-					<span>Sign in</span>
-				</button>
-			<?php endif; ?>
 
 			<?php if ( $la_timings ) : ?>
 				<div class="la-prayer-bar-row" data-prayer-bar aria-label="Your prayer times today">
@@ -220,6 +208,18 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 				<button class="la-icon-btn" type="button" aria-label="Upcoming masjid events" data-action="events">
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
 				</button>
+
+				<?php // Wave 64/65: account chip sits beside the icon-btns so it
+				      // shares their sizing/spacing and never overlaps anything. ?>
+				<?php if ( $la_user ) : ?>
+					<span class="la-account-chip" title="<?php echo esc_attr( $la_user->email ); ?>">
+						<?php echo esc_html( strtoupper( substr( $la_user->name ?: $la_user->email, 0, 1 ) ) ); ?>
+					</span>
+				<?php else : ?>
+					<button type="button" class="la-icon-btn la-account-signin" data-action="signin" aria-label="Sign in to save your progress" title="Sign in">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+					</button>
+				<?php endif; ?>
 			</div>
 		</div>
 	</header>
