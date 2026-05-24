@@ -6396,26 +6396,24 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	   bouquet. */
 	background-position: center 60%;
 	background-repeat: no-repeat;
-	/* Radial mask — softer overall so even the centre is gently dimmed
-	   by the mask itself. The heart bleeds into the void from edge to
-	   edge, no hard boundary anywhere. */
-	-webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.25) 60%, transparent 85%);
-	        mask-image: radial-gradient(circle at center, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.25) 60%, transparent 85%);
-	/* Wave 63 (refined): faded subconscious presence. The heart is a
-	   whisper behind the Arabic, not an image you're looking at. Each
-	   beat briefly surfaces it before it sinks back into the dark. */
-	opacity: 0.45;
-	filter: saturate(0.40) brightness(0.42) contrast(0.95) blur(0.6px);
+	/* Radial mask — even softer. The whole heart is dimmed by the
+	   mask alpha so nothing is fully visible anywhere. */
+	-webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.30) 40%, rgba(0,0,0,0.12) 65%, transparent 88%);
+	        mask-image: radial-gradient(circle at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.30) 40%, rgba(0,0,0,0.12) 65%, transparent 88%);
+	/* Wave 63 (further faded): a ghost in the dark. You feel it more
+	   than you see it. Each beat is the heart whispering, not waving. */
+	opacity: 0.22;
+	filter: saturate(0.22) brightness(0.32) contrast(0.92) blur(1.4px);
 	transition: transform 0.18s ease-out;
 }
 .la-pulse-bg-image.is-beating {
 	animation: la-pulse-bg-beat var(--la-pulse-dur, 700ms) ease-out;
 }
 @keyframes la-pulse-bg-beat {
-	0%   { transform: translate(-50%, -50%) scale(1.00); opacity: 0.45; filter: saturate(0.40) brightness(0.42) contrast(0.95) blur(0.6px); }
-	18%  { transform: translate(-50%, -50%) scale(1.06); opacity: 0.72; filter: saturate(0.65) brightness(0.62) contrast(1.00) blur(0.3px); }
-	38%  { transform: translate(-50%, -50%) scale(1.03); opacity: 0.58; }
-	100% { transform: translate(-50%, -50%) scale(1.00); opacity: 0.45; filter: saturate(0.40) brightness(0.42) contrast(0.95) blur(0.6px); }
+	0%   { transform: translate(-50%, -50%) scale(1.00); opacity: 0.22; filter: saturate(0.22) brightness(0.32) contrast(0.92) blur(1.4px); }
+	18%  { transform: translate(-50%, -50%) scale(1.05); opacity: 0.38; filter: saturate(0.35) brightness(0.45) contrast(0.95) blur(1.0px); }
+	38%  { transform: translate(-50%, -50%) scale(1.02); opacity: 0.30; }
+	100% { transform: translate(-50%, -50%) scale(1.00); opacity: 0.22; filter: saturate(0.22) brightness(0.32) contrast(0.92) blur(1.4px); }
 }
 @media (max-width: 480px) {
 	.la-pulse-bg-image { width: 320px; height: 320px; }
