@@ -7538,33 +7538,57 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	text-align: center;
 }
 
-/* Wave 64 — Sign-in pill / account chip in the header */
+/* Wave 64/65 — Sign-in pill / account chip in the header.
+   Absolute-positioned in the header's top-right so it never competes
+   with the prayer-times row for horizontal space. Icon-only on mobile
+   so it stays out of the way; pill with "Sign in" text on desktop. */
+.la-account-signin,
+.la-account-chip {
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	z-index: 3;
+}
 .la-account-signin {
-	display: inline-flex; align-items: center; gap: 5px;
+	display: inline-flex; align-items: center; gap: 6px;
 	padding: 6px 11px 6px 9px;
-	background: rgba(255,255,255,0.10);
-	border: 1px solid rgba(255,255,255,0.18);
+	background: rgba(255,255,255,0.12);
+	border: 1px solid rgba(255,255,255,0.22);
 	border-radius: 999px;
 	color: #fff;
 	font-family: inherit;
 	font-size: 12px; font-weight: 700;
 	letter-spacing: 0.01em;
 	cursor: pointer;
-	margin-left: auto;
-	-webkit-backdrop-filter: blur(8px);
-	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(10px);
+	backdrop-filter: blur(10px);
 	transition: background 0.15s ease, transform 0.12s var(--la-spring, ease);
 }
-.la-account-signin:hover { background: rgba(255,255,255,0.18); }
+.la-account-signin:hover { background: rgba(255,255,255,0.20); }
 .la-account-signin:active { transform: scale(0.95); }
 .la-account-chip {
 	display: inline-flex; align-items: center; justify-content: center;
-	width: 30px; height: 30px;
-	margin-left: auto;
+	width: 28px; height: 28px;
 	border-radius: 50%;
 	background: linear-gradient(135deg, #ffd866, #ef8634);
 	color: #1a0d26;
 	font-weight: 800;
 	font-size: 13px;
-	box-shadow: 0 0 0 2px rgba(255,255,255,0.25);
+	box-shadow: 0 0 0 2px rgba(255,255,255,0.30);
+}
+/* MOBILE — icon-only chip so the prayer bar gets the full row. */
+@media (max-width: 600px) {
+	.la-account-signin {
+		width: 28px; height: 28px;
+		padding: 0;
+		justify-content: center;
+		gap: 0;
+	}
+	.la-account-signin > span { display: none; }
+	.la-account-signin svg { width: 14px; height: 14px; }
+	.la-account-signin,
+	.la-account-chip {
+		top: 6px;
+		right: 6px;
+	}
 }
