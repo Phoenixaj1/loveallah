@@ -683,7 +683,15 @@
 		const skipThreshMs   = Math.max(2000,  Math.min(15000, dur * 100));    // 10% of duration, 2-15s
 		const engageThreshMs = Math.max(8000,  Math.min(120000, dur * 300));   // 30% of duration, 8-120s
 		if (dwellMs < skipThreshMs)      { postInteraction(id, 'skip');   dwellPosted.add(id); }
-		else if (dwellMs >= engageThreshMs) { postInteraction(id, 'engage'); dwellPosted.add(id); }
+		else if (dwellMs >= engageThreshMs) {
+			postInteraction(id, 'engage');
+			dwellPosted.add(id);
+			// Wave 67: notify the PWA install prompter that the user
+			// actually watched a video. After 3 engaged videos it shows
+			// the "Install Love Allah" banner. Engaged means they're
+			// hooked → install pitch is invited, not imposed.
+			document.dispatchEvent(new CustomEvent('la:video-engaged', { detail: { id } }));
+		}
 	}
 
 	const io = new IntersectionObserver((entries) => {
@@ -3170,9 +3178,11 @@
 })();
 
 // ============================================================
-// WAVE 54 — PWA install banner
-// Chrome fires beforeinstallprompt when installable; we stash the
-// event, wait 20s of engagement, then show a low-friction banner.
+// WAVE 54 / 67 — PWA install banner (engagement-gated)
+// Show the install pitch AFTER the user has engaged with 3 videos.
+// At that point they've already proven they want the content, so
+// the install ask feels invited, not imposed. Listens for the
+// 'la:video-engaged' DOM event dispatched by the feed observer.
 // Dismissal saved for 7 days. iOS Safari is skipped — Apple does
 // not expose beforeinstallprompt to web pages.
 // ============================================================
@@ -3183,13 +3193,24 @@
 	const dismissedAt = parseInt(localStorage.getItem('la_pwa_dismissed_at') || '0', 10);
 	if (dismissedAt && (Date.now() - dismissedAt) < 7 * 24 * 60 * 60 * 1000) return;
 
+	const ENGAGE_THRESHOLD = 3;
 	let deferredPrompt = null;
 	let promptShown = false;
+	let engageCount = 0;
 
 	window.addEventListener('beforeinstallprompt', (e) => {
 		e.preventDefault();
 		deferredPrompt = e;
-		setTimeout(showInstallBanner, 20000);
+		// If they've already engaged before the event fires, show now.
+		if (engageCount >= ENGAGE_THRESHOLD) showInstallBanner();
+	});
+
+	// Wave 67: count engaged videos. After 3, show the banner.
+	document.addEventListener('la:video-engaged', () => {
+		engageCount += 1;
+		if (engageCount >= ENGAGE_THRESHOLD && deferredPrompt && !promptShown) {
+			showInstallBanner();
+		}
 	});
 
 	window.addEventListener('appinstalled', () => {
