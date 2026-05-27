@@ -197,28 +197,44 @@ self.addEventListener('notificationclick', (e) => {
 	}
 
 	private static function send_assetlinks() : void {
-		// JSON for Android Digital Asset Links — populated once you have the
-		// signing key fingerprint from bubblewrap. Stored as an option so it
-		// can be updated without code edits.
-		$sha256 = get_option( 'la_android_sha256', '' );
+		// JSON for Android Digital Asset Links. Lists every SHA-256 cert that
+		// should be allowed to open this domain without a Chrome URL bar.
+		//
+		// We always include TWO fingerprints (Play Console / Wave 85):
+		//  1. The Play APP-SIGNING key — what Google uses to sign installs
+		//     distributed via Play Store. This is the production key.
+		//  2. The UPLOAD key — our local Bubblewrap keystore. Same key the
+		//     debug APK on a developer's device is signed with, plus the
+		//     key used to sign uploads to Play Console.
+		//
+		// Without (1), Play-installed apps show the URL bar. Without (2),
+		// sideloaded test builds show the URL bar. Listing both means every
+		// install path works.
 		$package = get_option( 'la_android_package', 'app.loveallah.app' );
+
+		// Production app-signing SHA-256 from Play Console → App signing
+		// (the one Google manages — we opted into Play App Signing). Hardcoded
+		// because it's set in Play Console once and never changes.
+		$play_signing_sha256 = '1E:0E:64:DD:9B:98:CB:7C:51:E4:12:88:C6:56:96:1B:33:6B:BF:B8:EE:75:A6:D2:72:3E:74:98:D4:1A:46:12';
+
+		// Upload key SHA-256 from our Bubblewrap keystore. Falls back to the
+		// la_android_sha256 wp_option for back-compat with the original wiring.
+		$upload_sha256 = get_option( 'la_android_sha256', '' );
+
+		$fingerprints = [ $play_signing_sha256 ];
+		if ( $upload_sha256 && strtoupper( $upload_sha256 ) !== strtoupper( $play_signing_sha256 ) ) {
+			$fingerprints[] = $upload_sha256;
+		}
 
 		header( 'Content-Type: application/json; charset=utf-8' );
 		header( 'Cache-Control: public, max-age=86400' );
-
-		if ( empty( $sha256 ) ) {
-			echo wp_json_encode( [ [
-				'_note' => 'Android signing key SHA-256 not yet configured. Set in wp-admin → Love Allah → Settings, or via wp option update la_android_sha256 "AA:BB:..."',
-			] ], JSON_PRETTY_PRINT );
-			exit;
-		}
 
 		echo wp_json_encode( [ [
 			'relation'  => [ 'delegate_permission/common.handle_all_urls' ],
 			'target'    => [
 				'namespace'                => 'android_app',
 				'package_name'             => $package,
-				'sha256_cert_fingerprints' => [ $sha256 ],
+				'sha256_cert_fingerprints' => $fingerprints,
 			],
 		] ], JSON_PRETTY_PRINT );
 		exit;
