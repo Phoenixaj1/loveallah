@@ -15,7 +15,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'LA_VERSION',  '0.54.0' );
+define( 'LA_VERSION',  '0.55.0' );
 define( 'LA_DB_VERSION', 31 );
 define( 'LA_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LA_URL', plugin_dir_url( __FILE__ ) );
@@ -114,10 +114,12 @@ add_action( 'init', function() {
 add_action( 'init', function() {
 	add_rewrite_rule( '^clip/([0-9]+)/?$', 'index.php?la_clip=$matches[1]', 'top' );
 
-	// Flush rewrites once after the rule is added (cheap idempotent check)
-	if ( get_option( 'la_clip_rewrite_flushed' ) !== '1' ) {
+	// Flush rewrites once after the rule is added (cheap idempotent check).
+	// Wave 86: bumped the option key so the new /privacy + /terms routes in
+	// LA_PWA also get registered on the next page load following deploy.
+	if ( get_option( 'la_rewrite_flush_v2' ) !== '1' ) {
 		flush_rewrite_rules( false );
-		update_option( 'la_clip_rewrite_flushed', '1' );
+		update_option( 'la_rewrite_flush_v2', '1' );
 	}
 }, 6 );
 add_filter( 'query_vars', function( $vars ) {

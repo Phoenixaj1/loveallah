@@ -51,6 +51,10 @@ class LA_PWA {
 		add_rewrite_rule( '^sw\.js$',         'index.php?la_pwa=sw',       'top' );
 		// /.well-known/assetlinks.json (for Android Digital Asset Links)
 		add_rewrite_rule( '^\.well-known/assetlinks\.json$', 'index.php?la_pwa=assetlinks', 'top' );
+		// Wave 86: /privacy and /terms (required by Google Play Store
+		// store-listing form + Apple App Store privacy declaration).
+		add_rewrite_rule( '^privacy/?$', 'index.php?la_pwa=privacy', 'top' );
+		add_rewrite_rule( '^terms/?$',   'index.php?la_pwa=terms',   'top' );
 	}
 
 	public static function query_vars( $vars ) {
@@ -69,7 +73,130 @@ class LA_PWA {
 			case 'manifest':   self::send_manifest();   break;
 			case 'sw':         self::send_sw();         break;
 			case 'assetlinks': self::send_assetlinks(); break;
+			case 'privacy':    self::send_legal( 'privacy' ); break;
+			case 'terms':      self::send_legal( 'terms' );   break;
 		}
+	}
+
+	/**
+	 * Wave 86: minimal but compliant legal pages so Play Store + App Store
+	 * accept the listing. Rendered inline rather than as wp_insert_post
+	 * Pages so they don't depend on wp-admin and ship with each deploy.
+	 */
+	private static function send_legal( string $which ) : void {
+		$is_privacy = ( $which === 'privacy' );
+		$title = $is_privacy ? 'Privacy policy — Love Allah' : 'Terms of use — Love Allah';
+		$body  = $is_privacy ? self::privacy_html() : self::terms_html();
+		header( 'Content-Type: text/html; charset=utf-8' );
+		header( 'Cache-Control: public, max-age=3600' );
+		?>
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?php echo esc_html( $title ); ?></title>
+<meta name="theme-color" content="#ED1C6C">
+<style>
+	* { box-sizing: border-box }
+	body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; line-height: 1.6; color: #2C1338; background: #FFF8FB; }
+	h1 { font-size: 28px; font-weight: 900; color: #6B1846; margin-top: 0; }
+	h2 { font-size: 18px; font-weight: 800; color: #6B1846; margin-top: 28px; }
+	p, li { font-size: 15px; }
+	a { color: #ED1C6C; }
+	.last { font-size: 13px; color: #777; margin-top: 36px; padding-top: 18px; border-top: 1px solid #eee; }
+	.brand { display: inline-block; padding: 6px 12px; background: #ED1C6C; color: #fff; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+	.back { display: inline-block; margin-top: 28px; color: #6B1846; text-decoration: none; font-weight: 700; }
+</style>
+</head><body>
+<a class="brand" href="/">Love Allah</a>
+<h1><?php echo esc_html( $is_privacy ? 'Privacy Policy' : 'Terms of Use' ); ?></h1>
+<?php echo $body; // already-trusted static markup ?>
+<p class="last">Last updated: <?php echo esc_html( gmdate( 'F Y' ) ); ?> · Contact: <a href="mailto:hello@loveallah.app">hello@loveallah.app</a></p>
+<a class="back" href="/">← Back to Love Allah</a>
+</body></html>
+		<?php
+		exit;
+	}
+
+	private static function privacy_html() : string {
+		ob_start(); ?>
+<p>Love Allah ("we", "our", "us") is a sacred ritual app that helps Muslims draw closer to Allah ﷻ through prayer-times, daily dhikr, and a curated Islamic content feed. This policy explains what we collect, why, and what control you have.</p>
+
+<h2>What we collect</h2>
+<ul>
+	<li><strong>Anonymous session ID</strong> — a random identifier stored in a cookie on first visit. Used to remember which dhikr you've completed today and which videos you've already seen so we don't show them again.</li>
+	<li><strong>Email and phone (optional)</strong> — only if you choose to sign in to save your progress across devices. We never sell, share or rent these to anyone.</li>
+	<li><strong>Approximate location (optional)</strong> — only if you tap "use my location" so we can compute accurate prayer times for your area. We do not store your raw GPS coordinates server-side; we compute the prayer times and discard the input.</li>
+	<li><strong>App interactions</strong> — which videos you watch, save and share. Used to personalise your feed and improve content quality. Anonymous unless you've signed in.</li>
+	<li><strong>Standard server logs</strong> — IP address (hashed), browser type, request times. Kept for 30 days for security and debugging.</li>
+</ul>
+
+<h2>What we do NOT collect</h2>
+<ul>
+	<li>Your contacts, photos, microphone or camera.</li>
+	<li>Precise GPS coordinates (only the city-level latitude/longitude you grant for prayer times).</li>
+	<li>Financial information of any kind. We do not process payments in the app.</li>
+	<li>Behavioural advertising profiles. We do not run third-party ad networks.</li>
+</ul>
+
+<h2>Third-party services</h2>
+<ul>
+	<li><strong>YouTube</strong> — feed videos are embedded from YouTube. Watching one may transmit standard YouTube analytics to Google per their own policy.</li>
+	<li><strong>Cloudflare</strong> — content delivery and DDoS protection. Sees your IP as any web request would.</li>
+	<li><strong>Email infrastructure</strong> — if you sign in with email, we use Postmark to send transactional messages (e.g. weekly remembrance email if you opt in).</li>
+</ul>
+
+<h2>Your rights</h2>
+<ul>
+	<li>Request a copy of any personal data we hold on you.</li>
+	<li>Request deletion of your account and all associated history.</li>
+	<li>Withdraw consent for any optional data (location, email, weekly newsletter) at any time.</li>
+</ul>
+<p>Email <a href="mailto:hello@loveallah.app">hello@loveallah.app</a> with "data request" or "delete my account" in the subject and we will action it within 14 days.</p>
+
+<h2>Data retention</h2>
+<p>Anonymous session data is retained for up to 90 days for the seen-content de-duplication algorithm. Signed-in account data is retained until you request deletion. Server logs are kept for 30 days.</p>
+
+<h2>Security</h2>
+<p>All traffic is encrypted in transit over HTTPS. Personal data is stored on Cloudways managed infrastructure with industry-standard access controls. We do not store passwords (sign-in uses an email + phone passwordless flow).</p>
+
+<h2>Children</h2>
+<p>Love Allah is for ages 13 and above. We do not knowingly collect data from children under 13. If you believe a child has provided us with data, contact us and we will delete it.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes materially, the app will show a notice and ask you to re-consent. The "Last updated" date below changes whenever we revise this page.</p>
+		<?php return ob_get_clean();
+	}
+
+	private static function terms_html() : string {
+		ob_start(); ?>
+<p>By using Love Allah you agree to these terms. They are intentionally short.</p>
+
+<h2>What Love Allah is</h2>
+<p>A sacred ritual app whose purpose is to help Muslims draw closer to Allah ﷻ. We provide prayer times, daily dhikr, and a feed of curated Islamic content (lectures, reminders, qira'at, nasheeds). The app and its content are offered as-is for personal use.</p>
+
+<h2>Acceptable use</h2>
+<ul>
+	<li>Use the app for personal spiritual benefit and respectful sharing within your community.</li>
+	<li>Do not attempt to scrape, reverse-engineer, or redistribute the curated feed.</li>
+	<li>Do not use the app for any unlawful purpose or to harass others.</li>
+</ul>
+
+<h2>Content</h2>
+<p>Videos in the feed are embedded from third-party platforms (primarily YouTube). We do not own that content; we curate scholars whose channels we believe to be of benefit. If you are a content creator and would like your channel removed, email <a href="mailto:hello@loveallah.app">hello@loveallah.app</a> and we will action within 7 days.</p>
+
+<h2>No warranty</h2>
+<p>Prayer times are computed from open astronomical formulas (high-precision Fajr/Isha angles) and are accurate to within ±1 minute for most locations, but you should always confirm with your local masjid. Love Allah is not a substitute for scholarly verification of religious rulings.</p>
+
+<h2>Liability</h2>
+<p>To the maximum extent permitted by law, Love Allah and its operators are not liable for indirect, consequential or special damages arising from your use of the app.</p>
+
+<h2>Changes</h2>
+<p>We may revise these terms occasionally. Material changes will be notified in the app.</p>
+
+<h2>Contact</h2>
+<p>Questions or complaints: <a href="mailto:hello@loveallah.app">hello@loveallah.app</a>.</p>
+		<?php return ob_get_clean();
 	}
 
 	private static function send_manifest() : void {
