@@ -1898,13 +1898,31 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 	position: fixed; bottom: 0; left: 0; right: 0;
 	height: var(--la-tabbar-h);
 	display: flex; align-items: stretch;
-	/* Wave 91c: light-blue tab bar to match the action pill theme.
-	   Frosted glass with a sky-blue tint so the row reads as one
-	   coherent UI element across the bottom edge. */
-	background: linear-gradient(180deg, rgba(224, 242, 254, 0.88) 0%, rgba(186, 230, 253, 0.92) 100%);
-	backdrop-filter: blur(24px) saturate(1.6);
-	-webkit-backdrop-filter: blur(24px) saturate(1.6);
-	border-top: 1px solid rgba(135, 206, 250, 0.45);
+	/* Wave 91d: proper liquid-glass effect (Apple-style "vibrant blur").
+	   The previous 88-92% opaque sky-blue read as a solid plastic plate —
+	   no real glass shows that much body. Glass is mostly transparent;
+	   the colour comes from the blur picking up the content underneath
+	   plus a faint tint layer.
+
+	   Stack (top → bottom):
+	   1. Inner highlight gradient (top edge brightens, fades down) —
+	      gives the "lit from above" feel real frosted glass has.
+	   2. Faint sky-blue tint, ~14% opacity — colour identity without
+	      becoming the surface itself.
+	   3. Heavy backdrop blur (40px) + saturate(180%) so the video
+	      behind shows as soft watercolour bleed through the bar.
+	   4. White-ish top border ~55% — the glass edge catches light.
+	   5. Top drop-shadow lifts the bar off the content, anchors it. */
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.08) 60%, rgba(56, 189, 248, 0.06) 100%),
+		linear-gradient(180deg, rgba(186, 230, 253, 0.16), rgba(125, 211, 252, 0.14));
+	backdrop-filter: blur(42px) saturate(180%);
+	-webkit-backdrop-filter: blur(42px) saturate(180%);
+	border-top: 1px solid rgba(255, 255, 255, 0.50);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.45),  /* inner top highlight */
+		0 -1px 0 rgba(135, 206, 250, 0.18),        /* hairline below top edge */
+		0 -10px 30px rgba(14, 116, 144, 0.12);     /* soft lift shadow */
 	z-index: 100;
 	padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1928,6 +1946,14 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 	padding: 8px 4px;
 	position: relative;
 	transition: color 0.15s var(--la-easing);
+	/* Wave 91d: small text-shadow keeps the label readable against any
+	   video colour bleeding through the now-transparent glass bar. */
+	text-shadow: 0 1px 2px rgba(255, 255, 255, 0.60);
+}
+/* Icon shadow gives each SVG a hint of depth against the glass — without
+   it the icons feel flat against the see-through background. */
+.la-tab svg {
+	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
 }
 .la-tab:hover { text-decoration: none; color: var(--la-ink-soft); }
 .la-tab svg { width: 22px; height: 22px; transition: transform 0.15s var(--la-spring); }
