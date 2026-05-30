@@ -954,6 +954,33 @@ class LA_YouTube {
 		// 2. YouTube Data API v3 path
 		$api_key = (string) get_option( 'la_yt_api_key', '' );
 		$out['api_v3_key_set'] = ( $api_key !== '' );
+
+		// 2a. Wave 87f — authoritatively resolve the handle → channelId via
+		// channels.list?forHandle. If this disagrees with the cached id, the
+		// cached id is wrong (scrape picked up an unrelated UC* string).
+		if ( $api_key !== '' && ! empty( $out['source_url'] ) ) {
+			if ( preg_match( '#/@([A-Za-z0-9._-]+)#', $out['source_url'], $hm ) ) {
+				$handle = $hm[1];
+				$ch_url = add_query_arg( [
+					'key' => $api_key, 'forHandle' => '@' . $handle, 'part' => 'id,snippet,statistics',
+				], 'https://www.googleapis.com/youtube/v3/channels' );
+				$cr = wp_remote_get( $ch_url, [ 'timeout' => 15 ] );
+				if ( ! is_wp_error( $cr ) ) {
+					$out['api_v3_channels_status'] = (string) wp_remote_retrieve_response_code( $cr );
+					$cjson = json_decode( (string) wp_remote_retrieve_body( $cr ), true );
+					if ( is_array( $cjson ) && ! empty( $cjson['items'][0] ) ) {
+						$item = $cjson['items'][0];
+						$out['api_v3_resolved_cid']     = (string) ( $item['id'] ?? '' );
+						$out['api_v3_resolved_title']   = (string) ( $item['snippet']['title'] ?? '' );
+						$out['api_v3_resolved_videos']  = (int)    ( $item['statistics']['videoCount'] ?? 0 );
+						$out['api_v3_cid_matches']      = ( $out['api_v3_resolved_cid'] === $cid );
+					} else {
+						$out['api_v3_channels_error'] = isset( $cjson['error']['message'] ) ? substr( (string) $cjson['error']['message'], 0, 200 ) : 'no items returned';
+					}
+				}
+			}
+		}
+
 		if ( $cid && $api_key !== '' ) {
 			$search_url = add_query_arg( [
 				'key' => $api_key, 'channelId' => $cid, 'part' => 'id',

@@ -613,6 +613,20 @@ class LA_Admin {
 				· mobile-shell=<?php echo ! empty( $probe['shorts_page_mobile'] ) ? 'YES' : 'no'; ?><br>
 			<?php endif; ?>
 			YouTube API v3 key set: <?php echo ! empty( $probe['api_v3_key_set'] ) ? 'YES' : 'NO'; ?><br>
+			<?php if ( isset( $probe['api_v3_resolved_cid'] ) ) : ?>
+				channels.list?forHandle: status=<code><?php echo esc_html( $probe['api_v3_channels_status'] ?? '' ); ?></code>
+				· resolved id=<code><?php echo esc_html( $probe['api_v3_resolved_cid'] ); ?></code>
+				· title=<code><?php echo esc_html( $probe['api_v3_resolved_title'] ?? '' ); ?></code>
+				· lifetime-videos=<strong><?php echo (int) ( $probe['api_v3_resolved_videos'] ?? 0 ); ?></strong>
+				<?php if ( empty( $probe['api_v3_cid_matches'] ) ) : ?>
+					<span style="color:#f87171"> ← <strong>MISMATCH with cached id</strong> — scholar row needs re-resolution</span>
+				<?php else : ?>
+					<span style="color:#4ade80"> ← matches cached id ✓</span>
+				<?php endif; ?>
+				<br>
+			<?php elseif ( isset( $probe['api_v3_channels_error'] ) ) : ?>
+				channels.list?forHandle: <span style="color:#f87171">error: <code><?php echo esc_html( $probe['api_v3_channels_error'] ); ?></code></span><br>
+			<?php endif; ?>
 			<?php if ( isset( $probe['api_v3_search_status'] ) ) : ?>
 				search.list: status=<code><?php echo esc_html( $probe['api_v3_search_status'] ); ?></code>
 				· items=<strong><?php echo (int) ( $probe['api_v3_search_items'] ?? 0 ); ?></strong>
