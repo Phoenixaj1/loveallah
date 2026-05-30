@@ -124,10 +124,20 @@ class LA_Admin {
 
 			<h2 style="margin-top:32px;"><?php esc_html_e( 'YouTube sync', 'loveallah' ); ?></h2>
 
+			<?php
+			// Wave 87c: YouTube Data API v3 quota burn today.
+			// Calls counter is incremented in LA_YouTube::yt_api_v3_shorts(),
+			// resets automatically at UTC midnight via the date-stamped option key.
+			$yt_api_calls = (int) get_option( 'la_yt_api_calls_today_' . gmdate( 'Ymd' ), 0 );
+			$yt_api_units = $yt_api_calls * 101; // search.list (100) + videos.list (1)
+			$yt_api_cap   = 90; // hard daily cap defined in yt_api_v3_shorts
+			?>
 			<div class="la-stats" style="margin-bottom:12px;">
 				<?php self::stat_card( __( 'Channels due (>6h)', 'loveallah' ), $due_count ); ?>
 				<?php self::stat_card( __( 'Ingested last 24h',  'loveallah' ), $fresh_24h ); ?>
 				<?php self::stat_card( __( 'Cron schedule',      'loveallah' ), $schedule === 'la_one_hour' ? '1 hr' : esc_html( $schedule ) ); ?>
+				<?php self::stat_card( __( 'API calls today', 'loveallah' ), $yt_api_calls . ' / ' . $yt_api_cap ); ?>
+				<?php self::stat_card( __( 'API quota burned', 'loveallah' ), $yt_api_units . ' / 10,000' ); ?>
 			</div>
 
 			<p>

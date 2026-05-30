@@ -498,6 +498,27 @@ class LA_YouTube {
 	private static function yt_api_v3_shorts( string $channel_id, string $api_key ) : array {
 		if ( empty( $channel_id ) || empty( $api_key ) ) return [];
 
+		// Wave 87c — daily quota guard. The free YouTube Data API tier
+		// caps at 10,000 units/day. Each call here costs ~101 units
+		// (search.list = 100 + videos.list = 1). We hard-stop at 90
+		// channel-syncs per UTC day to leave headroom for retries or
+		// the occasional channels.list lookup. The counter is stored
+		// in wp_options la_yt_api_calls_today_{Ymd} and auto-rolls
+		// over at UTC midnight by virtue of the date-stamped key.
+		//
+		// Why this matters for scale: this guard protects WRITES.
+		// READS (user views) never call this method — they read
+		// pre-stored embed URLs from feed_posts. So the 90-channel
+		// cap caps catalog GROWTH per day, not user capacity.
+		// A 100M-user app and a 1-user app both fit inside 10k/day.
+		$today_key = 'la_yt_api_calls_today_' . gmdate( 'Ymd' );
+		$count_today = (int) get_option( $today_key, 0 );
+		if ( $count_today >= 90 ) {
+			// Quota guard tripped. Bail and let tomorrow's tick pick up.
+			return [];
+		}
+		update_option( $today_key, $count_today + 1, false );
+
 		// Step 1 — recent uploads via search.list.
 		$search_url = add_query_arg( [
 			'key'        => $api_key,
