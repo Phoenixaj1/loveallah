@@ -1898,31 +1898,23 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 	position: fixed; bottom: 0; left: 0; right: 0;
 	height: var(--la-tabbar-h);
 	display: flex; align-items: stretch;
-	/* Wave 91d: proper liquid-glass effect (Apple-style "vibrant blur").
-	   The previous 88-92% opaque sky-blue read as a solid plastic plate —
-	   no real glass shows that much body. Glass is mostly transparent;
-	   the colour comes from the blur picking up the content underneath
-	   plus a faint tint layer.
-
-	   Stack (top → bottom):
-	   1. Inner highlight gradient (top edge brightens, fades down) —
-	      gives the "lit from above" feel real frosted glass has.
-	   2. Faint sky-blue tint, ~14% opacity — colour identity without
-	      becoming the surface itself.
-	   3. Heavy backdrop blur (40px) + saturate(180%) so the video
-	      behind shows as soft watercolour bleed through the bar.
-	   4. White-ish top border ~55% — the glass edge catches light.
-	   5. Top drop-shadow lifts the bar off the content, anchors it. */
-	background:
-		linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.08) 60%, rgba(56, 189, 248, 0.06) 100%),
-		linear-gradient(180deg, rgba(186, 230, 253, 0.16), rgba(125, 211, 252, 0.14));
-	backdrop-filter: blur(42px) saturate(180%);
-	-webkit-backdrop-filter: blur(42px) saturate(180%);
-	border-top: 1px solid rgba(255, 255, 255, 0.50);
+	/* Wave 91e: Jony Ive iOS-style tab bar.
+	   Principles applied:
+	   - Materials, not paint. The bar is a piece of frosted material
+	     that takes its colour from whatever is behind it; we add only
+	     a whisper of white-tint so it has presence without identity.
+	   - Hierarchy through value, not hue. Killed the rainbow icons —
+	     everything is graphite ink, active is the same ink at fuller
+	     value with a subtle pressed-pill behind it.
+	   - Restraint. No drop shadows, no glow, no stripe. Just glass and
+	     ink. */
+	background: rgba(248, 250, 252, 0.70);
+	backdrop-filter: blur(60px) saturate(180%);
+	-webkit-backdrop-filter: blur(60px) saturate(180%);
+	/* Hairline divider — 0.5px reads as the optical pixel on retina. */
+	border-top: 0.5px solid rgba(0, 0, 0, 0.08);
 	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.45),  /* inner top highlight */
-		0 -1px 0 rgba(135, 206, 250, 0.18),        /* hairline below top edge */
-		0 -10px 30px rgba(14, 116, 144, 0.12);     /* soft lift shadow */
+		inset 0 0.5px 0 rgba(255, 255, 255, 0.50);
 	z-index: 100;
 	padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1939,75 +1931,47 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 .la-tab {
 	flex: 1;
 	display: flex; flex-direction: column; align-items: center; justify-content: center;
-	gap: 3px;
-	color: var(--la-ink-faint);
-	font-size: 10px; font-weight: 700;
-	letter-spacing: 0.02em;
+	gap: 2px;
+	/* Wave 91e: single restrained ink for all tabs — iOS .secondaryLabel
+	   on light material is rgba(60, 60, 67, 0.60). Reads as quietly there. */
+	color: rgba(60, 60, 67, 0.62);
+	font-size: 10px; font-weight: 510;
+	/* SF Pro letter-spacing — tight, modern. The previous 0.02em wide-
+	   tracking read as Material Design uppercase-style. */
+	letter-spacing: -0.01em;
 	padding: 8px 4px;
 	position: relative;
-	transition: color 0.15s var(--la-easing);
-	/* Wave 91d: small text-shadow keeps the label readable against any
-	   video colour bleeding through the now-transparent glass bar. */
-	text-shadow: 0 1px 2px rgba(255, 255, 255, 0.60);
+	transition: color 0.18s ease;
 }
-/* Icon shadow gives each SVG a hint of depth against the glass — without
-   it the icons feel flat against the see-through background. */
 .la-tab svg {
-	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+	width: 24px; height: 24px;
+	transition: transform 0.15s var(--la-spring);
+	/* No drop-shadow, no glow. Glass + ink. Nothing else. */
 }
-.la-tab:hover { text-decoration: none; color: var(--la-ink-soft); }
-.la-tab svg { width: 22px; height: 22px; transition: transform 0.15s var(--la-spring); }
-.la-tab:active svg { transform: scale(0.88); }
-.la-tab.is-active { color: var(--la-primary); }
+.la-tab:active svg { transform: scale(0.92); }
+.la-tab:hover { color: rgba(60, 60, 67, 0.85); text-decoration: none; }
+
+/* Active state, Ive-style: icon goes to full primary ink, and a soft
+   pressed-pill sits behind the icon + label. No top stripe — that's
+   a Material Design pattern. */
+.la-tab.is-active { color: rgba(28, 28, 30, 1); }
 .la-tab.is-active::before {
 	content: '';
-	position: absolute; top: 0; left: 50%;
+	position: absolute;
+	top: 6px;
+	left: 50%;
 	transform: translateX(-50%);
-	width: 28px; height: 3px;
-	background: var(--la-primary);
-	border-radius: 0 0 999px 999px;
+	width: calc(100% - 8px);
+	max-width: 60px;
+	height: calc(100% - 12px);
+	background: rgba(0, 0, 0, 0.05);
+	border-radius: 12px;
+	z-index: -1;
+	/* Tiny inner highlight gives the pill a sense of being recessed
+	   into the glass rather than painted on top. */
+	box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.45);
 }
-.la-tab.is-locked { color: var(--la-ink-faint); opacity: 0.55; }
-
-/* Wave 91c: per-tab colour palette so the bar reads as a row of distinct
-   buttons instead of identical grey icons. Each tab gets a default tint
-   (~70% saturation) plus a brighter fully-saturated colour when .is-active.
-   nth-child relies on the markup order in footer.php:
-     1=Feed  2=Dhikr  3=Dua  4=Donate  5=Masjid  6=Connect */
-
-/* 1 — Feed: sky blue (matches the bar background, reads as "home") */
-.la-tab:nth-child(1)            { color: #0284C7; }
-.la-tab:nth-child(1).is-active  { color: #0369A1; }
-.la-tab:nth-child(1).is-active::before { background: #0369A1; }
-
-/* 2 — Dhikr: violet/indigo (spiritual, contemplative) */
-.la-tab:nth-child(2)            { color: #8B5CF6; }
-.la-tab:nth-child(2).is-active  { color: #6D28D9; }
-.la-tab:nth-child(2).is-active::before { background: #6D28D9; }
-
-/* 3 — Dua: rose/pink (heart, supplication) */
-.la-tab:nth-child(3)            { color: #EC4899; }
-.la-tab:nth-child(3).is-active  { color: #BE185D; }
-.la-tab:nth-child(3).is-active::before { background: #BE185D; }
-
-/* 4 — Donate: warm amber/gold (brand accent — sadaqah glow) */
-.la-tab:nth-child(4)            { color: #F59E0B; }
-.la-tab:nth-child(4).is-active  { color: #B45309; }
-.la-tab:nth-child(4).is-active::before { background: #B45309; }
-
-/* 5 — Masjid: emerald green (Islamic green) */
-.la-tab:nth-child(5)            { color: #10B981; }
-.la-tab:nth-child(5).is-active  { color: #047857; }
-.la-tab:nth-child(5).is-active::before { background: #047857; }
-
-/* 6 — Connect: coral/orange (warm, social) */
-.la-tab:nth-child(6)            { color: #F97316; }
-.la-tab:nth-child(6).is-active  { color: #C2410C; }
-.la-tab:nth-child(6).is-active::before { background: #C2410C; }
-
-/* On hover, keep the per-tab colour rather than fading to ink-soft. */
-.la-tab:hover { text-decoration: none; opacity: 0.85; }
-.la-tab:hover { color: inherit; }
+.la-tab.is-locked { color: rgba(60, 60, 67, 0.35); }
 
 /* 5-tab variant — slightly tighter on narrow screens */
 .la-tabbar--5 .la-tab { font-size: 9.5px; padding: 8px 2px; }
