@@ -118,23 +118,15 @@ class LA_FeedRender {
 				</div>
 			</div>
 
-			<div class="la-snap-overlay">
-				<div class="la-snap-scholar">
-					<div class="la-snap-avatar" aria-hidden="true"><?php echo esc_html( $initials ); ?></div>
-					<div class="la-snap-scholar-meta">
-						<div class="la-snap-scholar-name"><?php echo esc_html( $card->scholar_display_name ?? 'Scholar' ); ?></div>
-						<div class="la-snap-scholar-label <?php echo esc_attr( $scholar_label_cls ); ?>">
-							<?php if ( $is_verified ) : ?>
-								<svg width="11" height="11" viewBox="0 0 24 24" fill="#4FC3F7" aria-hidden="true"><path d="M12 2l2.4 1.8 3-.4.6 2.9L20 8.4l-1.2 2.7L20 14l-2.4 1.5-.6 2.9-3-.4L12 20l-2.4-1.8-3 .4-.6-2.9L4 14.2l1.2-2.7L4 8.8l2.4-1.5.6-2.9 3 .4z"/><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-							<?php endif; ?>
-							<?php echo esc_html( $scholar_label ); ?>
-						</div>
-					</div>
-				</div>
-				<?php // Title + caption intentionally removed — YouTube's own
-				// player chrome already shows the title, and our overlay was
-				// redundant + crowded the scholar attribution. ?>
-			</div>
+			<?php // Wave 90b: scholar overlay (avatar + name + Curated/Verified
+			// badge) removed at user request — "remove the channel name we
+			// add at the bottom with the curated thing". Feed cards now show
+			// pure video without our attribution chrome layered on top.
+			// YouTube's own player chrome shows the channel name during
+			// playback (in the top-left of the iframe) so attribution is
+			// preserved without the extra chrome.
+			// To restore: see git history pre-c248114 for the .la-snap-scholar
+			// block + .la-snap-overlay wrapper. ?>
 
 			<div class="la-snap-actions" aria-label="Post actions">
 				<!-- Wave 36: wrapped in a frosted pill so the column reads as a
