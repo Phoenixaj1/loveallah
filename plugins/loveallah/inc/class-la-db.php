@@ -33,6 +33,7 @@ class LA_DB {
 			'dhikr_videos'      => $wpdb->prefix . 'la_dhikr_videos',
 			'masjid_favourites' => $wpdb->prefix . 'la_masjid_favourites',
 			'users'             => $wpdb->prefix . 'la_users',
+			'follows'           => $wpdb->prefix . 'la_follows',
 		];
 	}
 
@@ -311,6 +312,24 @@ class LA_DB {
 			PRIMARY KEY  (id),
 			KEY post_action (post_id, action),
 			KEY user_post (user_id, post_id)
+		) $charset_collate;" );
+
+		// Wave 91: explicit follow opt-ins. A row here means the user wants
+		// this scholar surfaced more often in their feed. Score boost in
+		// LA_Algorithm::score_post (+600) puts followed-scholar content above
+		// passively-discovered content, but the per-scholar cap (Wave 87j)
+		// still limits any one followed scholar to 4 posts per slice so the
+		// feed never becomes all-one-person.
+		dbDelta( "CREATE TABLE {$t['follows']} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			user_id bigint(20) unsigned DEFAULT NULL,
+			session_id varchar(64) DEFAULT NULL,
+			scholar_id bigint(20) unsigned NOT NULL,
+			followed_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY user_scholar (user_id, scholar_id),
+			KEY session_scholar (session_id, scholar_id),
+			KEY scholar (scholar_id)
 		) $charset_collate;" );
 
 		dbDelta( "CREATE TABLE {$t['unlock_state']} (

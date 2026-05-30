@@ -440,7 +440,42 @@
 		haptic(15);
 	}
 
-	// ─── Action buttons (like / save / share) ───
+	// Wave 91: swap the +/✓ SVGs inside a follow button based on state.
+	function updateFollowIcon(btn, isFollowing) {
+		const plus  = btn.querySelector('.la-follow-plus');
+		const check = btn.querySelector('.la-follow-check');
+		if (plus)  plus.style.display  = isFollowing ? 'none' : '';
+		if (check) check.style.display = isFollowing ? '' : 'none';
+		btn.setAttribute('aria-label', isFollowing ? 'Following — tap to unfollow' : 'Follow this scholar');
+	}
+
+	// Wave 91: bootstrap which scholars the user already follows so the
+	// buttons render in the right state on page load (no flash of wrong
+	// state when scrolling through pre-rendered cards). Fire-and-forget
+	// — if the request fails the buttons just stay at default until first
+	// toggle.
+	(async () => {
+		try {
+			const r = await fetch(`${LA.apiRoot}follows`, {
+				headers: { 'X-LA-Session': LA.sessionId },
+			});
+			const json = await r.json().catch(() => null);
+			const follows = new Set((json && Array.isArray(json.follows) ? json.follows : []).map(n => parseInt(n, 10)));
+			if (follows.size === 0) return;
+			// Mark all currently-rendered follow buttons + remember the set
+			// so later-rendered cards (infinite scroll) can be flagged too.
+			window.__laFollows = follows;
+			feedContainer.querySelectorAll('.la-snap-follow').forEach(btn => {
+				const sid = parseInt(btn.dataset.scholar || '0', 10);
+				if (follows.has(sid)) {
+					btn.classList.add('is-active');
+					updateFollowIcon(btn, true);
+				}
+			});
+		} catch (_) {}
+	})();
+
+	// ─── Action buttons (like / save / share / follow) ───
 	feedContainer.addEventListener('click', async (e) => {
 		const action = e.target.closest('.la-snap-action[data-act]');
 		if (!action) return;
@@ -448,6 +483,43 @@
 		const act = action.dataset.act;
 		const card = action.closest('.la-snap');
 		haptic(8);
+
+		// Wave 91: follow toggle. Different REST shape from like/save/share
+		// — POSTs to /follow/{scholar_id} with response { ok, following }.
+		// The button's visual state is a swap between two SVGs (.la-follow-plus
+		// shown when not following, .la-follow-check when following) plus an
+		// is-active class for any colour treatment in CSS.
+		if (act === 'follow') {
+			const scholarId = parseInt(action.dataset.scholar || '0', 10);
+			if (!scholarId) return;
+			const wasFollowing = action.classList.contains('is-active');
+			// Optimistic UI flip.
+			action.classList.toggle('is-active', !wasFollowing);
+			action.setAttribute('aria-pressed', String(!wasFollowing));
+			updateFollowIcon(action, !wasFollowing);
+			try {
+				const r = await fetch(`${LA.apiRoot}follow/${scholarId}`, {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': LA.nonce, 'X-LA-Session': LA.sessionId },
+				});
+				const res = await r.json().catch(() => null);
+				if (res && typeof res.following === 'boolean') {
+					// Sync to server truth in case optimistic was wrong.
+					action.classList.toggle('is-active', res.following);
+					action.setAttribute('aria-pressed', String(res.following));
+					updateFollowIcon(action, res.following);
+					// Mirror every follow on the same scholar across visible
+					// cards — if Bilal Assad appears in 3 visible cards, all 3
+					// follow buttons should reflect the new state.
+					feedContainer.querySelectorAll(`.la-snap-follow[data-scholar="${scholarId}"]`).forEach(btn => {
+						btn.classList.toggle('is-active', res.following);
+						updateFollowIcon(btn, res.following);
+					});
+					showToast(res.following ? '✓ Following — you’ll see more of this scholar' : 'Unfollowed');
+				}
+			} catch (err) { console.error('[loveallah] follow toggle failed', err); }
+			return;
+		}
 
 		// Optimistic UI for like/save toggles
 		const wasActive = action.classList.contains('is-active');
@@ -792,6 +864,17 @@
 		$$('.la-snap:not([data-observed])', feedContainer).forEach(card => {
 			card.dataset.observed = '1';
 			io.observe(card);
+			// Wave 91: mark follow buttons on newly-appended cards from
+			// infinite-scroll. The bootstrap set is stored on window.__laFollows.
+			if (window.__laFollows && window.__laFollows.size) {
+				card.querySelectorAll('.la-snap-follow').forEach(btn => {
+					const sid = parseInt(btn.dataset.scholar || '0', 10);
+					if (window.__laFollows.has(sid)) {
+						btn.classList.add('is-active');
+						updateFollowIcon(btn, true);
+					}
+				});
+			}
 		});
 	}
 	observeNewCards();

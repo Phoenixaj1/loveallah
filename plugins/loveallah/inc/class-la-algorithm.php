@@ -56,6 +56,13 @@ class LA_Algorithm {
 	public static function for_user( ?int $user_id, ?string $session_id, int $limit = 20, int $page = 0, ?string $type_filter = null, array $extra_seen_ids = [] ) : array {
 		$affinities = self::scholar_affinities( $user_id, $session_id );
 
+		// Wave 91: explicit follows. Map scholar_id => true for every scholar
+		// the current identity follows. Threaded through to score_post which
+		// adds +600 to the post score — strong enough to put followed-scholar
+		// content above passive discovery, but capped by Wave 87j's per-scholar
+		// limit so any single followed scholar still can't monopolise the feed.
+		$follows = self::followed_scholars( $user_id, $session_id );
+
 		// Tiered seen-tracking (Wave 29). "Saw this already" is the #1 reason
 		// users close the app, so we treat repeat-views as the strongest
 		// negative signal:
@@ -73,7 +80,7 @@ class LA_Algorithm {
 				if ( $pid > 0 ) $seen_once[ $pid ] = true;
 			}
 		}
-		$all = self::ranked_content_full( $affinities, $seen_once, $binged, $user_id, $session_id, $page, $type_filter );
+		$all = self::ranked_content_full( $affinities, $seen_once, $binged, $user_id, $session_id, $page, $type_filter, $follows );
 
 		// Wave 77 / 81: tiered cold-start fallback. The first pass excludes
 		// ANY post seen in the last 90 days (Wave 81 widened the window
@@ -84,10 +91,10 @@ class LA_Algorithm {
 		// still leaves us short, drop all exclusion — we'd rather repeat
 		// than ship empty.
 		if ( count( $all ) < $limit ) {
-			$all = self::ranked_content_full( $affinities, [], $binged, $user_id, $session_id, $page, $type_filter );
+			$all = self::ranked_content_full( $affinities, [], $binged, $user_id, $session_id, $page, $type_filter, $follows );
 		}
 		if ( count( $all ) < $limit ) {
-			$all = self::ranked_content_full( $affinities, [], [], $user_id, $session_id, $page, $type_filter );
+			$all = self::ranked_content_full( $affinities, [], [], $user_id, $session_id, $page, $type_filter, $follows );
 		}
 
 		// Wave 66: dhikr cards removed from the main feed. Dhikr lives
@@ -201,6 +208,42 @@ class LA_Algorithm {
 	 * Works identically for logged-in users (user_id) and anon visitors
 	 * (session_id) — same query, different identity column.
 	 */
+	/**
+	 * Wave 91: scholar IDs the current identity has explicitly followed.
+	 * Returns map scholar_id => true for fast isset() lookup in scoring.
+	 *
+	 * Identity preference: user_id if signed in, else session_id. Doesn't
+	 * merge anonymous follows into signed-in account on sign-in — that's
+	 * Wave 64's identity-merge concern, not this one.
+	 */
+	private static function followed_scholars( ?int $user_id, ?string $session_id ) : array {
+		global $wpdb;
+		$t = LA_DB::tables();
+		// Cheap defensive check — table may not exist yet on installs that
+		// haven't run the Wave 91 migration.
+		static $has_table = null;
+		if ( $has_table === null ) {
+			$has_table = (bool) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+				 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
+				$t['follows']
+			) );
+		}
+		if ( ! $has_table ) return [];
+
+		$col = $user_id ? 'user_id' : 'session_id';
+		$val = $user_id ?: $session_id;
+		if ( ! $val ) return [];
+
+		$ids = $wpdb->get_col( $wpdb->prepare(
+			"SELECT scholar_id FROM {$t['follows']} WHERE {$col} = %s",
+			(string) $val
+		) );
+		$out = [];
+		foreach ( $ids as $id ) $out[ (int) $id ] = true;
+		return $out;
+	}
+
 	private static function scholar_affinities( ?int $user_id, ?string $session_id ) : array {
 		global $wpdb;
 		$t = LA_DB::tables();
@@ -236,7 +279,7 @@ class LA_Algorithm {
 	 * For larger pools we'd add a cap, but with curated content (10s-100s of posts)
 	 * we want all of them in scoring rotation.
 	 */
-	private static function ranked_content_full( array $affinities, array $seen_ids, array $binged_ids, ?int $user_id, ?string $session_id, int $page, ?string $type_filter = null ) : array {
+	private static function ranked_content_full( array $affinities, array $seen_ids, array $binged_ids, ?int $user_id, ?string $session_id, int $page, ?string $type_filter = null, array $follows = [] ) : array {
 		global $wpdb;
 		$t = LA_DB::tables();
 
@@ -369,7 +412,7 @@ class LA_Algorithm {
 		foreach ( $rows as $r ) {
 			$r->_card_type = 'content';
 			$r->_quality = $quality[ (int) $r->id ] ?? 0;
-			$r->_score = self::score_post( $r, $affinities, $seen_ids, $seed );
+			$r->_score = self::score_post( $r, $affinities, $seen_ids, $seed, $follows );
 		}
 		usort( $rows, function( $a, $b ) { return $b->_score <=> $a->_score; } );
 
@@ -467,7 +510,7 @@ class LA_Algorithm {
 		return $out;
 	}
 
-	private static function score_post( $post, array $affinities, array $seen_ids, int $seed ) : float {
+	private static function score_post( $post, array $affinities, array $seen_ids, int $seed, array $follows = [] ) : float {
 		$score = 1000.0;
 		$age_days = ( time() - strtotime( $post->published_at ) ) / 86400;
 
@@ -520,6 +563,17 @@ class LA_Algorithm {
 		// without monopolising the feed entirely.
 		if ( ! empty( $post->scholar_id ) && isset( $affinities[ (int) $post->scholar_id ] ) ) {
 			$score += min( 450, $affinities[ (int) $post->scholar_id ] );
+		}
+
+		// Wave 91: explicit FOLLOW boost. Following a scholar is a much
+		// stronger opt-in than passive engagement (like/save/share), so
+		// the boost is bigger — +600 puts followed-scholar content above
+		// even the freshness boost (max +80) and affinity (max +450).
+		// The per-scholar cap (Wave 87j) still limits any single followed
+		// scholar to 4 posts per slice, so even following one person doesn't
+		// flood the feed.
+		if ( ! empty( $post->scholar_id ) && ! empty( $follows[ (int) $post->scholar_id ] ) ) {
+			$score += 600;
 		}
 
 		// Already-seen penalty (Wave 29 strengthened −400 → −800).

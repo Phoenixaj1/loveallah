@@ -145,6 +145,16 @@ class LA_FeedRender {
 					<button type="button" class="la-snap-action <?php echo ! empty( $card->_is_saved ) ? 'is-active' : ''; ?>" data-act="save" data-id="<?php echo (int) $card->id; ?>" aria-label="Save" aria-pressed="<?php echo ! empty( $card->_is_saved ) ? 'true' : 'false'; ?>">
 						<svg width="22" height="22" viewBox="0 0 24 24" fill="<?php echo ! empty( $card->_is_saved ) ? 'currentColor' : 'none'; ?>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
 					</button>
+					<!-- Wave 91: follow / unfollow the scholar. data-scholar carries
+					     the scholar_id for the REST toggle; data-act="follow" tells
+					     loveallah.js to fire /follow/{id} instead of the usual
+					     /feed/{id}/{action} interaction route. The is-active class
+					     is toggled by JS based on the server's response, and is
+					     pre-set if window.LA.followedScholars contains this id. -->
+					<button type="button" class="la-snap-action la-snap-follow" data-act="follow" data-scholar="<?php echo (int) ( $card->scholar_id ?? 0 ); ?>" aria-label="Follow this scholar">
+						<svg class="la-follow-plus" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 8-8 8 8 0 0 1 4 1.07"/><path d="M19 14v6M16 17h6"/></svg>
+						<svg class="la-follow-check" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none;"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 8-8 8 8 0 0 1 4 1.07"/><path d="M16 17l2 2 4-4"/></svg>
+					</button>
 					<!-- Share → WhatsApp first (uses Web Share API on mobile,
 					     which surfaces WhatsApp at the top of the native sheet;
 					     falls back to wa.me deep link). The shared URL is the

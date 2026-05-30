@@ -64,6 +64,21 @@ class LA_API {
 			'permission_callback' => [ __CLASS__, 'check_nonce' ],
 		] );
 
+		// Wave 91: follow system. Tap-to-follow each scholar — boosts their
+		// content in the user's algorithm. Toggle endpoint (POST) returns
+		// the new state; bootstrap GET endpoint returns the full follow list
+		// so the renderer can mark the right buttons as "Following" on load.
+		register_rest_route( self::NS, '/follow/(?P<scholar_id>\d+)', [
+			'methods'  => 'POST',
+			'callback' => [ __CLASS__, 'toggle_follow' ],
+			'permission_callback' => [ __CLASS__, 'check_nonce' ],
+		] );
+		register_rest_route( self::NS, '/follows', [
+			'methods'  => 'GET',
+			'callback' => [ __CLASS__, 'list_follows' ],
+			'permission_callback' => '__return_true',
+		] );
+
 		register_rest_route( self::NS, '/choose-mosque', [
 			'methods'  => 'POST',
 			'callback' => [ __CLASS__, 'choose_mosque' ],
@@ -436,6 +451,73 @@ class LA_API {
 		// Returns { ok: bool, active: bool } — active is the resulting state
 		// AFTER the toggle, so client can sync its is-active class correctly.
 		return LA_Feed::record_interaction( $id, $action, $user_id, $session_id );
+	}
+
+	/**
+	 * Wave 91: toggle follow state for a scholar.
+	 *
+	 * Returns { ok: true, following: bool } — the resulting state AFTER toggle.
+	 * Client uses that to flip the pill between "+Follow" and "✓Following"
+	 * without a second GET.
+	 *
+	 * Identity scoping: prefers user_id if signed in, falls back to
+	 * session_id. We don't merge anonymous follows into the WP user account
+	 * on sign-in — Wave 64's identity system handles that elsewhere.
+	 */
+	public static function toggle_follow( WP_REST_Request $req ) {
+		$scholar_id = (int) $req->get_param( 'scholar_id' );
+		if ( ! $scholar_id ) return new WP_Error( 'bad_request', 'scholar_id required', [ 'status' => 400 ] );
+		[ $user_id, $session_id ] = self::identity( $req );
+		if ( ! $user_id && ! $session_id ) return new WP_Error( 'no_identity', 'No session', [ 'status' => 400 ] );
+
+		global $wpdb;
+		$t = LA_DB::tables();
+
+		// Existence check by identity column. We treat (user_id, scholar_id)
+		// and (session_id, scholar_id) as the unique key for a follow.
+		if ( $user_id ) {
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t['follows']} WHERE user_id = %d AND scholar_id = %d LIMIT 1",
+				$user_id, $scholar_id
+			) );
+		} else {
+			$existing = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t['follows']} WHERE session_id = %s AND scholar_id = %d LIMIT 1",
+				$session_id, $scholar_id
+			) );
+		}
+
+		if ( $existing ) {
+			$wpdb->delete( $t['follows'], [ 'id' => $existing ] );
+			return [ 'ok' => true, 'following' => false ];
+		}
+
+		$wpdb->insert( $t['follows'], [
+			'user_id'    => $user_id ?: null,
+			'session_id' => $user_id ? null : $session_id,
+			'scholar_id' => $scholar_id,
+		] );
+		return [ 'ok' => true, 'following' => true ];
+	}
+
+	/**
+	 * Wave 91: return the list of scholar IDs the current identity follows.
+	 * Client loads this once on page boot to mark "Following" buttons.
+	 */
+	public static function list_follows( WP_REST_Request $req ) {
+		[ $user_id, $session_id ] = self::identity( $req );
+		if ( ! $user_id && ! $session_id ) return [ 'follows' => [] ];
+
+		global $wpdb;
+		$t = LA_DB::tables();
+		$col = $user_id ? 'user_id' : 'session_id';
+		$val = $user_id ?: $session_id;
+
+		$ids = $wpdb->get_col( $wpdb->prepare(
+			"SELECT scholar_id FROM {$t['follows']} WHERE {$col} = %s",
+			(string) $val
+		) );
+		return [ 'follows' => array_map( 'intval', $ids ) ];
 	}
 
 	public static function choose_mosque( WP_REST_Request $req ) {
