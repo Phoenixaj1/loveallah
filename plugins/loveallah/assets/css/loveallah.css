@@ -666,10 +666,14 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 	align-items: center;
 	gap: 2px;
 	padding: 6px 4px;
-	background: rgba(0, 0, 0, 0.42);
-	-webkit-backdrop-filter: blur(14px) saturate(140%);
-	backdrop-filter: blur(14px) saturate(140%);
-	border: 1px solid rgba(255, 255, 255, 0.10);
+	/* Wave 91b: switched from dark-glass to sky-blue glass — the icons
+	   read as a coloured row of distinct buttons instead of a grey
+	   "dead" stack. Slight tint, still translucent so the video stays
+	   the focus. */
+	background: rgba(79, 195, 247, 0.22);
+	-webkit-backdrop-filter: blur(14px) saturate(160%);
+	backdrop-filter: blur(14px) saturate(160%);
+	border: 1px solid rgba(135, 206, 250, 0.30);
 	border-radius: 26px;
 	box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
 }
@@ -730,6 +734,47 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
    share goes via WhatsApp. */
 .la-snap-share { color: #25d366; }
 .la-snap-share svg { filter: drop-shadow(0 0 6px rgba(37, 211, 102, 0.4)); }
+
+/* Wave 91b: each action button gets its own colour by default so the
+   pill feels alive instead of a row of identical grey icons. The
+   .is-active state keeps the existing gold accent for like/save (it
+   reads as "this turned on"). Drop-shadow glows on each icon give a
+   subtle backlit feel that matches the sky-blue pill. */
+
+/* Mute (sound) — sky blue, the same hue as the pill background. */
+.la-snap-mute        { color: #4FC3F7; }
+.la-snap-mute svg    { filter: drop-shadow(0 0 4px rgba(79, 195, 247, 0.35)); }
+.la-snap-mute.is-on  { color: #29B6F6; }
+.la-snap-mute.is-on svg { filter: drop-shadow(0 0 8px rgba(41, 182, 246, 0.55)); }
+
+/* Like (heart) — soft pink. Turns full red-pink + gold when active. */
+.la-snap-action[data-act="like"]        { color: #FF6B8A; }
+.la-snap-action[data-act="like"] svg    { filter: drop-shadow(0 0 4px rgba(255, 107, 138, 0.40)); }
+.la-snap-action[data-act="like"].is-active svg {
+	fill: #FF3B5C;
+	stroke: #FF3B5C;
+	filter: drop-shadow(0 0 8px rgba(255, 59, 92, 0.65));
+}
+
+/* Save (bookmark) — warm amber/gold (the brand accent). Fills on active. */
+.la-snap-action[data-act="save"]        { color: #F4D982; }
+.la-snap-action[data-act="save"] svg    { filter: drop-shadow(0 0 4px rgba(244, 217, 130, 0.40)); }
+.la-snap-action[data-act="save"].is-active svg {
+	fill: #F4D982;
+	stroke: #F4D982;
+	filter: drop-shadow(0 0 8px rgba(244, 217, 130, 0.70));
+}
+
+/* Follow (user+/check) — violet/indigo so it's distinct from save (gold)
+   and mute (cyan). Brightens on active. The generic .is-active rule
+   would paint it gold, so override stroke+fill here explicitly. */
+.la-snap-follow         { color: #B59CFA; }
+.la-snap-follow svg     { filter: drop-shadow(0 0 4px rgba(181, 156, 250, 0.40)); }
+.la-snap-follow.is-active { color: #A78BFA; }
+.la-snap-follow.is-active svg {
+	stroke: #A78BFA;
+	filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.65));
+}
 
 /* Like count — only render when > 0 (.is-zero hides it). Tiny so the
    pill stays compact when no engagement has happened yet. */
