@@ -259,13 +259,13 @@ class LA_Admin {
 		$filter = sanitize_key( $_GET['filter'] ?? '' );
 		// Optional pagination so users can run partial audits without burning
 		// the full ~80s in one shot. Default: probe all.
-		$limit  = max( 1, min( 500, (int) ( $_GET['limit'] ?? 500 ) ) );
+		$limit  = max( 1, min( 1000, (int) ( $_GET['limit'] ?? 1000 ) ) );
 		$offset = max( 0, (int) ( $_GET['offset'] ?? 0 ) );
 
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT id, display_name, source_url, youtube_channel_id
 			 FROM {$t['scholars']}
-			 WHERE COALESCE(is_active, 1) = 1
+			 WHERE status = 'active'
 			 ORDER BY id ASC
 			 LIMIT %d OFFSET %d",
 			$limit, $offset
