@@ -108,10 +108,19 @@ body.home .la-header-row--main .la-header-actions {
 }
 
 /* The .la-header-row--main on home only contains the prayer chip row
-   now (brand + actions hidden), so we just let it sit naturally. */
+   now (brand + actions hidden). The legacy .la-header-row base rule
+   sets `align-items: center` which collapses the chip row to its
+   intrinsic width (~6px each!). Flip to block layout so the chip row
+   stretches naturally and the flex distributes its 5 cells equally.
+   Wave 93c fix for chips rendering as 6px slivers. */
 body.home .la-header-row--main {
+	display: block;
 	width: 100%;
-	gap: 0;
+}
+body.home .la-prayer-bar-row {
+	width: 100%;
+	display: flex;
+	gap: 6px;
 }
 
 /* Wave 93b: target-design top row — location pill · countdown · avatar */

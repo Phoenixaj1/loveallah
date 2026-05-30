@@ -242,7 +242,12 @@ class LA_PWA {
 	private static function send_sw() : void {
 		header( 'Content-Type: application/javascript; charset=utf-8' );
 		header( 'Service-Worker-Allowed: /' );
-		header( 'Cache-Control: public, max-age=300' ); // SW itself updated often
+		// Wave 93c: was max-age=300 (5min) but the browser kept users on
+		// stale SW for that window after every deploy. no-cache forces a
+		// network revalidation on every check — Chrome already polls SW
+		// every ~24h or on focus, so this is cheap and gives instant
+		// rollout after each LA_VERSION bump.
+		header( 'Cache-Control: no-cache, no-store, must-revalidate, max-age=0' );
 
 		$version = LA_VERSION;
 		?>
