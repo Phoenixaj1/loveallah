@@ -892,6 +892,21 @@
 		}
 		if (next) {
 			next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		} else {
+			// Wave 88e: end of currently-rendered feed. Rather than letting
+			// YouTube's "Up next" panel paint (with random recommendations
+			// that may not even be Islamic content), we restart the current
+			// video manually via postMessage commands. The infinite-scroll
+			// sentinel will pull more cards in the background — when those
+			// arrive the next ENDED will scroll into them.
+			try {
+				iframe.contentWindow.postMessage(JSON.stringify({
+					event: 'command', func: 'seekTo', args: [0, true],
+				}), '*');
+				iframe.contentWindow.postMessage(JSON.stringify({
+					event: 'command', func: 'playVideo', args: [],
+				}), '*');
+			} catch (_) {}
 		}
 	}
 	function scheduleAdvance(card) {
@@ -966,14 +981,29 @@
 		const idMatch = wanted.match(/\/embed\/([\w-]+)/);
 		const vid = idMatch ? idMatch[1] : '';
 		const muteParam = userWantsSound ? 'mute=0' : 'mute=1';
-		// loop=1 + playlist=<self> = video restarts on end, never shows YT's "Up next" overlay.
+		// Wave 88e: DROPPED loop=1 + playlist=<self>.
+		//
+		// Background: loop=1 makes YouTube treat the iframe as a single-video
+		// playlist that auto-restarts internally. This bypasses the player's
+		// natural state machine — the ENDED (state 0) event NEVER fires, or
+		// fires for ~10ms while the player flips back to PLAYING. Either way,
+		// our postMessage onStateChange handler never catches it, and the
+		// timer fallback fires at 30+ seconds instead of the actual video
+		// length.
+		//
+		// Now without loop, the natural ENDED fires reliably. Our handler
+		// scrolls to the next card. If there IS no next card (end of feed),
+		// the handler postMessages back to the iframe with seekTo(0) +
+		// playVideo so it replays in place — which gives the same "video
+		// loops" behaviour as before but driven by us, with full visibility
+		// into the lifecycle.
 		// disablekb=1 stops keyboard shortcuts that can open YouTube site.
 		// fs=0 disables fullscreen button (we want them staying in our app).
-		// We KEEP loop=1 even though Wave 88 added auto-advance — if our
-		// duration-based timer misfires (slow YT load, paused buffering),
-		// the loop ensures the user never sees the "Up next" Rick Astley panel.
-		const loopParams = vid ? `&loop=1&playlist=${vid}` : '';
-		const params = `autoplay=1&${muteParam}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1${loopParams}`;
+		// rel=0 + modestbranding=1 + iv_load_policy=3 hide YT branding /
+		// suggested videos / annotations during playback. The brief
+		// "Up next" panel YT shows on natural end is now caught and
+		// short-circuited by our ENDED handler before it ever paints.
+		const params = `autoplay=1&${muteParam}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1`;
 		const desired = wanted + (wanted.includes('?') ? '&' : '?') + params;
 		if (iframe.src !== desired) iframe.src = desired;
 		if (currentPlaying && currentPlaying !== iframe) {
