@@ -118,6 +118,43 @@ class LA_DB {
 				$wpdb->query( "DELETE FROM {$t['feed_posts']}" );
 			}
 
+			// Wave 87d: backfill youtube_video_id on existing feed_posts.
+			// Going forward, every insert in LA_YouTube::sync_scholar()
+			// also writes this column. Having an indexed varchar(20)
+			// makes dedup-by-id checks O(1) and lets us safely import
+			// the same channel via multiple paths (scrape vs API v3)
+			// without ever creating a duplicate row.
+			$has_vid_col = (bool) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = %s
+				   AND COLUMN_NAME = 'youtube_video_id'",
+				$t['feed_posts']
+			) );
+			if ( $has_vid_col ) {
+				// Extract the 11-char video id from the existing URL fields.
+				// Patterns covered: /watch?v=XXX, /shorts/XXX, /embed/XXX.
+				$wpdb->query(
+					"UPDATE {$t['feed_posts']}
+					 SET youtube_video_id = SUBSTRING(
+					   COALESCE(original_source_url, video_url, ''),
+					   GREATEST(
+					     INSTR(COALESCE(original_source_url, video_url, ''), 'v='),
+					     INSTR(COALESCE(original_source_url, video_url, ''), '/shorts/'),
+					     INSTR(COALESCE(original_source_url, video_url, ''), '/embed/')
+					   ) + CASE
+					     WHEN INSTR(COALESCE(original_source_url, video_url, ''), 'v=') > 0 THEN 2
+					     WHEN INSTR(COALESCE(original_source_url, video_url, ''), '/shorts/') > 0 THEN 8
+					     WHEN INSTR(COALESCE(original_source_url, video_url, ''), '/embed/') > 0 THEN 7
+					     ELSE 0
+					   END,
+					   11
+					 )
+					 WHERE youtube_video_id IS NULL
+					    OR youtube_video_id = ''"
+				);
+			}
+
 			// Wave 87: seed halaltube speakers as curated scholars (115 of
 			// them). Idempotent — skips usernames that already exist.
 			self::seed_halaltube_speakers();
@@ -248,6 +285,7 @@ class LA_DB {
 			thumbnail_url varchar(500) DEFAULT NULL,
 			duration_sec int(11) DEFAULT NULL,
 			original_source_url varchar(500) DEFAULT NULL,
+			youtube_video_id varchar(20) DEFAULT NULL,
 			display_order int(11) NOT NULL DEFAULT 0,
 			published_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -259,7 +297,8 @@ class LA_DB {
 			KEY published (published_at),
 			KEY created (created_at),
 			KEY scholar_id (scholar_id),
-			KEY mosque_id (mosque_id)
+			KEY mosque_id (mosque_id),
+			KEY youtube_video_id (youtube_video_id)
 		) $charset_collate;" );
 
 		dbDelta( "CREATE TABLE {$t['feed_interactions']} (

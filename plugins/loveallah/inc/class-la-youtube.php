@@ -326,16 +326,43 @@ class LA_YouTube {
 		// accept some landscape videos for visual types, but the catalog
 		// fills out instantly. Frontend already renders any aspect ratio
 		// gracefully (object-fit: cover on the iframe wrapper).
+		// Wave 87d: check if the dedicated youtube_video_id column
+		// exists once per sync run — used both for dedup checks and
+		// the insert payload.
+		static $has_vid_col = null;
+		if ( $has_vid_col === null ) {
+			$has_vid_col = (bool) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = %s
+				   AND COLUMN_NAME = 'youtube_video_id'",
+				$t['feed_posts']
+			) );
+		}
 		$inserted = 0;
 		foreach ( $videos as $v ) {
 			$source_url = "https://www.youtube.com/watch?v={$v['id']}";
 			$shorts_url = "https://www.youtube.com/shorts/{$v['id']}";
 
-			$exists = (int) $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM {$t['feed_posts']}
-				 WHERE original_source_url IN (%s, %s) LIMIT 1",
-				$source_url, $shorts_url
-			) );
+			// Wave 87d: dedup by youtube_video_id when the column exists,
+			// fall back to URL match otherwise. Indexed lookup → O(1).
+			// This belt-and-braces approach means a video can never be
+			// inserted twice even if it surfaces via two different paths
+			// (e.g. /shorts scrape AND API v3 fallback hitting same
+			// channel back-to-back with slightly different URL formats).
+			if ( $has_vid_col ) {
+				$exists = (int) $wpdb->get_var( $wpdb->prepare(
+					"SELECT id FROM {$t['feed_posts']}
+					 WHERE youtube_video_id = %s LIMIT 1",
+					$v['id']
+				) );
+			} else {
+				$exists = (int) $wpdb->get_var( $wpdb->prepare(
+					"SELECT id FROM {$t['feed_posts']}
+					 WHERE original_source_url IN (%s, %s) LIMIT 1",
+					$source_url, $shorts_url
+				) );
+			}
 			if ( $exists ) continue;
 
 			// Wave 87: when sourced from /shorts we know it IS a short,
@@ -349,7 +376,11 @@ class LA_YouTube {
 			$post_type = $shorts_only ? 'short' : $type;
 			$shorts_source_url = "https://www.youtube.com/shorts/{$v['id']}";
 
-			$wpdb->insert( $t['feed_posts'], [
+			// Wave 87d: explicitly persist the bare 11-char video ID
+			// alongside the URLs. This is the canonical identity for the
+			// row — URLs can change format (watch vs shorts vs embed) but
+			// the video ID never does.
+			$insert_payload = [
 				'scholar_id'          => (int) $scholar->id,
 				'type'                => $post_type,
 				'title'               => mb_substr( $v['title'], 0, 250 ),
@@ -363,7 +394,11 @@ class LA_YouTube {
 				// boost in LA_Algorithm). Stamp explicitly so values are
 				// identical across sites with non-UTC server timezones.
 				'created_at'          => current_time( 'mysql', true ),
-			] );
+			];
+			if ( $has_vid_col ) {
+				$insert_payload['youtube_video_id'] = $v['id'];
+			}
+			$wpdb->insert( $t['feed_posts'], $insert_payload );
 			$inserted++;
 		}
 
