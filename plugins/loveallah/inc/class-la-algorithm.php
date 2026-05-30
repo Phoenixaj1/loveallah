@@ -372,7 +372,42 @@ class LA_Algorithm {
 			$r->_score = self::score_post( $r, $affinities, $seen_ids, $seed );
 		}
 		usort( $rows, function( $a, $b ) { return $b->_score <=> $a->_score; } );
-		return $rows;
+
+		// Wave 87j: per-scholar slice cap.
+		//
+		// After scoring + sorting, walk the ranked list once and keep at most
+		// PER_SCHOLAR_CAP posts per scholar in the "primary" tier. The rest
+		// get pushed to a "secondary" tier appended at the end.
+		//
+		// Why: a single deep-import (e.g. Mufti Menk 15 → 48 videos in 5 min)
+		// can dump 30+ posts all scoring within ±10 of each other at the very
+		// top of the ranked list. Pure ranking ⊕ round-robin diversify still
+		// produces "Menk, X, Menk, Y, Menk, Menk, Menk, Menk, …" once the
+		// other-scholar buckets drain. Capping at the source — the ranked
+		// pool itself — means the top 100 posts will always be drawn from
+		// ≥ ceil(100/CAP) different scholars.
+		//
+		// Cap of 4 means a 20-post page is drawn from at least 5 scholars,
+		// and a 50-post page from at least ~13 scholars. The cap is per-pull,
+		// not per-account: tomorrow the secondary tier rotates into primary as
+		// today's top posts drop out via the seen-exclusion window.
+		$PER_SCHOLAR_CAP = 4;
+		$primary   = [];
+		$secondary = [];
+		$by_scholar = [];
+		foreach ( $rows as $r ) {
+			$sid = (int) ( $r->scholar_id ?? 0 );
+			$by_scholar[ $sid ] = ( $by_scholar[ $sid ] ?? 0 ) + 1;
+			if ( $by_scholar[ $sid ] <= $PER_SCHOLAR_CAP ) {
+				$primary[] = $r;
+			} else {
+				$secondary[] = $r;
+			}
+		}
+		// Primary tier stays in score order; secondary tier appended after.
+		// Caller's slice picks from primary first, falls through to secondary
+		// only when the cap-limited pool is exhausted.
+		return array_merge( $primary, $secondary );
 	}
 
 	/**
@@ -456,15 +491,25 @@ class LA_Algorithm {
 		// `created_at` is WHEN we pulled it into our pool. This lifts brand-new
 		// arrivals from the hourly cron so the feed feels alive on every visit
 		// even when the underlying scholar uploaded the video long ago.
-		//   ≤ 1h   → +250  (cron-fresh — show this first)
-		//   ≤ 24h  → +200
-		//   ≤ 7d   → +80
+		//
+		// Wave 87j: dropped magnitudes from +250/+200/+80 → +80/+50/+20 because
+		// a single deep-import (Mufti Menk: 48 videos created in ~5 min) used to
+		// flood the entire top of the ranked pool — the freshness boost dwarfed
+		// every other signal and the diversify_by_scholar round-robin couldn't
+		// recover when 45/50 top-ranked posts were the same scholar. The new
+		// magnitudes still beat a same-day repeat, but no longer monopolise.
+		// The per-scholar slice cap below is the structural fix; this is the
+		// scoring complement that prevents a single ingestion event from
+		// reshaping the entire score ordering.
+		//   ≤ 1h   → +80
+		//   ≤ 24h  → +50
+		//   ≤ 7d   → +20
 		//   > 7d   → no boost
 		if ( ! empty( $post->created_at ) ) {
 			$age_h_ingest = ( time() - strtotime( $post->created_at ) ) / 3600;
-			if ( $age_h_ingest <= 1 )       $score += 250;
-			elseif ( $age_h_ingest <= 24 )  $score += 200;
-			elseif ( $age_h_ingest <= 168 ) $score += 80;
+			if ( $age_h_ingest <= 1 )       $score += 80;
+			elseif ( $age_h_ingest <= 24 )  $score += 50;
+			elseif ( $age_h_ingest <= 168 ) $score += 20;
 		}
 
 		// Scholar affinity boost: rewards what this user has engaged with
