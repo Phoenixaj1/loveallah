@@ -56,6 +56,7 @@ class LA_Admin {
 		);
 		add_submenu_page( self::SLUG, __( 'Dashboard',  'loveallah' ), __( 'Dashboard',  'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG,                  [ __CLASS__, 'page_dashboard'  ] );
 		add_submenu_page( self::SLUG, __( 'Scholars',   'loveallah' ), __( 'Scholars',   'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-scholars',   [ __CLASS__, 'page_scholars'   ] );
+		add_submenu_page( self::SLUG, __( 'Scholars audit', 'loveallah' ), __( 'Scholars audit', 'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-scholars-audit', [ __CLASS__, 'page_scholars_audit' ] );
 		add_submenu_page( self::SLUG, __( 'Dhikr videos', 'loveallah' ), __( 'Dhikr videos', 'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-dhikr',      [ __CLASS__, 'page_dhikr_videos' ] );
 		add_submenu_page( self::SLUG, __( 'Mosques',    'loveallah' ), __( 'Mosques',    'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-mosques',    [ __CLASS__, 'page_mosques'    ] );
 		add_submenu_page( self::SLUG, __( 'Events',     'loveallah' ), __( 'Events',     'loveallah' ), LA_Caps::CAP_PLATFORM, self::SLUG . '-events',     [ __CLASS__, 'page_events'     ] );
@@ -220,6 +221,249 @@ class LA_Admin {
 			<?php endif; ?>
 		</div>
 		<?php
+	}
+
+	// ────────────────────────────────────────────────────────────
+	// SCHOLARS AUDIT (Wave 87i)
+	//
+	// Iterates every scholar row and probes channels.list?forHandle for
+	// each handle parsed out of source_url. Surfaces three failure modes:
+	//   1. API returns NO items for the handle → handle is invalid / channel
+	//      doesn't exist (rare, but real — typos or YouTube-banned channels).
+	//   2. API returns the channel but lifetime videoCount = 0 → channel is
+	//      dormant or wrong (Mufti Menk's @muftimenk handle hit this).
+	//   3. API title doesn't match our display_name → handle points at a
+	//      DIFFERENT person / org entirely (worst case — needs replacement).
+	//
+	// Cost: 1 quota unit per scholar × ~399 scholars = ~399 units, ~4% of
+	// the 10k daily quota. Safe to run once a week as a catalog health check.
+	//
+	// Streams output progressively so the page stays responsive across the
+	// ~80 seconds it takes to probe all 399 handles.
+	// ────────────────────────────────────────────────────────────
+	public static function page_scholars_audit() : void {
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( __( 'Forbidden', 'loveallah' ) );
+
+		$api_key = (string) get_option( 'la_yt_api_key', '' );
+		if ( $api_key === '' ) {
+			echo '<div class="wrap"><h1>Scholars audit</h1>';
+			echo '<div class="notice notice-error"><p><strong>YouTube Data API v3 key not configured.</strong> ';
+			echo 'Add it on the <a href="' . esc_url( admin_url( 'admin.php?page=loveallah-settings' ) ) . '">Settings page</a> first — the audit needs the API to authoritatively resolve handle → channel.</p></div>';
+			echo '</div>';
+			return;
+		}
+
+		global $wpdb;
+		$t = LA_DB::tables();
+		// Optional filter: ?filter=problems shows only suspicious rows
+		$filter = sanitize_key( $_GET['filter'] ?? '' );
+		// Optional pagination so users can run partial audits without burning
+		// the full ~80s in one shot. Default: probe all.
+		$limit  = max( 1, min( 500, (int) ( $_GET['limit'] ?? 500 ) ) );
+		$offset = max( 0, (int) ( $_GET['offset'] ?? 0 ) );
+
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT id, display_name, source_url, youtube_channel_id
+			 FROM {$t['scholars']}
+			 WHERE COALESCE(is_active, 1) = 1
+			 ORDER BY id ASC
+			 LIMIT %d OFFSET %d",
+			$limit, $offset
+		) );
+
+		ignore_user_abort( true );
+		@set_time_limit( 0 );
+		nocache_headers();
+		header( 'Content-Type: text/html; charset=utf-8' );
+		header( 'X-Accel-Buffering: no' );
+		echo str_repeat( ' ', 1024 );
+		?>
+		<!doctype html>
+		<html><head><meta charset="utf-8">
+		<title>Scholars audit — Love Allah</title>
+		<style>
+			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1A0D26; color: #F8ECD0; padding: 32px; max-width: 1280px; margin: 0 auto; line-height: 1.5; }
+			h1 { color: #F4D982; font-weight: 800; }
+			.summary { padding: 12px 16px; background: rgba(255,255,255,0.06); border-left: 3px solid #C9A961; margin: 12px 0; border-radius: 6px; }
+			table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+			th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.10); vertical-align: top; }
+			th { background: rgba(255,255,255,0.08); color: #F4D982; font-weight: 700; position: sticky; top: 0; }
+			tr.problem-fatal   { background: rgba(248,113,113,0.12); }
+			tr.problem-warn    { background: rgba(250,204,21,0.10); }
+			tr.problem-mismatch{ background: rgba(248,113,113,0.18); }
+			tr.ok              { opacity: 0.85; }
+			.badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 999px; font-weight: 700; letter-spacing: 0.04em; }
+			.badge-ok    { background: #166534; color: #bbf7d0; }
+			.badge-warn  { background: #854d0e; color: #fde68a; }
+			.badge-fatal { background: #7f1d1d; color: #fecaca; }
+			code { background: rgba(0,0,0,0.30); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+			a { color: #F4D982; }
+			.handle { font-family: SFMono-Regular, Consolas, monospace; }
+			.actions a { margin-right: 8px; }
+			.controls { padding: 12px 16px; background: rgba(255,255,255,0.04); border-radius: 6px; margin-bottom: 16px; }
+		</style>
+		</head><body>
+		<h1>🔬 Scholars audit</h1>
+		<div class="controls">
+			Filter: <a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars-audit' ) ); ?>">all</a>
+			· <a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars-audit&filter=problems' ) ); ?>"><strong>problems only</strong></a>
+			&nbsp;|&nbsp;
+			Range: <code>?offset=<?php echo (int) $offset; ?>&limit=<?php echo (int) $limit; ?></code> &nbsp;
+			(<a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars-audit&offset=' . ( $offset + $limit ) . '&limit=' . $limit ) ); ?>">next batch →</a>)
+		</div>
+		<div class="summary">Probing <?php echo count( $rows ); ?> scholars. Each row = 1 API quota unit. Streaming live results below…</div>
+		<table>
+		<thead>
+		<tr>
+			<th>#</th>
+			<th>Scholar (our DB)</th>
+			<th>Handle</th>
+			<th>API status</th>
+			<th>Title (per YouTube)</th>
+			<th>Lifetime videos</th>
+			<th>Status</th>
+			<th>Actions</th>
+		</tr>
+		</thead>
+		<tbody>
+		<?php
+		flush();
+
+		$stats = [ 'total' => 0, 'ok' => 0, 'no_match' => 0, 'dormant' => 0, 'title_mismatch' => 0, 'no_handle' => 0 ];
+
+		foreach ( $rows as $row ) {
+			$stats['total']++;
+
+			// Parse @handle out of source_url. Channels using /channel/UCxxx
+			// instead of @handle can't be audited via this endpoint (the
+			// channels.list?forHandle param requires a real handle string).
+			$handle = '';
+			if ( preg_match( '#/@([A-Za-z0-9._-]+)#', (string) $row->source_url, $m ) ) {
+				$handle = $m[1];
+			}
+
+			if ( $handle === '' ) {
+				$stats['no_handle']++;
+				$row_class = $filter === 'problems' ? '' : 'problem-warn';
+				$show = ( $filter !== 'problems' || true ); // no-handle = always problem
+				if ( $filter === 'problems' || $filter === '' ) {
+					echo self::audit_row_html( $stats['total'], $row, $handle, [
+						'class'  => 'problem-warn',
+						'title'  => '',
+						'count'  => 0,
+						'status' => 'no @handle',
+						'badge'  => '<span class="badge badge-warn">NO HANDLE</span>',
+					] );
+					flush();
+				}
+				continue;
+			}
+
+			// 1 quota unit per call. Sleep briefly to be polite.
+			$ch_url = add_query_arg( [
+				'key'       => $api_key,
+				'forHandle' => '@' . $handle,
+				'part'      => 'id,snippet,statistics',
+			], 'https://www.googleapis.com/youtube/v3/channels' );
+			$res = wp_remote_get( $ch_url, [ 'timeout' => 12 ] );
+
+			$result = [ 'class' => 'ok', 'title' => '', 'count' => 0, 'status' => '', 'badge' => '' ];
+			if ( is_wp_error( $res ) ) {
+				$result['status'] = 'wp_error: ' . $res->get_error_message();
+				$result['badge']  = '<span class="badge badge-warn">NETWORK</span>';
+				$result['class']  = 'problem-warn';
+			} else {
+				$body = (string) wp_remote_retrieve_body( $res );
+				$json = json_decode( $body, true );
+				if ( ! is_array( $json ) || empty( $json['items'][0] ) ) {
+					$result['status'] = isset( $json['error']['message'] ) ? substr( $json['error']['message'], 0, 80 ) : 'no items';
+					$result['badge']  = '<span class="badge badge-fatal">NO MATCH</span>';
+					$result['class']  = 'problem-fatal';
+					$stats['no_match']++;
+				} else {
+					$item = $json['items'][0];
+					$result['title'] = (string) ( $item['snippet']['title'] ?? '' );
+					$result['count'] = (int) ( $item['statistics']['videoCount'] ?? 0 );
+					$result['resolved_id'] = (string) ( $item['id'] ?? '' );
+
+					// Title fuzzy-match against our display_name. Normalise both
+					// (lowercase, strip punctuation/honorifics) before comparing.
+					$norm = function( $s ) {
+						$s = mb_strtolower( $s );
+						$s = preg_replace( '#\b(sh|sheikh|dr|mufti|imam|ustadh|sheikh|qari|hafiz|brother)\.?\s+#', '', $s );
+						$s = preg_replace( '#[^a-z0-9 ]+#', '', $s );
+						$s = trim( preg_replace( '#\s+#', ' ', $s ) );
+						return $s;
+					};
+					$n_our = $norm( $row->display_name );
+					$n_yt  = $norm( $result['title'] );
+					$title_matches = ( $n_our && $n_yt ) && ( $n_our === $n_yt || strpos( $n_yt, $n_our ) !== false || strpos( $n_our, $n_yt ) !== false );
+
+					if ( $result['count'] === 0 ) {
+						$result['status'] = 'channel exists but ZERO lifetime videos';
+						$result['badge']  = '<span class="badge badge-fatal">DORMANT</span>';
+						$result['class']  = 'problem-fatal';
+						$stats['dormant']++;
+					} elseif ( ! $title_matches ) {
+						$result['status'] = 'API title does not match our display_name';
+						$result['badge']  = '<span class="badge badge-fatal">WRONG PERSON?</span>';
+						$result['class']  = 'problem-mismatch';
+						$stats['title_mismatch']++;
+					} else {
+						$result['status'] = sprintf( '%s lifetime videos', number_format( $result['count'] ) );
+						$result['badge']  = '<span class="badge badge-ok">OK</span>';
+						$stats['ok']++;
+					}
+				}
+			}
+
+			$is_problem = $result['class'] !== 'ok';
+			if ( $filter === 'problems' && ! $is_problem ) continue;
+
+			echo self::audit_row_html( $stats['total'], $row, $handle, $result );
+			flush();
+		}
+		?>
+		</tbody>
+		</table>
+		<div class="summary">
+			<strong>Done.</strong>
+			Total: <?php echo (int) $stats['total']; ?>
+			· OK: <?php echo (int) $stats['ok']; ?>
+			· Dormant (0 videos): <?php echo (int) $stats['dormant']; ?>
+			· Wrong person?: <?php echo (int) $stats['title_mismatch']; ?>
+			· No match: <?php echo (int) $stats['no_match']; ?>
+			· No @handle: <?php echo (int) $stats['no_handle']; ?>
+		</div>
+		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>">← Back to scholars</a></p>
+		</body></html>
+		<?php
+		exit;
+	}
+
+	/**
+	 * One row of the scholars-audit table. Kept as a helper so the main loop
+	 * can stream rows progressively without holding the whole HTML in memory.
+	 */
+	private static function audit_row_html( int $n, $row, string $handle, array $result ) : string {
+		$row_class = $result['class'];
+		$edit_url  = admin_url( 'admin.php?page=loveallah-scholars&action=edit&id=' . (int) $row->id );
+		$source    = (string) $row->source_url;
+		$handle_md = $handle ? '<span class="handle">@' . esc_html( $handle ) . '</span>' : '<em>(no @handle in URL)</em>';
+		return sprintf(
+			'<tr class="%s"><td>%d</td><td><strong>%s</strong><br><small>id=%d</small></td><td>%s<br><a href="%s" target="_blank" rel="noopener">YouTube ↗</a></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class="actions"><a href="%s">Edit</a></td></tr>' . "\n",
+			esc_attr( $row_class ),
+			$n,
+			esc_html( $row->display_name ),
+			(int) $row->id,
+			$handle_md,
+			esc_url( $source ),
+			esc_html( $result['status'] ?? '' ),
+			esc_html( $result['title'] ?? '' ),
+			number_format( (int) ( $result['count'] ?? 0 ) ),
+			$result['badge'] ?? '',
+			esc_url( $edit_url )
+		);
 	}
 
 	// ────────────────────────────────────────────────────────────
