@@ -245,6 +245,18 @@ class LA_YouTube {
 		$shorts_only = ! empty( $scholar->shorts_only );
 		if ( $shorts_only ) {
 			$videos = self::scrape_channel_shorts( $scholar->source_url );
+			// Wave 87b fallback: when /shorts page returns a JS-shell with
+			// zero videoIds (Mufti Menk, Omar Suleiman, Bilal Assad —
+			// per-channel A/B test from YouTube's side), use the official
+			// YouTube Data API v3 to enumerate the channel's recent
+			// uploads and filter to those with duration ≤ 60s (Shorts).
+			// Requires la_yt_api_key option to be set.
+			if ( empty( $videos ) ) {
+				$api_key = (string) get_option( 'la_yt_api_key', '' );
+				if ( $api_key !== '' ) {
+					$videos = self::yt_api_v3_shorts( $channel_id, $api_key );
+				}
+			}
 		} else {
 			// Legacy mixed-content path. Three sources in priority order,
 			// deduped by video id:
@@ -463,6 +475,118 @@ class LA_YouTube {
 		}
 
 		return $videos;
+	}
+
+	/**
+	 * Wave 87b: YouTube Data API v3 fallback for Shorts discovery.
+	 *
+	 * Two API calls per channel:
+	 *   1. search.list?channelId=...&type=video&order=date&maxResults=50
+	 *      → returns the 50 most-recent video IDs (cost: 100 units)
+	 *   2. videos.list?id=ID1,ID2,...&part=contentDetails,snippet
+	 *      → returns duration (PT15S, PT1M30S, etc.) and metadata
+	 *      → cost: 1 unit per call (up to 50 IDs in one call)
+	 *
+	 * Total cost per channel sync = 101 units.
+	 * Free quota = 10,000/day → ~99 channel-syncs/day at this rate.
+	 *
+	 * We post-filter to videos whose duration parses to ≤ 60 seconds
+	 * (the YouTube Shorts cap). This is the most reliable source-of-
+	 * truth for "is this a Short" — official API, no scraping, no
+	 * captcha, no per-channel A/B inconsistency.
+	 */
+	private static function yt_api_v3_shorts( string $channel_id, string $api_key ) : array {
+		if ( empty( $channel_id ) || empty( $api_key ) ) return [];
+
+		// Step 1 — recent uploads via search.list.
+		$search_url = add_query_arg( [
+			'key'        => $api_key,
+			'channelId'  => $channel_id,
+			'part'       => 'id',
+			'type'       => 'video',
+			'order'      => 'date',
+			'maxResults' => 50,
+		], 'https://www.googleapis.com/youtube/v3/search' );
+
+		$res = wp_remote_get( $search_url, [ 'timeout' => 15 ] );
+		if ( is_wp_error( $res ) ) return [];
+		$code = (int) wp_remote_retrieve_response_code( $res );
+		if ( $code !== 200 ) return [];
+		$body = (string) wp_remote_retrieve_body( $res );
+		$json = json_decode( $body, true );
+		if ( ! is_array( $json ) || empty( $json['items'] ) ) return [];
+
+		$ids = [];
+		foreach ( $json['items'] as $item ) {
+			$id = $item['id']['videoId'] ?? '';
+			if ( $id ) $ids[] = $id;
+		}
+		if ( empty( $ids ) ) return [];
+
+		// Step 2 — duration + metadata via videos.list (one batched call).
+		$videos_url = add_query_arg( [
+			'key'  => $api_key,
+			'id'   => implode( ',', $ids ),
+			'part' => 'contentDetails,snippet',
+		], 'https://www.googleapis.com/youtube/v3/videos' );
+
+		$res2 = wp_remote_get( $videos_url, [ 'timeout' => 15 ] );
+		if ( is_wp_error( $res2 ) ) return [];
+		if ( (int) wp_remote_retrieve_response_code( $res2 ) !== 200 ) return [];
+		$body2 = (string) wp_remote_retrieve_body( $res2 );
+		$json2 = json_decode( $body2, true );
+		if ( ! is_array( $json2 ) || empty( $json2['items'] ) ) return [];
+
+		$out = [];
+		foreach ( $json2['items'] as $item ) {
+			$id  = $item['id'] ?? '';
+			if ( ! $id ) continue;
+			$dur = $item['contentDetails']['duration'] ?? '';
+			$sec = self::iso8601_to_seconds( $dur );
+			// Skip anything longer than 61s — those aren't Shorts.
+			// (We use 61 not 60 so videos rounded to "PT1M" pass.)
+			if ( $sec <= 0 || $sec > 61 ) continue;
+
+			$snip = $item['snippet'] ?? [];
+			$title = trim( (string) ( $snip['title'] ?? '' ) );
+			$desc  = trim( (string) ( $snip['description'] ?? '' ) );
+			$pub   = trim( (string) ( $snip['publishedAt'] ?? '' ) );
+			$published_at = '';
+			if ( $pub ) {
+				$ts = strtotime( $pub );
+				if ( $ts ) $published_at = gmdate( 'Y-m-d H:i:s', $ts );
+			}
+			$thumb = '';
+			if ( ! empty( $snip['thumbnails']['high']['url'] ) ) {
+				$thumb = $snip['thumbnails']['high']['url'];
+			} elseif ( ! empty( $snip['thumbnails']['default']['url'] ) ) {
+				$thumb = $snip['thumbnails']['default']['url'];
+			} else {
+				$thumb = "https://i.ytimg.com/vi/{$id}/hqdefault.jpg";
+			}
+
+			$out[] = [
+				'id'          => $id,
+				'title'       => $title,
+				'published'   => $published_at,
+				'thumbnail'   => $thumb,
+				'description' => $desc,
+			];
+		}
+		return $out;
+	}
+
+	/**
+	 * Convert ISO-8601 duration (e.g. PT1M30S, PT45S, PT2H15M) to seconds.
+	 * Returns 0 for unparseable input.
+	 */
+	private static function iso8601_to_seconds( string $iso ) : int {
+		if ( empty( $iso ) ) return 0;
+		if ( ! preg_match( '#^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$#', $iso, $m ) ) return 0;
+		$h = isset( $m[1] ) ? (int) $m[1] : 0;
+		$min = isset( $m[2] ) ? (int) $m[2] : 0;
+		$s = isset( $m[3] ) ? (int) $m[3] : 0;
+		return $h * 3600 + $min * 60 + $s;
 	}
 
 	/**

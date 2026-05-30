@@ -74,6 +74,11 @@ class LA_Admin {
 		register_setting( 'loveallah_settings', 'la_yt_sync_enabled',      [ 'sanitize_callback' => 'absint' ] );
 		register_setting( 'loveallah_settings', 'la_yt_per_sync',          [ 'sanitize_callback' => 'absint' ] );
 		register_setting( 'loveallah_settings', 'la_yt_max_duration',      [ 'sanitize_callback' => 'absint' ] );
+		// Wave 87b: YouTube Data API v3 key — used as fallback for
+		// channels where /shorts page scrape returns empty (Mufti
+		// Menk-tier creators whose pages YouTube only serves as a
+		// JS-shell to our Cloudways IP). Free tier = 10k units/day.
+		register_setting( 'loveallah_settings', 'la_yt_api_key',           [ 'sanitize_callback' => 'sanitize_text_field' ] );
 		register_setting( 'loveallah_settings', 'la_required_dhikr',       [ 'sanitize_callback' => 'absint' ] );
 		register_setting( 'loveallah_settings', 'la_recency_window_days',  [ 'sanitize_callback' => 'absint' ] );
 		register_setting( 'loveallah_settings', 'la_android_sha256',      [ 'sanitize_callback' => 'sanitize_text_field' ] );
@@ -1358,6 +1363,9 @@ class LA_Admin {
 					<tr><th><label for="la_yt_max_duration"><?php esc_html_e( 'Max duration (seconds)', 'loveallah' ); ?></label></th>
 						<td><input type="number" id="la_yt_max_duration" name="la_yt_max_duration" value="<?php echo esc_attr( get_option( 'la_yt_max_duration', 180 ) ); ?>" min="30" max="900" style="width:100px;">
 						<p class="description"><?php esc_html_e( 'Videos longer than this are rejected as not-Shorts.', 'loveallah' ); ?></p></td></tr>
+					<tr><th><label for="la_yt_api_key"><?php esc_html_e( 'YouTube Data API v3 key', 'loveallah' ); ?></label></th>
+						<td><input class="regular-text" type="password" id="la_yt_api_key" name="la_yt_api_key" value="<?php echo esc_attr( get_option( 'la_yt_api_key', '' ) ); ?>" autocomplete="off" placeholder="AIza...">
+						<p class="description"><?php esc_html_e( 'Wave 87b: used when channel /shorts page scrape returns empty (Mufti Menk-tier creators whose pages YouTube only serves as a JS-shell to our IP). Free 10k quota/day. Create at console.cloud.google.com → APIs &amp; Services → Credentials and restrict to YouTube Data API v3.', 'loveallah' ); ?></p></td></tr>
 				</tbody></table>
 
 				<h2><?php esc_html_e( 'Content', 'loveallah' ); ?></h2>
