@@ -906,6 +906,12 @@ body.page-dhikr {
 	--la-accent-soft:  rgba(16, 185, 129, 0.18);
 	--la-accent-ring:  rgba(16, 185, 129, 0.40);
 	--la-accent-glow:  rgba(16, 185, 129, 0.40);
+	/* Wave 94: Claude Design uses a radial gradient lit from above to
+	   make the page feel like it's pooling light at the top — the
+	   hero section sits in warm illumination, cards rest in darker
+	   recesses below. Borrowed verbatim and tinted to dark-emerald
+	   to match the Dhikr accent. */
+	background: radial-gradient(120% 90% at 50% 0%, #0F1F1A 0%, #050B0A 60%) fixed !important;
 }
 body.page-dhikr .la-top-avatar,
 body.page-dhikr .la-top-avatar--cta {
@@ -6331,21 +6337,30 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 	color: rgba(244, 228, 193, 0.55);
 	margin-bottom: 8px;
 }
+/* Wave 94: gradient-fill title (white → ivory) lifted from Claude
+   Design's Dhikr mockup. Gives the heading a soft metallic shimmer
+   that solid colour can't match — heading reads as light spilling
+   onto cream paper rather than printed ink. */
 .la-dhikr-hub-title {
-	font-size: 26px; font-weight: 800;
-	letter-spacing: -0.02em;
-	color: #F8ECD0;
-	margin: 0 0 8px;
-	line-height: 1.15;
-	text-shadow: 0 1px 24px rgba(232, 199, 111, 0.12);
+	font-size: 28px; font-weight: 800;
+	letter-spacing: -0.022em;
+	margin: 0 0 9px;
+	line-height: 1.05;
+	background: linear-gradient(180deg, #ffffff 0%, #efe2d2 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
 }
 .la-dhikr-hub-sub {
-	font-size: 13.5px;
-	color: rgba(244, 228, 193, 0.68);
+	font-size: 13px;
+	color: rgba(243, 235, 225, 0.56);
 	margin: 0 auto;
-	line-height: 1.5;
-	max-width: 320px;
+	line-height: 1.4;
+	max-width: 268px;
 	font-style: italic;
+	/* Wave 94: balance line-breaks so two-line subs read as paired
+	   phrases rather than ugly orphans. */
+	text-wrap: balance;
 }
 @media (min-width: 600px) {
 	.la-dhikr-hub-title { font-size: 34px; margin-bottom: 10px; }
@@ -6372,24 +6387,44 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 .la-dhikr-hub-card {
 	display: flex; flex-direction: column;
 	gap: 5px;
-	padding: 18px 16px 16px;
-	background: linear-gradient(155deg,
-		rgba(255, 255, 255, 0.07) 0%,
-		rgba(255, 255, 255, 0.025) 100%);
-	border-radius: 18px;
-	border: 1px solid rgba(232, 199, 111, 0.18);
-	-webkit-backdrop-filter: blur(14px) saturate(120%);
-	backdrop-filter: blur(14px) saturate(120%);
+	/* Wave 94: tighter padding (Claude Design uses 14px) and a deeper
+	   directional gradient that catches light at the top edge. */
+	padding: 14px 14px 15px;
+	background: linear-gradient(168deg,
+		rgba(255, 255, 255, 0.055) 0%,
+		rgba(255, 255, 255, 0.02) 100%);
+	border-radius: 22px;
+	border: 1px solid var(--la-glass-hair, rgba(255, 255, 255, 0.09));
+	-webkit-backdrop-filter: blur(22px) saturate(140%);
+	backdrop-filter: blur(22px) saturate(140%);
+	/* Box shadow stack: deep soft drop (-22px y-offset makes the lift
+	   feel from underneath rather than around the edges) + a 1px inset
+	   top highlight so the top edge picks up light like real glass. */
 	box-shadow:
-		0 10px 30px rgba(0, 0, 0, 0.35),
-		0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-		0 -10px 20px rgba(232, 199, 111, 0.04) inset;
+		0 16px 34px -22px rgba(0, 0, 0, 0.80),
+		inset 0 1px 0 rgba(255, 255, 255, 0.05);
 	color: #F4E4C1;
 	text-decoration: none;
 	position: relative;
 	overflow: hidden;
 	min-height: 0;
-	transition: transform 0.25s var(--la-spring), box-shadow 0.25s ease, border-color 0.25s ease;
+	transition: transform 0.25s cubic-bezier(.34, 1.4, .5, 1), border-color 0.25s ease;
+}
+/* Wave 94: ::after radial-glow pulled from Claude Design. Sits invisible
+   on top of the card by default, fades in at hover/focus — gives the
+   tap target a "lit from above by accent colour" feel without
+   permanently bleeding green into the card surface. */
+.la-dhikr-hub-card::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: radial-gradient(80% 60% at 50% -10%,
+		color-mix(in oklab, var(--la-accent) 18%, transparent),
+		transparent 70%);
+	opacity: 0;
+	transition: opacity 0.3s ease;
+	pointer-events: none;
 }
 @media (min-width: 600px) {
 	.la-dhikr-hub-card { padding: 26px 22px 22px; border-radius: 22px; gap: 8px; }
@@ -6411,23 +6446,25 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 	opacity: 0.7;
 }
 
+/* Wave 94: hover lights the card edge in the page accent (green on
+   Dhikr) and fades in the ::after glow. Active state mirrors the
+   spec's scale(.97) press feedback for a tactile snap. */
 .la-dhikr-hub-card:hover {
-	transform: translateY(-3px);
-	border-color: rgba(232, 199, 111, 0.45);
-	box-shadow:
-		0 18px 40px rgba(0, 0, 0, 0.45),
-		0 0 30px rgba(232, 199, 111, 0.12),
-		0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+	border-color: color-mix(in oklab, var(--la-accent) 32%, transparent);
 	text-decoration: none;
 }
-.la-dhikr-hub-card:active { transform: translateY(-1px) scale(0.99); }
+.la-dhikr-hub-card:hover::after { opacity: 1; }
+.la-dhikr-hub-card:active { transform: scale(0.97); }
 
 .la-dhikr-hub-card-icon {
 	width: 46px; height: 46px;
 	display: flex; align-items: center; justify-content: center;
 	border-radius: 14px;
-	background: linear-gradient(155deg, rgba(232, 199, 111, 0.18), rgba(232, 199, 111, 0.06));
-	border: 1px solid rgba(232, 199, 111, 0.25);
+	/* Wave 94: radial highlight from top-left mimics real spherical
+	   glass under directional light. Was a flat linear gradient. */
+	background: radial-gradient(120% 120% at 30% 20%, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02));
+	border: 1px solid var(--la-glass-hair, rgba(255, 255, 255, 0.09));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 	color: #E8C76F;
 	margin-bottom: 4px;
 	flex-shrink: 0;
@@ -6472,12 +6509,20 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 @media (min-width: 600px) {
 	.la-dhikr-hub-card-name { font-size: 24px; }
 }
+/* Wave 94: tag now pulls accent (green on Dhikr) instead of hardcoded
+   amber, tighter tracking + smaller size matching Claude Design's
+   refined typography. Used to be 10px/0.10em — now 9.5px/0.04em. */
 .la-dhikr-hub-card-tag {
-	font-size: 10px; font-weight: 700;
-	text-transform: uppercase; letter-spacing: 0.10em;
-	color: #C9A961;
-	margin-bottom: 4px;
+	font-size: 9.5px; font-weight: 700;
+	text-transform: uppercase; letter-spacing: 0.04em;
+	color: var(--la-accent);
+	margin-top: 6px;
+	margin-bottom: 0;
 	line-height: 1.3;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
 @media (min-width: 600px) {
 	.la-dhikr-hub-card-tag { font-size: 11.5px; letter-spacing: 0.12em; }
