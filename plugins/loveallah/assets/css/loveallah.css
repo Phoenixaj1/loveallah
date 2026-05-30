@@ -77,32 +77,145 @@ button { font-family: inherit; }
    10px → 8px horizontal) so the prayer cells don't push the bar
    tall — the floating chip should feel light, not chunky. */
 body.home .la-header {
+	/* Wave 93: floating dark glass card matching the design spec.
+	   Card sits 10px inset from every edge, rounded 22px. Holds the
+	   prayer chips (the prominent visual element) plus the action
+	   icons. The brand text/logo gets hidden on home so the chip-row
+	   is the hero of the card. */
 	position: fixed;
-	top: 8px;
-	left: 8px;
-	right: 8px;
-	padding: 3px 8px;
-	/* Wave 84b: match the right-rail (.la-snap-actions-pill) glass exactly
-	   — same rgba(0,0,0,0.42), same 14px blur + 140% saturation, same
-	   white-translucent border. Header now reads as part of the same
-	   floating-control family as the volume/heart/save/share pill. */
-	background: rgba(0, 0, 0, 0.42);
-	backdrop-filter: blur(14px) saturate(140%);
-	-webkit-backdrop-filter: blur(14px) saturate(140%);
-	border: 1px solid rgba(255, 255, 255, 0.10);
-	border-radius: 18px;
-	box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+	top: 10px;
+	left: 10px;
+	right: 10px;
+	padding: 10px 12px;
+	background: var(--la-glass);
+	backdrop-filter: blur(22px) saturate(1.4);
+	-webkit-backdrop-filter: blur(22px) saturate(1.4);
+	border: 1px solid var(--la-glass-hair);
+	border-radius: 22px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.30);
+	color: var(--la-text);
+	font-family: "Plus Jakarta Sans", inherit;
 }
-/* Wave 83d / 84c: tighter prayer cells inside the floating chip.
-   84c shrinks vertical padding further (2→0) since the row was still
-   too tall — most of the height was coming from the .is-next cell's
-   eta pill stretching siblings via flex. Cells themselves now barely
-   pad vertically; the row's overall height is governed by font + pill. */
+
+/* Hide the brand mark + word on home — the prayer-chip row IS the
+   header now. The Hijri pill goes too; saves it for non-feed pages. */
+body.home .la-brand,
+body.home .la-hijri-pill {
+	display: none;
+}
+
+/* Stack the header row vertically on home so prayer chips get their
+   own line below the action icons. The default .la-header-row is a
+   horizontal flex; we override it here to flex-column with the
+   prayer-bar pushed below the actions. */
+body.home .la-header-row--main {
+	flex-direction: column-reverse;
+	align-items: stretch;
+	gap: 8px;
+}
+body.home .la-header-row--main .la-header-actions {
+	align-self: flex-end;
+}
+
+/* Action icon column — keep just the sign-in/account chip + geo for
+   the new design. Compact and right-aligned. */
+body.home .la-header-actions {
+	gap: 6px;
+}
+body.home .la-icon-btn {
+	width: 32px; height: 32px;
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid var(--la-glass-hair);
+	border-radius: 50%;
+	color: var(--la-text);
+}
+body.home .la-icon-btn:hover { background: rgba(255, 255, 255, 0.14); }
+/* Accent ring on the account chip — matches the design's "M" avatar. */
+body.home .la-account-chip,
+body.home .la-account-signin {
+	background: linear-gradient(135deg, #FF2D6F 0%, #FF6B8A 100%);
+	color: #fff;
+	border: 0;
+	font-weight: 700;
+}
+/* Wave 93: prayer chips inside the dark glass card.
+   Each chip = small dark frosted pill with uppercase name + tabular
+   time. Next prayer = solid accent fill (rose magenta). Completed
+   = muted with a small accent tick. */
+body.home .la-prayer-bar-row {
+	display: flex;
+	gap: 6px;
+	width: 100%;
+}
 body.home .la-prayer-cell {
-	padding: 0 1px;
+	flex: 1 1 0;
+	display: flex; flex-direction: column;
+	align-items: center; justify-content: center;
+	padding: 7px 4px;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 12px;
+	color: var(--la-text);
+	min-height: 44px;
+	transition: background 0.18s ease, opacity 0.18s ease;
 }
-body.home .la-prayer-cell-name { font-size: 9px; line-height: 1; }
-body.home .la-prayer-cell-time { font-size: 11px; line-height: 1.1; }
+body.home .la-prayer-cell-name {
+	font-size: 8.5px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--la-text-muted);
+	line-height: 1;
+	font-family: "Plus Jakarta Sans", inherit;
+}
+body.home .la-prayer-cell-time {
+	font-size: 13px;
+	font-weight: 800;
+	letter-spacing: -0.01em;
+	line-height: 1.1;
+	margin-top: 3px;
+	color: var(--la-text);
+	font-variant-numeric: tabular-nums;
+	font-family: "Plus Jakarta Sans", inherit;
+}
+body.home .la-prayer-cell-eta {
+	font-size: 9px;
+	font-weight: 700;
+	color: rgba(255,255,255,0.92);
+	margin-top: 1px;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Next prayer — solid accent fill, the only colour in the bar. */
+body.home .la-prayer-cell.is-next {
+	background: var(--la-accent);
+	border-color: var(--la-accent);
+	box-shadow: 0 4px 14px rgba(255, 45, 111, 0.40);
+}
+body.home .la-prayer-cell.is-next .la-prayer-cell-name { color: rgba(255,255,255,0.92); }
+body.home .la-prayer-cell.is-next .la-prayer-cell-time { color: #fff; }
+body.home .la-prayer-cell.is-next .la-prayer-cell-eta  { color: rgba(255,255,255,0.95); }
+
+/* Completed prayers — dimmed with the small accent tick already
+   provided by .la-prayer-cell-check. Just style the tick in accent. */
+body.home .la-prayer-cell.is-prayed {
+	background: rgba(255, 255, 255, 0.04);
+	border-color: rgba(255, 255, 255, 0.06);
+	opacity: 0.60;
+	box-shadow: none;
+}
+body.home .la-prayer-cell.is-prayed .la-prayer-cell-name,
+body.home .la-prayer-cell.is-prayed .la-prayer-cell-time {
+	color: var(--la-text-muted);
+}
+body.home .la-prayer-cell.is-prayed .la-prayer-cell-check {
+	color: var(--la-accent);
+}
+
+/* Other (upcoming) prayers — kept at 60% opacity per spec. */
+body.home .la-prayer-cell:not(.is-next):not(.is-prayed) {
+	opacity: 0.78;
+}
 @media (max-width: 600px) {
 	body.home .la-header { padding: 2px 6px; top: 6px; left: 6px; right: 6px; border-radius: 16px; }
 	/* Wave 84 / 84c: vertical padding stays minimal because the row
