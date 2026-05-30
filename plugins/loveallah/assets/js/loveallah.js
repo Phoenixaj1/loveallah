@@ -856,6 +856,40 @@
 		}
 	}
 
+	// Wave 88: auto-advance to next card when video finishes.
+	// Cleared whenever the active video changes (manual scroll, pause, swap).
+	let advanceTimer = null;
+	function cancelAdvanceTimer() {
+		if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; }
+	}
+	function scheduleAdvance(card) {
+		cancelAdvanceTimer();
+		// Read declared duration. data-duration-sec is stamped from
+		// feed_posts.duration_sec at render time. Falls back to 30s
+		// (typical Short length) if missing or zero — better to advance
+		// slightly too soon than never.
+		const dur = parseInt(card.dataset.durationSec, 10) || 30;
+		// YouTube buffer adds ~0.5-1s before real playback start; pad
+		// the timer by 1s so the user sees the video finish on its
+		// own beat before the next one snaps in.
+		const ms = (dur + 1) * 1000;
+		advanceTimer = setTimeout(() => {
+			// Only advance if THIS card is still the active one. If the
+			// user manually scrolled away between schedule and fire,
+			// pauseVideoIn would have already cleared currentPlaying.
+			const iframe = card.querySelector('.la-snap-iframe');
+			if (!iframe || currentPlaying !== iframe) return;
+			// Find the next CONTENT card (skip signup/dhikr interruptions).
+			let next = card.nextElementSibling;
+			while (next && !next.classList.contains('la-snap--content')) {
+				next = next.nextElementSibling;
+			}
+			if (next) {
+				next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			}
+		}, ms);
+	}
+
 	function playVideoIn(card) {
 		const iframe = card.querySelector('.la-snap-iframe');
 		if (!iframe || !iframe.dataset.src) return;
@@ -869,6 +903,9 @@
 		// loop=1 + playlist=<self> = video restarts on end, never shows YT's "Up next" overlay.
 		// disablekb=1 stops keyboard shortcuts that can open YouTube site.
 		// fs=0 disables fullscreen button (we want them staying in our app).
+		// We KEEP loop=1 even though Wave 88 added auto-advance — if our
+		// duration-based timer misfires (slow YT load, paused buffering),
+		// the loop ensures the user never sees the "Up next" Rick Astley panel.
 		const loopParams = vid ? `&loop=1&playlist=${vid}` : '';
 		const params = `autoplay=1&${muteParam}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1${loopParams}`;
 		const desired = wanted + (wanted.includes('?') ? '&' : '?') + params;
@@ -877,12 +914,14 @@
 			currentPlaying.src = 'about:blank';
 		}
 		currentPlaying = iframe;
+		scheduleAdvance(card);
 	}
 	function pauseVideoIn(card) {
 		const iframe = card.querySelector('.la-snap-iframe');
 		if (!iframe) return;
 		if (currentPlaying === iframe) currentPlaying = null;
 		iframe.src = 'about:blank';
+		cancelAdvanceTimer();
 	}
 
 	// Play first content card on load + pulse "tap for sound" hint if muted
