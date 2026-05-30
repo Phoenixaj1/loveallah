@@ -873,19 +873,29 @@
 		// the timer by 1s so the user sees the video finish on its
 		// own beat before the next one snaps in.
 		const ms = (dur + 1) * 1000;
+		// Wave 88: telemetry to verify the schedule/fire cycle in production.
+		window.__laAdvanceTrace = window.__laAdvanceTrace || [];
+		window.__laAdvanceTrace.push({ ev: 'schedule', id: card.dataset.postId, ms, t: Date.now() });
 		advanceTimer = setTimeout(() => {
+			window.__laAdvanceTrace.push({ ev: 'fire', id: card.dataset.postId, t: Date.now() });
 			// Only advance if THIS card is still the active one. If the
 			// user manually scrolled away between schedule and fire,
 			// pauseVideoIn would have already cleared currentPlaying.
 			const iframe = card.querySelector('.la-snap-iframe');
-			if (!iframe || currentPlaying !== iframe) return;
+			if (!iframe || currentPlaying !== iframe) {
+				window.__laAdvanceTrace.push({ ev: 'skip', reason: !iframe ? 'no iframe' : 'not active', id: card.dataset.postId, t: Date.now() });
+				return;
+			}
 			// Find the next CONTENT card (skip signup/dhikr interruptions).
 			let next = card.nextElementSibling;
 			while (next && !next.classList.contains('la-snap--content')) {
 				next = next.nextElementSibling;
 			}
 			if (next) {
+				window.__laAdvanceTrace.push({ ev: 'scroll', from: card.dataset.postId, to: next.dataset.postId, t: Date.now() });
 				next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			} else {
+				window.__laAdvanceTrace.push({ ev: 'no-next', id: card.dataset.postId, t: Date.now() });
 			}
 		}, ms);
 	}
