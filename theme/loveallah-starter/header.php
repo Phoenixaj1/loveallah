@@ -135,12 +135,14 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 		<?php endif; ?>>
 
 		<?php
-		// Wave 93b: target-design top row (only on feed / home page).
+		// Wave 93d: target-design top row — applied to EVERY tab now
+		// (Dhikr, Dua, Donate, Masjid, Connect, Saved all get the same
+		// floating glass prayer card). Removed the is_front_page() gate.
 		// Three elements: location pill · "Maghrib in 2h 07m" countdown ·
 		// circular avatar. Below: a thin accent progress line showing the
 		// portion of the previous→next prayer interval that's elapsed.
 		// JS fills the progress + ticks the countdown.
-		if ( is_front_page() && $la_timings && ! empty( $la_next['time'] ) ) :
+		if ( $la_timings && ! empty( $la_next['time'] ) ) :
 			$la_user_top = function_exists( 'la_current_user' ) ? la_current_user() : null;
 			$la_user_initial = $la_user_top
 				? strtoupper( substr( (string) ( $la_user_top->name ?: $la_user_top->email ), 0, 1 ) )

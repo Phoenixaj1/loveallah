@@ -76,7 +76,7 @@ button { font-family: inherit; }
    Wave 83d also tightened internal padding (4px → 2px vertical,
    10px → 8px horizontal) so the prayer cells don't push the bar
    tall — the floating chip should feel light, not chunky. */
-body.home .la-header {
+body .la-header {
 	/* Wave 93: floating dark glass card matching the design spec.
 	   Card sits 10px inset from every edge, rounded 22px. Holds the
 	   prayer chips (the prominent visual element) plus the action
@@ -101,9 +101,9 @@ body.home .la-header {
    header now. The Hijri pill goes too; saves it for non-feed pages.
    The 4-icon utility cluster also disappears since its content is
    now consolidated into the new top row (location + avatar). */
-body.home .la-brand,
-body.home .la-hijri-pill,
-body.home .la-header-row--main .la-header-actions {
+body .la-brand,
+body .la-hijri-pill,
+body .la-header-row--main .la-header-actions {
 	display: none;
 }
 
@@ -113,25 +113,25 @@ body.home .la-header-row--main .la-header-actions {
    intrinsic width (~6px each!). Flip to block layout so the chip row
    stretches naturally and the flex distributes its 5 cells equally.
    Wave 93c fix for chips rendering as 6px slivers. */
-body.home .la-header-row--main {
+body .la-header-row--main {
 	display: block;
 	width: 100%;
 }
-body.home .la-prayer-bar-row {
+body .la-prayer-bar-row {
 	width: 100%;
 	display: flex;
 	gap: 6px;
 }
 
 /* Wave 93b: target-design top row — location pill · countdown · avatar */
-body.home .la-prayer-top {
+body .la-prayer-top {
 	display: flex;
 	align-items: center;
 	gap: 10px;
 	margin-bottom: 8px;
 	font-family: "Plus Jakarta Sans", inherit;
 }
-body.home .la-loc-pill {
+body .la-loc-pill {
 	display: inline-flex; align-items: center; gap: 6px;
 	background: rgba(255, 255, 255, 0.08);
 	border: 1px solid var(--la-glass-hair);
@@ -149,16 +149,16 @@ body.home .la-loc-pill {
 	text-overflow: ellipsis;
 	-webkit-tap-highlight-color: transparent;
 }
-body.home .la-loc-pill-pin {
+body .la-loc-pill-pin {
 	color: var(--la-accent);
 	flex-shrink: 0;
 }
-body.home .la-loc-pill-text {
+body .la-loc-pill-text {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-body.home .la-next-block {
+body .la-next-block {
 	flex: 1;
 	text-align: right;
 	color: var(--la-text-muted);
@@ -173,20 +173,20 @@ body.home .la-next-block {
 	align-items: flex-end;
 	gap: 1px;
 }
-body.home .la-next-label {
+body .la-next-label {
 	font-size: 10px;
 	color: var(--la-text-muted);
 	font-weight: 600;
 	letter-spacing: 0;
 }
-body.home .la-next-eta {
+body .la-next-eta {
 	font-size: 14px;
 	font-weight: 800;
 	color: var(--la-text);
 	font-variant-numeric: tabular-nums;
 	letter-spacing: -0.01em;
 }
-body.home .la-top-avatar {
+body .la-top-avatar {
 	flex-shrink: 0;
 	width: 34px; height: 34px;
 	border-radius: 50%;
@@ -202,7 +202,7 @@ body.home .la-top-avatar {
 /* Thin accent progress line between top row and prayer chips. JS
    updates the .la-prayer-progress-fill width as the countdown ticks
    (fraction of the previous-prayer → next-prayer interval elapsed). */
-body.home .la-prayer-progress {
+body .la-prayer-progress {
 	width: 100%;
 	height: 3px;
 	background: rgba(255, 255, 255, 0.10);
@@ -210,7 +210,7 @@ body.home .la-prayer-progress {
 	overflow: hidden;
 	margin-bottom: 10px;
 }
-body.home .la-prayer-progress-fill {
+body .la-prayer-progress-fill {
 	height: 100%;
 	width: 0;
 	background: var(--la-accent);
@@ -223,17 +223,17 @@ body.home .la-prayer-progress-fill {
 body.home .la-header-actions {
 	gap: 6px;
 }
-body.home .la-icon-btn {
+body .la-icon-btn {
 	width: 32px; height: 32px;
 	background: rgba(255, 255, 255, 0.08);
 	border: 1px solid var(--la-glass-hair);
 	border-radius: 50%;
 	color: var(--la-text);
 }
-body.home .la-icon-btn:hover { background: rgba(255, 255, 255, 0.14); }
+body .la-icon-btn:hover { background: rgba(255, 255, 255, 0.14); }
 /* Accent ring on the account chip — matches the design's "M" avatar. */
-body.home .la-account-chip,
-body.home .la-account-signin {
+body .la-account-chip,
+body .la-account-signin {
 	background: linear-gradient(135deg, #FF2D6F 0%, #FF6B8A 100%);
 	color: #fff;
 	border: 0;
@@ -243,12 +243,12 @@ body.home .la-account-signin {
    Each chip = small dark frosted pill with uppercase name + tabular
    time. Next prayer = solid accent fill (rose magenta). Completed
    = muted with a small accent tick. */
-body.home .la-prayer-bar-row {
+body .la-prayer-bar-row {
 	display: flex;
 	gap: 6px;
 	width: 100%;
 }
-body.home .la-prayer-cell {
+body .la-prayer-cell {
 	flex: 1 1 0;
 	display: flex; flex-direction: column;
 	align-items: center; justify-content: center;
@@ -260,7 +260,7 @@ body.home .la-prayer-cell {
 	min-height: 44px;
 	transition: background 0.18s ease, opacity 0.18s ease;
 }
-body.home .la-prayer-cell-name {
+body .la-prayer-cell-name {
 	font-size: 8.5px;
 	font-weight: 700;
 	letter-spacing: 0.06em;
@@ -269,7 +269,7 @@ body.home .la-prayer-cell-name {
 	line-height: 1;
 	font-family: "Plus Jakarta Sans", inherit;
 }
-body.home .la-prayer-cell-time {
+body .la-prayer-cell-time {
 	font-size: 13px;
 	font-weight: 800;
 	letter-spacing: -0.01em;
@@ -279,7 +279,7 @@ body.home .la-prayer-cell-time {
 	font-variant-numeric: tabular-nums;
 	font-family: "Plus Jakarta Sans", inherit;
 }
-body.home .la-prayer-cell-eta {
+body .la-prayer-cell-eta {
 	font-size: 9px;
 	font-weight: 700;
 	color: rgba(255,255,255,0.92);
@@ -288,53 +288,53 @@ body.home .la-prayer-cell-eta {
 }
 
 /* Next prayer — solid accent fill, the only colour in the bar. */
-body.home .la-prayer-cell.is-next {
+body .la-prayer-cell.is-next {
 	background: var(--la-accent);
 	border-color: var(--la-accent);
 	box-shadow: 0 4px 14px rgba(255, 45, 111, 0.40);
 }
-body.home .la-prayer-cell.is-next .la-prayer-cell-name { color: rgba(255,255,255,0.92); }
-body.home .la-prayer-cell.is-next .la-prayer-cell-time { color: #fff; }
-body.home .la-prayer-cell.is-next .la-prayer-cell-eta  { color: rgba(255,255,255,0.95); }
+body .la-prayer-cell.is-next .la-prayer-cell-name { color: rgba(255,255,255,0.92); }
+body .la-prayer-cell.is-next .la-prayer-cell-time { color: #fff; }
+body .la-prayer-cell.is-next .la-prayer-cell-eta  { color: rgba(255,255,255,0.95); }
 
 /* Completed prayers — dimmed with the small accent tick already
    provided by .la-prayer-cell-check. Just style the tick in accent. */
-body.home .la-prayer-cell.is-prayed {
+body .la-prayer-cell.is-prayed {
 	background: rgba(255, 255, 255, 0.04);
 	border-color: rgba(255, 255, 255, 0.06);
 	opacity: 0.60;
 	box-shadow: none;
 }
-body.home .la-prayer-cell.is-prayed .la-prayer-cell-name,
-body.home .la-prayer-cell.is-prayed .la-prayer-cell-time {
+body .la-prayer-cell.is-prayed .la-prayer-cell-name,
+body .la-prayer-cell.is-prayed .la-prayer-cell-time {
 	color: var(--la-text-muted);
 }
-body.home .la-prayer-cell.is-prayed .la-prayer-cell-check {
+body .la-prayer-cell.is-prayed .la-prayer-cell-check {
 	color: var(--la-accent);
 }
 
 /* Other (upcoming) prayers — kept at 60% opacity per spec. */
-body.home .la-prayer-cell:not(.is-next):not(.is-prayed) {
+body .la-prayer-cell:not(.is-next):not(.is-prayed) {
 	opacity: 0.78;
 }
 @media (max-width: 600px) {
-	body.home .la-header { padding: 2px 6px; top: 6px; left: 6px; right: 6px; border-radius: 16px; }
+	body .la-header { padding: 2px 6px; top: 6px; left: 6px; right: 6px; border-radius: 16px; }
 	/* Wave 84 / 84c: vertical padding stays minimal because the row
 	   height is dominated by the .is-next cell's eta pill stretching
 	   all siblings. Cells just need enough horizontal pad for the
 	   numbers; vertical centring handles the visual balance. */
-	body.home .la-prayer-cell { padding: 1px 2px; }
-	body.home .la-prayer-cell-name { font-size: 8px; letter-spacing: 0.05em; line-height: 1; }
-	body.home .la-prayer-cell-time { font-size: 10px; line-height: 1.1; margin-top: 1px; }
+	body .la-prayer-cell { padding: 1px 2px; }
+	body .la-prayer-cell-name { font-size: 8px; letter-spacing: 0.05em; line-height: 1; }
+	body .la-prayer-cell-time { font-size: 10px; line-height: 1.1; margin-top: 1px; }
 }
 /* Feed snap area starts at y=0 now that the header is taken out of
    flow — first card fills the whole viewport with the glass header
    floating over its top portion. Right-rail interactions sit
    mid-card so they remain reachable. */
-body.home .la-app--feed {
+body .la-app--feed {
 	height: 100dvh;
 }
-body.home .la-feed-snap {
+body .la-feed-snap {
 	min-height: 100dvh;
 }
 .la-prayer-cell-name { font-size: 10px; }
@@ -875,10 +875,13 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 :root {
 	/* Single brand accent — rose/magenta, used ONLY for:
 	   next-prayer pill · active nav · liked · saved · Follow ·
-	   verified tick. Nothing else gets color. */
+	   verified tick. Nothing else gets color.
+	   Per-tab accent overrides below (e.g. Dhikr → emerald green for
+	   a calmer feel) just swap this variable on the body element. */
 	--la-accent:       #FF2D6F;
 	--la-accent-soft:  rgba(255, 45, 111, 0.18);
 	--la-accent-ring:  rgba(255, 45, 111, 0.40);
+	--la-accent-glow:  rgba(255, 45, 111, 0.40);
 
 	/* Glass surfaces over dark video */
 	--la-glass:        rgba(20, 21, 28, 0.42);
@@ -889,6 +892,34 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 	--la-text:         #ffffff;
 	--la-text-muted:   rgba(255, 255, 255, 0.62);
 	--la-text-faint:   rgba(255, 255, 255, 0.45);
+}
+
+/* Wave 93d — Per-tab accent overrides.
+   Dhikr page: emerald green (#10B981) for a calmer feel. Per user
+   feedback ("dhikr lets do green as its a calming colour"). The single
+   --la-accent variable drives: progress bar, active prayer chip, active
+   tab indicator, location pin, avatar gradient, follow pill, like/save
+   active states. Overriding it here swaps all of those at once.
+   Other tabs keep the default rose-magenta. */
+body.page-dhikr {
+	--la-accent:       #10B981;
+	--la-accent-soft:  rgba(16, 185, 129, 0.18);
+	--la-accent-ring:  rgba(16, 185, 129, 0.40);
+	--la-accent-glow:  rgba(16, 185, 129, 0.40);
+}
+body.page-dhikr .la-top-avatar,
+body.page-dhikr .la-top-avatar--cta {
+	background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+	box-shadow: 0 4px 14px rgba(16, 185, 129, 0.40);
+}
+body.page-dhikr .la-snap-followpill {
+	background: var(--la-accent);
+	box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+body.page-dhikr .la-prayer-cell.is-next {
+	background: var(--la-accent);
+	border-color: var(--la-accent);
+	box-shadow: 0 4px 14px rgba(16, 185, 129, 0.40);
 }
 
 /* Wave 92 — apply Plus Jakarta Sans to the feed body only. Other
@@ -6426,11 +6457,17 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 	color: #F4D982;
 }
 
+/* Wave 93d: Solitude / Witness / Pulse / Names card titles were
+   rendering at #F8ECD0 cream which got lost on the very dark hub
+   background. Switch to the page accent (green on dhikr per user
+   request) at full brightness with a subtle glow so the titles
+   POP as the main affordance. */
 .la-dhikr-hub-card-name {
 	font-size: 19px; font-weight: 800;
 	letter-spacing: -0.015em;
-	color: #F8ECD0;
+	color: var(--la-accent);
 	line-height: 1.15;
+	text-shadow: 0 0 18px rgba(16, 185, 129, 0.25);
 }
 @media (min-width: 600px) {
 	.la-dhikr-hub-card-name { font-size: 24px; }
