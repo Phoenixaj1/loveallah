@@ -35,6 +35,7 @@ class LA_Admin {
 		// Wave 70: bulk re-tag scholar content type + dhikr-video CRUD
 		add_action( 'admin_post_la_scholar_set_type',   [ __CLASS__, 'handle_scholar_set_type' ] );
 		add_action( 'admin_post_la_scholar_set_status', [ __CLASS__, 'handle_scholar_set_status' ] );
+		add_action( 'admin_post_la_audit_bulk_hide',    [ __CLASS__, 'handle_audit_bulk_hide' ] );
 		add_action( 'admin_post_la_scholar_sync_now',   [ __CLASS__, 'handle_scholar_sync_now' ] );
 		add_action( 'admin_post_la_dhikr_save',         [ __CLASS__, 'handle_dhikr_save' ] );
 		add_action( 'admin_post_la_dhikr_delete',       [ __CLASS__, 'handle_dhikr_delete' ] );
@@ -331,40 +332,60 @@ class LA_Admin {
 
 		$stats = [ 'total' => 0, 'ok' => 0, 'no_match' => 0, 'dormant' => 0, 'title_mismatch' => 0, 'no_handle' => 0 ];
 
+		// Wave 87i v2: accumulate scholar IDs per failure bucket so we can
+		// emit bulk-hide forms below the table. Hiding all DORMANT + NO MATCH
+		// channels in one click is the highest-leverage cleanup action.
+		$ids_by_status = [ 'dormant' => [], 'no_match' => [], 'title_mismatch' => [] ];
+
 		foreach ( $rows as $row ) {
 			$stats['total']++;
 
-			// Parse @handle out of source_url. Channels using /channel/UCxxx
-			// instead of @handle can't be audited via this endpoint (the
-			// channels.list?forHandle param requires a real handle string).
-			$handle = '';
+			// Parse identifier out of source_url. We support BOTH formats:
+			//   - /@handle           → channels.list?forHandle=@handle
+			//   - /channel/UCxxx     → channels.list?id=UCxxx
+			// Wave 87i v2: Without the /channel/UC path the audit was blind
+			// to ~55% of the catalog (legacy seeds use UC URLs).
+			$handle    = '';
+			$cid       = '';
+			$lookup    = '';
 			if ( preg_match( '#/@([A-Za-z0-9._-]+)#', (string) $row->source_url, $m ) ) {
 				$handle = $m[1];
+				$lookup = 'handle';
+			} elseif ( preg_match( '#/channel/(UC[A-Za-z0-9_-]{20,})#', (string) $row->source_url, $m ) ) {
+				$cid    = $m[1];
+				$lookup = 'cid';
+			} else {
+				// Last-resort fallback: use the youtube_channel_id we cached
+				// from a previous resolve. That bypasses URL parsing entirely.
+				if ( ! empty( $row->youtube_channel_id ) ) {
+					$cid    = (string) $row->youtube_channel_id;
+					$lookup = 'cached_cid';
+				}
 			}
 
-			if ( $handle === '' ) {
+			if ( $lookup === '' ) {
 				$stats['no_handle']++;
-				$row_class = $filter === 'problems' ? '' : 'problem-warn';
-				$show = ( $filter !== 'problems' || true ); // no-handle = always problem
 				if ( $filter === 'problems' || $filter === '' ) {
 					echo self::audit_row_html( $stats['total'], $row, $handle, [
 						'class'  => 'problem-warn',
 						'title'  => '',
 						'count'  => 0,
-						'status' => 'no @handle',
-						'badge'  => '<span class="badge badge-warn">NO HANDLE</span>',
+						'status' => 'no @handle and no /channel/UC',
+						'badge'  => '<span class="badge badge-warn">UNAUDITABLE</span>',
 					] );
 					flush();
 				}
 				continue;
 			}
 
-			// 1 quota unit per call. Sleep briefly to be polite.
-			$ch_url = add_query_arg( [
-				'key'       => $api_key,
-				'forHandle' => '@' . $handle,
-				'part'      => 'id,snippet,statistics',
-			], 'https://www.googleapis.com/youtube/v3/channels' );
+			// 1 quota unit per channels.list call regardless of lookup mode.
+			$args = [ 'key' => $api_key, 'part' => 'id,snippet,statistics' ];
+			if ( $lookup === 'handle' ) {
+				$args['forHandle'] = '@' . $handle;
+			} else {
+				$args['id'] = $cid;
+			}
+			$ch_url = add_query_arg( $args, 'https://www.googleapis.com/youtube/v3/channels' );
 			$res = wp_remote_get( $ch_url, [ 'timeout' => 12 ] );
 
 			$result = [ 'class' => 'ok', 'title' => '', 'count' => 0, 'status' => '', 'badge' => '' ];
@@ -380,6 +401,7 @@ class LA_Admin {
 					$result['badge']  = '<span class="badge badge-fatal">NO MATCH</span>';
 					$result['class']  = 'problem-fatal';
 					$stats['no_match']++;
+					$ids_by_status['no_match'][] = (int) $row->id;
 				} else {
 					$item = $json['items'][0];
 					$result['title'] = (string) ( $item['snippet']['title'] ?? '' );
@@ -404,11 +426,13 @@ class LA_Admin {
 						$result['badge']  = '<span class="badge badge-fatal">DORMANT</span>';
 						$result['class']  = 'problem-fatal';
 						$stats['dormant']++;
+						$ids_by_status['dormant'][] = (int) $row->id;
 					} elseif ( ! $title_matches ) {
 						$result['status'] = 'API title does not match our display_name';
 						$result['badge']  = '<span class="badge badge-fatal">WRONG PERSON?</span>';
 						$result['class']  = 'problem-mismatch';
 						$stats['title_mismatch']++;
+						$ids_by_status['title_mismatch'][] = (int) $row->id;
 					} else {
 						$result['status'] = sprintf( '%s lifetime videos', number_format( $result['count'] ) );
 						$result['badge']  = '<span class="badge badge-ok">OK</span>';
@@ -433,8 +457,65 @@ class LA_Admin {
 			· Dormant (0 videos): <?php echo (int) $stats['dormant']; ?>
 			· Wrong person?: <?php echo (int) $stats['title_mismatch']; ?>
 			· No match: <?php echo (int) $stats['no_match']; ?>
-			· No @handle: <?php echo (int) $stats['no_handle']; ?>
+			· Unauditable: <?php echo (int) $stats['no_handle']; ?>
 		</div>
+
+		<?php
+		// One-click bulk-hide forms. Each posts the comma-joined ID list to
+		// handle_audit_bulk_hide() which flips status='hidden' in one SQL.
+		// Confirm dialogs are mandatory — these actions affect 20-90 rows.
+		$action_url = admin_url( 'admin-post.php' );
+		$nonce      = wp_create_nonce( 'la_audit_bulk_hide' );
+		?>
+		<div class="summary" style="border-left-color:#7f1d1d;">
+			<strong>⚠ Bulk actions</strong> — clean the catalog in one click.
+			Hidden channels remain in the DB (recoverable) but are excluded from the live feed.
+			<br><br>
+			<?php if ( $stats['dormant'] > 0 ) : ?>
+				<form method="post" action="<?php echo esc_url( $action_url ); ?>" style="display:inline-block; margin-right:12px;" onsubmit="return confirm('Hide all <?php echo (int) $stats['dormant']; ?> DORMANT channels (0 lifetime videos)? They can be re-enabled later via the Scholars page.');">
+					<input type="hidden" name="action" value="la_audit_bulk_hide">
+					<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $nonce ); ?>">
+					<input type="hidden" name="ids" value="<?php echo esc_attr( implode( ',', $ids_by_status['dormant'] ) ); ?>">
+					<input type="hidden" name="label" value="dormant">
+					<button type="submit" style="background:#7f1d1d; color:#fecaca; border:0; padding:8px 14px; border-radius:6px; font-weight:700; cursor:pointer;">
+						Hide all <?php echo (int) $stats['dormant']; ?> DORMANT
+					</button>
+				</form>
+			<?php endif; ?>
+
+			<?php if ( $stats['no_match'] > 0 ) : ?>
+				<form method="post" action="<?php echo esc_url( $action_url ); ?>" style="display:inline-block; margin-right:12px;" onsubmit="return confirm('Hide all <?php echo (int) $stats['no_match']; ?> NO MATCH channels (handle returned no items from YouTube)? They can be re-enabled later.');">
+					<input type="hidden" name="action" value="la_audit_bulk_hide">
+					<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $nonce ); ?>">
+					<input type="hidden" name="ids" value="<?php echo esc_attr( implode( ',', $ids_by_status['no_match'] ) ); ?>">
+					<input type="hidden" name="label" value="no_match">
+					<button type="submit" style="background:#7f1d1d; color:#fecaca; border:0; padding:8px 14px; border-radius:6px; font-weight:700; cursor:pointer;">
+						Hide all <?php echo (int) $stats['no_match']; ?> NO MATCH
+					</button>
+				</form>
+			<?php endif; ?>
+
+			<?php $total_broken = $stats['dormant'] + $stats['no_match']; ?>
+			<?php if ( $total_broken > 0 ) : ?>
+				<form method="post" action="<?php echo esc_url( $action_url ); ?>" style="display:inline-block;" onsubmit="return confirm('Hide all <?php echo (int) $total_broken; ?> broken channels (DORMANT + NO MATCH combined)? This is the recommended one-click cleanup.');">
+					<input type="hidden" name="action" value="la_audit_bulk_hide">
+					<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $nonce ); ?>">
+					<input type="hidden" name="ids" value="<?php echo esc_attr( implode( ',', array_merge( $ids_by_status['dormant'], $ids_by_status['no_match'] ) ) ); ?>">
+					<input type="hidden" name="label" value="broken">
+					<button type="submit" style="background:#166534; color:#bbf7d0; border:0; padding:8px 14px; border-radius:6px; font-weight:700; cursor:pointer;">
+						✓ Hide all <?php echo (int) $total_broken; ?> broken (recommended)
+					</button>
+				</form>
+			<?php endif; ?>
+
+			<?php if ( $stats['title_mismatch'] > 0 ) : ?>
+				<br><br>
+				<small style="opacity:0.8">
+					<strong><?php echo (int) $stats['title_mismatch']; ?> WRONG PERSON?</strong> channels are NOT auto-hidden — many are valid organisational channels (Bayyinah, Qalam Institute, etc.) that simply have a different name than the scholar. Review each manually.
+				</small>
+			<?php endif; ?>
+		</div>
+
 		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>">← Back to scholars</a></p>
 		</body></html>
 		<?php
@@ -750,6 +831,46 @@ class LA_Admin {
 			set_transient( 'la_admin_notice', sprintf( __( 'Channel %s.', 'loveallah' ), $label ), 10 );
 		}
 		wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah-scholars' ) );
+		exit;
+	}
+
+	/**
+	 * Wave 87i: bulk-hide scholars from the audit page. Takes a comma-joined
+	 * list of IDs in POST['ids'] (validated to be a flat int list) and flips
+	 * status='hidden' for all of them in one SQL statement.
+	 *
+	 * Hidden ≠ deleted — the feed query excludes them but the rows stay so
+	 * you can un-hide later via the Scholars page if you change your mind.
+	 */
+	public static function handle_audit_bulk_hide() : void {
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+		check_admin_referer( 'la_audit_bulk_hide' );
+
+		$raw = (string) ( $_POST['ids'] ?? '' );
+		$ids = array_filter( array_map( 'intval', explode( ',', $raw ) ) );
+		$ids = array_values( array_unique( $ids ) );
+		$label = sanitize_key( $_POST['label'] ?? 'bulk' );
+
+		if ( empty( $ids ) ) {
+			set_transient( 'la_admin_notice', __( 'No scholar IDs supplied — nothing hidden.', 'loveallah' ), 10 );
+			wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=loveallah-scholars' ) );
+			exit;
+		}
+
+		global $wpdb;
+		$t = LA_DB::tables();
+		// Build a safe placeholder list — all values are ints so this is fine.
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$sql = "UPDATE {$t['scholars']} SET status = 'hidden' WHERE id IN ($placeholders)";
+		$wpdb->query( $wpdb->prepare( $sql, ...$ids ) );
+		$affected = (int) $wpdb->rows_affected;
+
+		set_transient(
+			'la_admin_notice',
+			sprintf( __( 'Hidden %d %s channels (no longer in feed).', 'loveallah' ), $affected, $label ),
+			15
+		);
+		wp_safe_redirect( admin_url( 'admin.php?page=loveallah-scholars' ) );
 		exit;
 	}
 
