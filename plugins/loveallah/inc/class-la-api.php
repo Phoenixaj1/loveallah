@@ -261,7 +261,22 @@ class LA_API {
 			if ( $m ) $mosque_id = (int) $m->id;
 		}
 
-		$posts = LA_Feed::recent( 20, $mosque_id );
+		// Wave 87j: feed must go through LA_Algorithm::for_user() so the
+		// per-scholar cap, freshness decay, scholar diversity round-robin,
+		// type-balance pass, and 90-day seen-exclusion all apply. The old
+		// path was LA_Feed::recent() — a flat published_at-DESC SQL query
+		// with no diversity logic, which is why a single deep-import flood
+		// (Mufti Menk: 48 fresh posts) returned 100% Menk for 20 cards.
+		$limit  = max( 1, min( 50, (int) $req->get_param( 'limit' ) ?: 20 ) );
+		$page   = max( 0, (int) $req->get_param( 'page' ) );
+		$type   = sanitize_key( (string) $req->get_param( 'type' ) );
+		$type   = $type ?: null;
+		$posts  = LA_Algorithm::for_user( $user_id, $session_id, $limit, $page, $type );
+		// Drop any non-content cards (signup interruption, dhikr) that the
+		// algorithm may interleave — the JSON feed API serves video posts only.
+		$posts = array_values( array_filter( $posts, function( $p ) {
+			return ( $p->_card_type ?? 'content' ) === 'content';
+		} ) );
 		$out = [];
 		foreach ( $posts as $p ) {
 			$scholar = LA_Scholars::get_by_id( (int) $p->scholar_id );
