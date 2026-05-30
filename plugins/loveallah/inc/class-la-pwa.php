@@ -376,6 +376,12 @@ self.addEventListener('notificationclick', (e) => {
 		<meta name="theme-color" content="<?php echo esc_attr( $brand ); ?>">
 		<meta name="mobile-web-app-capable" content="yes">
 
+		<!-- Google Search Console ownership verification for loveallah.app.
+		     Required so the Play Console Org-tier conversion can verify
+		     domain ownership (Play Console = adiljzhome account, this token
+		     was issued to the same account so verification matches). -->
+		<meta name="google-site-verification" content="GBlHuQcm03wqt5GEHPkrxKC51uhlQdvoUwKDyWzuzx8">
+
 		<!-- ─── iOS / Safari PWA ───
 		     'apple-mobile-web-app-capable' is deprecated but still respected on
 		     iOS 16. 'mobile-web-app-capable' is the modern equivalent (above). -->
