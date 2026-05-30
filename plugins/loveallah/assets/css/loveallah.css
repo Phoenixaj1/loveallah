@@ -1898,10 +1898,13 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 	position: fixed; bottom: 0; left: 0; right: 0;
 	height: var(--la-tabbar-h);
 	display: flex; align-items: stretch;
-	background: rgba(255,255,255,0.92);
+	/* Wave 91c: light-blue tab bar to match the action pill theme.
+	   Frosted glass with a sky-blue tint so the row reads as one
+	   coherent UI element across the bottom edge. */
+	background: linear-gradient(180deg, rgba(224, 242, 254, 0.88) 0%, rgba(186, 230, 253, 0.92) 100%);
 	backdrop-filter: blur(24px) saturate(1.6);
 	-webkit-backdrop-filter: blur(24px) saturate(1.6);
-	border-top: 1px solid var(--la-line);
+	border-top: 1px solid rgba(135, 206, 250, 0.45);
 	z-index: 100;
 	padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1939,6 +1942,46 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 	border-radius: 0 0 999px 999px;
 }
 .la-tab.is-locked { color: var(--la-ink-faint); opacity: 0.55; }
+
+/* Wave 91c: per-tab colour palette so the bar reads as a row of distinct
+   buttons instead of identical grey icons. Each tab gets a default tint
+   (~70% saturation) plus a brighter fully-saturated colour when .is-active.
+   nth-child relies on the markup order in footer.php:
+     1=Feed  2=Dhikr  3=Dua  4=Donate  5=Masjid  6=Connect */
+
+/* 1 — Feed: sky blue (matches the bar background, reads as "home") */
+.la-tab:nth-child(1)            { color: #0284C7; }
+.la-tab:nth-child(1).is-active  { color: #0369A1; }
+.la-tab:nth-child(1).is-active::before { background: #0369A1; }
+
+/* 2 — Dhikr: violet/indigo (spiritual, contemplative) */
+.la-tab:nth-child(2)            { color: #8B5CF6; }
+.la-tab:nth-child(2).is-active  { color: #6D28D9; }
+.la-tab:nth-child(2).is-active::before { background: #6D28D9; }
+
+/* 3 — Dua: rose/pink (heart, supplication) */
+.la-tab:nth-child(3)            { color: #EC4899; }
+.la-tab:nth-child(3).is-active  { color: #BE185D; }
+.la-tab:nth-child(3).is-active::before { background: #BE185D; }
+
+/* 4 — Donate: warm amber/gold (brand accent — sadaqah glow) */
+.la-tab:nth-child(4)            { color: #F59E0B; }
+.la-tab:nth-child(4).is-active  { color: #B45309; }
+.la-tab:nth-child(4).is-active::before { background: #B45309; }
+
+/* 5 — Masjid: emerald green (Islamic green) */
+.la-tab:nth-child(5)            { color: #10B981; }
+.la-tab:nth-child(5).is-active  { color: #047857; }
+.la-tab:nth-child(5).is-active::before { background: #047857; }
+
+/* 6 — Connect: coral/orange (warm, social) */
+.la-tab:nth-child(6)            { color: #F97316; }
+.la-tab:nth-child(6).is-active  { color: #C2410C; }
+.la-tab:nth-child(6).is-active::before { background: #C2410C; }
+
+/* On hover, keep the per-tab colour rather than fading to ink-soft. */
+.la-tab:hover { text-decoration: none; opacity: 0.85; }
+.la-tab:hover { color: inherit; }
 
 /* 5-tab variant — slightly tighter on narrow screens */
 .la-tabbar--5 .la-tab { font-size: 9.5px; padding: 8px 2px; }
