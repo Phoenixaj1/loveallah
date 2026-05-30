@@ -653,6 +653,52 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
    The pill itself is ~200px tall so its TOP edge lands above the fold
    on small phones while staying out of the way of every fixed UI
    element below. */
+/* ─────────────────────────────────────────────────────────────────
+   Wave 92 — Feed redesign tokens (per design spec)
+   ───────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+	/* Single brand accent — rose/magenta, used ONLY for:
+	   next-prayer pill · active nav · liked · saved · Follow ·
+	   verified tick. Nothing else gets color. */
+	--la-accent:       #FF2D6F;
+	--la-accent-soft:  rgba(255, 45, 111, 0.18);
+	--la-accent-ring:  rgba(255, 45, 111, 0.40);
+
+	/* Glass surfaces over dark video */
+	--la-glass:        rgba(20, 21, 28, 0.42);
+	--la-glass-strong: rgba(16, 17, 23, 0.62);
+	--la-glass-hair:   rgba(255, 255, 255, 0.14);
+
+	/* Text */
+	--la-text:         #ffffff;
+	--la-text-muted:   rgba(255, 255, 255, 0.62);
+	--la-text-faint:   rgba(255, 255, 255, 0.45);
+}
+
+/* Wave 92 — apply Plus Jakarta Sans to the feed body only. Other
+   pages keep the inherited system font stack so the install size
+   stays small. */
+.la-snap--content, .la-snap--content * { font-feature-settings: "ss01", "cv11"; }
+.la-snap--content, .la-snap--content .la-snap-creator,
+.la-snap--content .la-snap-creator * {
+	font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.la-snap-creator-name, .la-rail-count, .la-snap-followpill {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Legibility scrim — soft black gradient behind the bottom UI so
+   white text stays readable over any video colour underneath. */
+.la-snap-scrim {
+	position: absolute; left: 0; right: 0; bottom: 0;
+	height: 430px;
+	background: linear-gradient(0deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.50) 30%, rgba(0,0,0,0) 100%);
+	pointer-events: none;
+	z-index: 2;
+}
+
 .la-snap-actions {
 	position: absolute;
 	right: 10px;
@@ -746,6 +792,182 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 .la-snap-mute svg    { filter: drop-shadow(0 0 4px rgba(79, 195, 247, 0.35)); }
 .la-snap-mute.is-on  { color: #29B6F6; }
 .la-snap-mute.is-on svg { filter: drop-shadow(0 0 8px rgba(41, 182, 246, 0.55)); }
+
+/* ─────────────────────────────────────────────────────────────────
+   Wave 92 — Right action rail (new design)
+   Individual floating glass circles, not a container pill.
+   ───────────────────────────────────────────────────────────────── */
+.la-snap-rail {
+	position: absolute;
+	right: 12px;
+	bottom: calc(var(--la-tabbar-h) + 168px + var(--la-safe-bottom));
+	z-index: 4;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+}
+.la-rail-btn {
+	width: 50px; height: 50px;
+	display: flex; align-items: center; justify-content: center;
+	background: rgba(255, 255, 255, 0.10);
+	-webkit-backdrop-filter: blur(22px) saturate(1.4);
+	backdrop-filter: blur(22px) saturate(1.4);
+	border: 1px solid var(--la-glass-hair);
+	border-radius: 999px;
+	color: var(--la-text);
+	cursor: pointer;
+	padding: 0;
+	transition: transform 0.15s cubic-bezier(.34,1.56,.64,1), background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.la-rail-btn:active { transform: scale(0.92); }
+.la-rail-btn:hover  { background: rgba(255, 255, 255, 0.16); }
+.la-rail-btn svg    { width: 25px; height: 25px; }
+.la-rail-count {
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--la-text);
+	letter-spacing: -0.01em;
+	margin-top: -4px;
+	text-shadow: 0 1px 2px rgba(0,0,0,0.40);
+}
+.la-rail-count.is-zero { display: none; }
+.la-rail-label {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--la-text);
+	letter-spacing: -0.01em;
+	margin-top: -4px;
+	text-shadow: 0 1px 2px rgba(0,0,0,0.40);
+}
+
+/* Active states: SINGLE accent appears only when the action is on. */
+.la-rail-like.is-active,
+.la-rail-save.is-active {
+	color: var(--la-accent);
+	border-color: var(--la-accent-ring);
+}
+.la-rail-like.is-active svg { fill: var(--la-accent); stroke: var(--la-accent); animation: la-pop 0.30s cubic-bezier(.34,1.56,.64,1); }
+.la-rail-save.is-active svg { fill: var(--la-accent); stroke: var(--la-accent); animation: la-pop 0.30s cubic-bezier(.34,1.56,.64,1); }
+@keyframes la-pop {
+	0%   { transform: scale(0.85); }
+	60%  { transform: scale(1.20); }
+	100% { transform: scale(1.00); }
+}
+
+/* Mute on/off — single colour ink (white), not accent. The icon
+   swap (la-mute-on vs la-mute-off) carries the state visually. */
+.la-rail-mute .la-mute-on  { display: none; }
+.la-rail-mute .la-mute-off { display: block; }
+.la-rail-mute.is-on .la-mute-on  { display: block; }
+.la-rail-mute.is-on .la-mute-off { display: none; }
+
+/* ─────────────────────────────────────────────────────────────────
+   Wave 92 — Creator block at bottom-left, above tab bar
+   ───────────────────────────────────────────────────────────────── */
+.la-snap-creator {
+	position: absolute;
+	left: 16px;
+	right: 86px; /* leave room for the action rail */
+	bottom: calc(var(--la-tabbar-h) + 18px + var(--la-safe-bottom));
+	z-index: 4;
+	color: var(--la-text);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.la-snap-creator-row {
+	display: flex; align-items: center; gap: 12px;
+}
+.la-snap-avatar-wrap {
+	position: relative;
+	width: 40px; height: 40px;
+	border-radius: 50%;
+	background: rgba(255,255,255,0.16);
+	border: 2px solid var(--la-accent);
+	display: flex; align-items: center; justify-content: center;
+	font-size: 14px; font-weight: 700;
+	color: var(--la-text);
+	flex-shrink: 0;
+}
+.la-snap-tick {
+	position: absolute;
+	right: -3px; bottom: -3px;
+	width: 16px; height: 16px;
+	background: var(--la-accent);
+	border-radius: 50%;
+	display: flex; align-items: center; justify-content: center;
+	color: #fff;
+	box-shadow: 0 0 0 2px rgba(0,0,0,0.40);
+}
+.la-snap-tick svg { width: 11px; height: 11px; }
+.la-snap-creator-meta {
+	flex: 1;
+	min-width: 0;
+	display: flex; flex-direction: column; gap: 1px;
+}
+.la-snap-creator-name {
+	font-size: 15px; font-weight: 700;
+	color: var(--la-text);
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+	letter-spacing: -0.01em;
+	text-shadow: 0 1px 3px rgba(0,0,0,0.55);
+}
+.la-snap-creator-sub {
+	font-size: 12px; font-weight: 500;
+	color: var(--la-text-muted);
+	letter-spacing: -0.01em;
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+	text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+}
+
+/* Follow pill — accent until toggled, then neutral glass "Following". */
+.la-snap-followpill {
+	flex-shrink: 0;
+	background: var(--la-accent);
+	color: #fff;
+	border: 0;
+	border-radius: 999px;
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	padding: 8px 18px;
+	min-height: 36px;
+	cursor: pointer;
+	transition: transform 0.15s cubic-bezier(.34,1.56,.64,1), background 0.15s ease, color 0.15s ease;
+	font-family: inherit;
+	box-shadow: 0 4px 14px rgba(255, 45, 111, 0.35);
+}
+.la-snap-followpill:active { transform: scale(0.94); }
+.la-snap-followpill .la-follow-label-check { display: none; }
+.la-snap-followpill.is-active {
+	background: rgba(255, 255, 255, 0.10);
+	color: var(--la-text);
+	box-shadow: none;
+	border: 1px solid var(--la-glass-hair);
+}
+.la-snap-followpill.is-active .la-follow-label-plus  { display: none; }
+.la-snap-followpill.is-active .la-follow-label-check { display: inline; }
+
+/* IG chip — subtle glass with the IG glyph + handle. */
+.la-snap-ig {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	align-self: flex-start;
+	padding: 5px 12px;
+	background: var(--la-glass);
+	-webkit-backdrop-filter: blur(22px) saturate(1.4);
+	backdrop-filter: blur(22px) saturate(1.4);
+	border: 1px solid var(--la-glass-hair);
+	border-radius: 13px;
+	color: var(--la-text);
+	font-size: 12px; font-weight: 600;
+	letter-spacing: -0.01em;
+	text-decoration: none;
+}
+.la-snap-ig:hover { color: var(--la-text); text-decoration: none; background: rgba(20,21,28,0.55); }
+.la-snap-ig svg { opacity: 0.95; }
 
 /* Like (heart) — soft pink. Turns full red-pink + gold when active. */
 .la-snap-action[data-act="like"]        { color: #FF6B8A; }
@@ -1898,23 +2120,13 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 	position: fixed; bottom: 0; left: 0; right: 0;
 	height: var(--la-tabbar-h);
 	display: flex; align-items: stretch;
-	/* Wave 91e: Jony Ive iOS-style tab bar.
-	   Principles applied:
-	   - Materials, not paint. The bar is a piece of frosted material
-	     that takes its colour from whatever is behind it; we add only
-	     a whisper of white-tint so it has presence without identity.
-	   - Hierarchy through value, not hue. Killed the rainbow icons —
-	     everything is graphite ink, active is the same ink at fuller
-	     value with a subtle pressed-pill behind it.
-	   - Restraint. No drop shadows, no glow, no stripe. Just glass and
-	     ink. */
-	background: rgba(248, 250, 252, 0.70);
-	backdrop-filter: blur(60px) saturate(180%);
-	-webkit-backdrop-filter: blur(60px) saturate(180%);
-	/* Hairline divider — 0.5px reads as the optical pixel on retina. */
-	border-top: 0.5px solid rgba(0, 0, 0, 0.08);
-	box-shadow:
-		inset 0 0.5px 0 rgba(255, 255, 255, 0.50);
+	/* Wave 92: dark frosted glass tab bar over video feed.
+	   Per design spec: rgba(16,17,23,.62) + blur(26px) + hairline. */
+	background: var(--la-glass-strong);
+	backdrop-filter: blur(26px) saturate(1.4);
+	-webkit-backdrop-filter: blur(26px) saturate(1.4);
+	border-top: 1px solid var(--la-glass-hair);
+	box-shadow: none;
 	z-index: 100;
 	padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1931,47 +2143,32 @@ body.home .la-header-actions .la-hijri-pill { display: none; }
 .la-tab {
 	flex: 1;
 	display: flex; flex-direction: column; align-items: center; justify-content: center;
-	gap: 2px;
-	/* Wave 91e: single restrained ink for all tabs — iOS .secondaryLabel
-	   on light material is rgba(60, 60, 67, 0.60). Reads as quietly there. */
-	color: rgba(60, 60, 67, 0.62);
-	font-size: 10px; font-weight: 510;
-	/* SF Pro letter-spacing — tight, modern. The previous 0.02em wide-
-	   tracking read as Material Design uppercase-style. */
+	gap: 3px;
+	/* Wave 92: dark glass bar over video → all icons white at half
+	   opacity (inactive). Single accent (rose magenta) lights up
+	   only the active tab — both icon and label. */
+	color: rgba(255, 255, 255, 0.50);
+	font-size: 9.5px;
+	font-weight: 600;
 	letter-spacing: -0.01em;
 	padding: 8px 4px;
 	position: relative;
-	transition: color 0.18s ease;
+	font-family: "Plus Jakarta Sans", inherit;
+	transition: color 0.18s ease, transform 0.15s var(--la-spring);
 }
 .la-tab svg {
-	width: 24px; height: 24px;
+	width: 23px; height: 23px;
 	transition: transform 0.15s var(--la-spring);
-	/* No drop-shadow, no glow. Glass + ink. Nothing else. */
 }
 .la-tab:active svg { transform: scale(0.92); }
-.la-tab:hover { color: rgba(60, 60, 67, 0.85); text-decoration: none; }
+.la-tab:hover { color: rgba(255, 255, 255, 0.80); text-decoration: none; }
 
-/* Active state, Ive-style: icon goes to full primary ink, and a soft
-   pressed-pill sits behind the icon + label. No top stripe — that's
-   a Material Design pattern. */
-.la-tab.is-active { color: rgba(28, 28, 30, 1); }
-.la-tab.is-active::before {
-	content: '';
-	position: absolute;
-	top: 6px;
-	left: 50%;
-	transform: translateX(-50%);
-	width: calc(100% - 8px);
-	max-width: 60px;
-	height: calc(100% - 12px);
-	background: rgba(0, 0, 0, 0.05);
-	border-radius: 12px;
-	z-index: -1;
-	/* Tiny inner highlight gives the pill a sense of being recessed
-	   into the glass rather than painted on top. */
-	box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.45);
-}
-.la-tab.is-locked { color: rgba(60, 60, 67, 0.35); }
+/* Active state: single accent (--la-accent). Slight icon scale-up
+   so the active tab has subtle weight. No top stripe, no pill. */
+.la-tab.is-active { color: var(--la-accent); }
+.la-tab.is-active svg { transform: scale(1.05); }
+.la-tab.is-active::before { content: none; }
+.la-tab.is-locked { color: rgba(255, 255, 255, 0.30); }
 
 /* 5-tab variant — slightly tighter on narrow screens */
 .la-tabbar--5 .la-tab { font-size: 9.5px; padding: 8px 2px; }

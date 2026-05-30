@@ -477,7 +477,11 @@
 
 	// ─── Action buttons (like / save / share / follow) ───
 	feedContainer.addEventListener('click', async (e) => {
-		const action = e.target.closest('.la-snap-action[data-act]');
+		// Wave 92: new design ships .la-rail-btn (action rail) and
+		// .la-snap-followpill (creator-block Follow button) alongside
+		// the legacy .la-snap-action selector. Union match so all of
+		// them route through this single handler.
+		const action = e.target.closest('.la-rail-btn[data-act], .la-snap-followpill[data-act], .la-snap-action[data-act]');
 		if (!action) return;
 		const id = action.dataset.id;
 		const act = action.dataset.act;
@@ -702,7 +706,7 @@
 	function setSound(on) {
 		userWantsSound = !!on;
 		sessionStorage.setItem('la_sound', on ? '1' : '0');
-		$$('.la-snap-mute').forEach(btn => btn.classList.toggle('is-on', on));
+		$$('.la-snap-mute, .la-rail-mute').forEach(btn => btn.classList.toggle('is-on', on));
 		// Reload current video with new mute state, preserving position is impossible across iframe src changes
 		if (currentPlaying) {
 			const card = currentPlaying.closest('.la-snap');
@@ -712,7 +716,7 @@
 
 	// Apply initial state to any mute buttons on first paint
 	requestAnimationFrame(() => {
-		$$('.la-snap-mute').forEach(btn => btn.classList.toggle('is-on', userWantsSound));
+		$$('.la-snap-mute, .la-rail-mute').forEach(btn => btn.classList.toggle('is-on', userWantsSound));
 	});
 
 	feedContainer.addEventListener('click', (e) => {
