@@ -15,8 +15,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'LA_VERSION',  '0.68.0' );
-define( 'LA_DB_VERSION', 36 );
+define( 'LA_VERSION',  '0.69.0' );
+define( 'LA_DB_VERSION', 37 );
 define( 'LA_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LA_URL', plugin_dir_url( __FILE__ ) );
 define( 'LA_FILE', __FILE__ );
@@ -35,6 +35,7 @@ require_once LA_DIR . 'inc/class-la-api.php';
 require_once LA_DIR . 'inc/class-la-algorithm.php';
 require_once LA_DIR . 'inc/class-la-feed-render.php';
 require_once LA_DIR . 'inc/class-la-youtube.php';
+require_once LA_DIR . 'inc/class-la-curation.php';
 require_once LA_DIR . 'inc/class-la-events.php';
 require_once LA_DIR . 'inc/class-la-pwa.php';
 require_once LA_DIR . 'inc/class-la-admin.php';

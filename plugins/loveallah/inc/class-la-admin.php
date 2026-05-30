@@ -33,6 +33,7 @@ class LA_Admin {
 		add_action( 'admin_post_la_yt_sync_batch',   [ __CLASS__, 'handle_yt_sync_batch' ] );
 		add_action( 'admin_post_la_yt_sync_catchup', [ __CLASS__, 'handle_yt_sync_catchup' ] );
 		add_action( 'admin_post_la_purge_non_shorts', [ __CLASS__, 'handle_purge_non_shorts' ] );
+		add_action( 'admin_post_la_curate_mainstream', [ __CLASS__, 'handle_curate_mainstream' ] );
 		// Wave 70: bulk re-tag scholar content type + dhikr-video CRUD
 		add_action( 'admin_post_la_scholar_set_type',   [ __CLASS__, 'handle_scholar_set_type' ] );
 		add_action( 'admin_post_la_scholar_set_status', [ __CLASS__, 'handle_scholar_set_status' ] );
@@ -195,6 +196,11 @@ class LA_Admin {
 				<?php wp_nonce_field( 'la_purge_non_shorts' ); ?>
 				<input type="hidden" name="action" value="la_purge_non_shorts">
 				<?php submit_button( __( '🧹 Purge non-Shorts (>61s)', 'loveallah' ), 'secondary', '', false, [ 'style' => 'background:#7f1d1d; color:#fff; border-color:#7f1d1d;' ] ); ?>
+			</form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:10px; display:inline-block; margin-left:8px;" onsubmit="return confirm('Hide every scholar NOT in the mainstream allowlist (Quran reciters + well-known speakers + institutional channels)? Inserts any allowlist channels we don’t have yet. Run YouTube sync after this to backfill their Shorts.');">
+				<?php wp_nonce_field( 'la_curate_mainstream' ); ?>
+				<input type="hidden" name="action" value="la_curate_mainstream">
+				<?php submit_button( __( '✨ Restrict to mainstream channels', 'loveallah' ), 'primary', '', false, [ 'style' => 'background:#1A8A7B; border-color:#1A8A7B;' ] ); ?>
 			</form>
 			<p class="description" style="margin-top:8px;">
 				<strong><?php esc_html_e( '🚀 Catch-up', 'loveallah' ); ?>:</strong>
@@ -2279,6 +2285,56 @@ class LA_Admin {
 			· Kept (≤ 61s): <?php echo (int) $totals['kept']; ?>
 			· <span class="del">Deleted (&gt; 61s or unavailable): <?php echo (int) $totals['deleted']; ?></span>
 		</div>
+		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>">← Back to scholars</a></p>
+		</body></html>
+		<?php
+		exit;
+	}
+
+	/**
+	 * Wave 90: apply the mainstream allowlist. Hides every scholar NOT in
+	 * LA_Curation::ALLOWLIST and inserts any missing entries. Streams
+	 * counters back so the admin can see the catalog shrink.
+	 *
+	 * Existing feed_posts from now-hidden scholars are NOT deleted — the
+	 * algorithm's ranked_content_full SQL already filters by status='active'
+	 * so they vanish from the feed automatically. Un-hiding a scholar later
+	 * brings their archive back.
+	 */
+	public static function handle_curate_mainstream() : void {
+		check_admin_referer( 'la_curate_mainstream' );
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+
+		nocache_headers();
+		header( 'Content-Type: text/html; charset=utf-8' );
+		header( 'X-Accel-Buffering: no' );
+		echo str_repeat( ' ', 1024 );
+		flush();
+		?>
+		<!doctype html>
+		<html><head><meta charset="utf-8">
+		<title>Restricting to mainstream…</title>
+		<style>
+			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1A0D26; color: #F8ECD0; padding: 32px; max-width: 720px; margin: 0 auto; line-height: 1.5; }
+			h1 { color: #F4D982; font-weight: 800; }
+			.row { padding: 10px 14px; background: rgba(255,255,255,0.06); border-left: 3px solid #C9A961; margin: 8px 0; border-radius: 6px; font-variant-numeric: tabular-nums; }
+			.done { border-left-color: #4ade80; font-size: 16px; font-weight: 700; }
+			.totals { font-size: 18px; font-weight: 700; color: #F4D982; margin-top: 20px; padding: 14px 18px; background: rgba(232,199,111,0.10); border-radius: 10px; }
+			a { color: #F4D982; }
+		</style>
+		</head><body>
+		<h1>✨ Restricting feed to mainstream channels</h1>
+		<p>Hides every scholar not on the curated allowlist (Quran reciters + well-known English speakers + institutional channels like OnePath, Yaqeen, Qalam, Bayyinah, AlMaghrib, Eman Channel, Islam Channel). Inserts any allowlist channels we don't have yet.</p>
+		<?php
+		flush();
+		$stats = LA_Curation::apply();
+		?>
+		<div class="row">Allowlist size: <strong><?php echo (int) $stats['allow']; ?></strong> channels</div>
+		<div class="row">Re-activated (existing rows matched): <strong><?php echo (int) $stats['unhid']; ?></strong></div>
+		<div class="row">Inserted (new rows): <strong><?php echo (int) $stats['inserted']; ?></strong></div>
+		<div class="row">Hidden (non-allowlist scholars): <strong><?php echo (int) $stats['still_hidden']; ?></strong></div>
+		<div class="totals">Done — catalog is now restricted to <?php echo (int) ( $stats['unhid'] + $stats['inserted'] ); ?> mainstream channels.</div>
+		<p>Next step: run a <a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah' ) ); ?>">catch-up sync</a> to backfill Shorts from the newly-inserted channels. Then the feed will start showing their content within the hour.</p>
 		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>">← Back to scholars</a></p>
 		</body></html>
 		<?php
