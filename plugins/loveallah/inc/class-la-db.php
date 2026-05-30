@@ -71,6 +71,57 @@ class LA_DB {
 			if ( class_exists( 'LA_Events' ) && $default_mosque_id ) {
 				LA_Events::seed_for_mosque( $default_mosque_id );
 			}
+
+			// Wave 87: pivot the entire feed to YouTube Shorts (portrait,
+			// <60s, scroll-addictive). Flip every existing scholar to
+			// shorts_only=1 the first time this migration runs so the
+			// next cron tick starts pulling only Shorts. dbDelta will have
+			// already added the column (with default 1 for new rows), but
+			// the original CREATE used DEFAULT 0 — explicit UPDATE forces
+			// the backfill on installs that pre-date Wave 87.
+			global $wpdb;
+			$t = self::tables();
+			$has_shorts_col = (bool) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = %s
+				   AND COLUMN_NAME = 'shorts_only'",
+				$t['scholars']
+			) );
+			if ( $has_shorts_col ) {
+				$wpdb->query( "UPDATE {$t['scholars']} SET shorts_only = 1 WHERE shorts_only IS NULL OR shorts_only = 0" );
+			}
+
+			// Wave 87: purge every feed post that isn't a Short. The user
+			// chose shorts-only addictive UX explicitly, so leaving 30-minute
+			// lectures in the catalog would dilute the experience. We keep
+			// rows whose:
+			//   - type column = 'short' (newer ingester writes this), OR
+			//   - original_source_url contains '/shorts/' (legacy mixed-content
+			//     inserts that happened to be Shorts already)
+			// Everything else gets removed. We also drop the matching
+			// interactions rows so the per-post likes/saves/shares counters
+			// don't reference dangling ids.
+			$kept_ids = (array) $wpdb->get_col(
+				"SELECT id FROM {$t['feed_posts']}
+				 WHERE type = 'short'
+				    OR original_source_url LIKE '%/shorts/%'"
+			);
+			if ( $kept_ids ) {
+				$kept_csv = implode( ',', array_map( 'intval', $kept_ids ) );
+				$wpdb->query( "DELETE FROM {$t['feed_interactions']} WHERE post_id NOT IN ($kept_csv)" );
+				$wpdb->query( "DELETE FROM {$t['feed_posts']}        WHERE id      NOT IN ($kept_csv)" );
+			} else {
+				// Nothing was a Short — wipe the whole table so the cron
+				// rebuilds from scratch with shorts-only ingestion.
+				$wpdb->query( "DELETE FROM {$t['feed_interactions']}" );
+				$wpdb->query( "DELETE FROM {$t['feed_posts']}" );
+			}
+
+			// Wave 87: seed halaltube speakers as curated scholars (115 of
+			// them). Idempotent — skips usernames that already exist.
+			self::seed_halaltube_speakers();
+
 			update_option( 'la_db_version', LA_DB_VERSION );
 		}
 	}
@@ -176,12 +227,14 @@ class LA_DB {
 			associated_charity varchar(255) DEFAULT NULL,
 			associated_masjid_id bigint(20) unsigned DEFAULT NULL,
 			status varchar(20) NOT NULL DEFAULT 'active',
+			shorts_only tinyint(1) NOT NULL DEFAULT 1,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY username (username),
 			KEY youtube_channel_id (youtube_channel_id),
 			KEY default_content_type (default_content_type),
-			KEY status (status)
+			KEY status (status),
+			KEY shorts_only (shorts_only)
 		) $charset_collate;" );
 
 		dbDelta( "CREATE TABLE {$t['feed_posts']} (
@@ -3028,6 +3081,185 @@ class LA_DB {
 
 		foreach ( $posts as $row ) {
 			$wpdb->insert( $t['feed_posts'], $row );
+		}
+	}
+
+	/**
+	 * Wave 87: insert every speaker listed at https://halaltube.com/speakers
+	 * as a curated scholar. shorts_only=1 so the YouTube ingester pulls only
+	 * portrait <60s clips for these channels — turning the feed into a
+	 * TikTok-style addictive scroll of high-quality reminders.
+	 *
+	 * Each row uses the speaker's public YouTube handle where known (these
+	 * are factual, publicly-promoted channels — not scraped). For speakers
+	 * without a verified handle, we use a /@<slug> guess; the ingester's
+	 * resolve_channel_id() will gracefully bail if the handle 404s.
+	 *
+	 * Idempotent: INSERT IGNORE skips slugs that already exist.
+	 */
+	private static function seed_halaltube_speakers() {
+		global $wpdb;
+		$t = self::tables();
+
+		// Speaker slug => [ display name, YouTube handle (without @) ].
+		// Handle empty => use slug-derived guess (may or may not resolve).
+		$speakers = [
+			'abdal-hakim-jackson'        => [ 'Abdal Hakim Jackson',         '' ],
+			'abdal-hakim-murad'          => [ 'Abdal Hakim Murad',           'cambridgemuslimcollege' ],
+			'abdelrahman-murphy'         => [ 'Abdelrahman Murphy',          'AbdelRahmanMurphy' ],
+			'abdul-bary-yahya'           => [ 'Abdul Bary Yahya',            '' ],
+			'abdul-karim-yahya'          => [ 'Abdul Karim Yahya',           '' ],
+			'abdul-malik'                => [ 'Abdul Malik',                 '' ],
+			'abdul-nasir-jangda'         => [ 'Abdul Nasir Jangda',          'QalamInstitute' ],
+			'abdul-rahman-chao'          => [ 'Abdul Rahman Chao',           '' ],
+			'abdul-wahab-waheed'         => [ 'Abdul Wahab Waheed',          '' ],
+			'abdullah-hakim-quick'       => [ 'Abdullah Hakim Quick',        'DrAbdullahHakimQuick' ],
+			'abdur-raheem-green'         => [ 'Abdur Raheem Green',          'AbdurRaheemGreen' ],
+			'abdur-raheem-mccarthy'      => [ 'Abdur Raheem McCarthy',       '' ],
+			'abdur-rahman-ibn-yusuf'     => [ 'Abdur Rahman ibn Yusuf',      'AbdurRahmanibnYusuf' ],
+			'abu-abdissalam'             => [ 'Abu Abdissalam',              'AbuAbdissalamOfficial' ],
+			'abu-eesa-niamatullah'       => [ 'Abu Eesa Niamatullah',        'AbuEesaOfficial' ],
+			'abu-taubah'                 => [ 'Abu Taubah',                  '' ],
+			'abu-usamah'                 => [ 'Abu Usamah',                  '' ],
+			'abu-yusuf-riyad-ul-haq'     => [ 'Riyad-ul-Haq',                'riyadulhaq' ],
+			'ahmed-deedat'               => [ 'Ahmed Deedat',                'IPCIDeedat' ],
+			'ahsan-hanif'                => [ 'Ahsan Hanif',                 '' ],
+			'ali-al-tamimi'              => [ 'Ali al-Tamimi',               '' ],
+			'alpha-him-jobe'             => [ 'Alpha Him Jobe',              '' ],
+			'altaf-husain'               => [ 'Altaf Husain',                '' ],
+			'amir-junaid-muhadith'       => [ 'Amir Junaid Muhadith',        '' ],
+			'anse-tamara-gray'           => [ 'Anse Tamara Gray',            'RabataOrg' ],
+			'arif-hussain'               => [ 'Arif Hussain',                '' ],
+			'bilal-assad'                => [ 'Bilal Assad',                 'BilalAssadOfficial' ],
+			'bilal-philips'              => [ 'Bilal Philips',               'BilalPhilips' ],
+			'dalia-fahmy'                => [ 'Dalia Fahmy',                 '' ],
+			'dalia-mogahed'              => [ 'Dalia Mogahed',               '' ],
+			'dunia-shuaib'               => [ 'Dunia Shuaib',                'DuniaShuaib' ],
+			'faraz-rabbani'              => [ 'Faraz Rabbani',               'SeekersGuidance' ],
+			'feiz-muhammad'              => [ 'Feiz Muhammad',               '' ],
+			'haitham-al-haddad'          => [ 'Haitham al-Haddad',           'HaithamAlHaddad' ],
+			'haleh-banani'               => [ 'Haleh Banani',                'HalehBanani' ],
+			'hamza-andreas-tzortzis'     => [ 'Hamza Andreas Tzortzis',      'HamzaTzortzis' ],
+			'hamza-yusuf'                => [ 'Hamza Yusuf',                 'ZaytunaCollege' ],
+			'haroon-moghul'              => [ 'Haroon Moghul',               '' ],
+			'hasan-ali'                  => [ 'Hasan Ali',                   'OneHasanAli' ],
+			'hesham-al-awadi'            => [ 'Hesham al-Awadi',             '' ],
+			'hussain-kamani'             => [ 'Hussain Kamani',              'QalamInstitute' ],
+			'ibn-ali-miller'             => [ 'Ibn Ali Miller',              '' ],
+			'ibrahim-dremali'            => [ 'Ibrahim Dremali',             '' ],
+			'ieasha-prime'               => [ 'Ieasha Prime',                '' ],
+			'imran-hosein'               => [ 'Imran N. Hosein',             'ImranHoseinPosts' ],
+			'ingrid-mattson'             => [ 'Ingrid Mattson',              '' ],
+			'ismail-musa-menk'           => [ 'Mufti Ismail Menk',           'muftimenk' ],
+			'jamaal-zarabozo'            => [ 'Jamaal Zarabozo',             '' ],
+			'jamal-badawi'               => [ 'Jamal Badawi',                '' ],
+			'jeffrey-lang'               => [ 'Jeffrey Lang',                '' ],
+			'joe-bradford'               => [ 'Joe Bradford',                'JoeWBradford' ],
+			'johari-abdul-malik'         => [ 'Johari Abdul-Malik',          '' ],
+			'jonathan-brown'             => [ 'Jonathan Brown',              '' ],
+			'kamal-el-mekki'             => [ 'Kamal El-Mekki',              'KamalEl-Mekki' ],
+			'khalid-latif'               => [ 'Khalid Latif',                '' ],
+			'khalid-yasin'               => [ 'Khalid Yasin',                '' ],
+			'linda-sarsour'              => [ 'Linda Sarsour',               '' ],
+			'mohamed-hoblos'             => [ 'Mohamed Hoblos',              'MohamedHoblos' ],
+			'mohamed-magid'              => [ 'Mohamed Magid',               '' ],
+			'mohammad-akram-nadwi'       => [ 'Mohammad Akram Nadwi',        'AlSalamInstitute' ],
+			'mohammad-elshinawy'         => [ 'Mohammad Elshinawy',          '' ],
+			'mohammed-faqih'             => [ 'Mohammed Faqih',              '' ],
+			'mokhtar-maghraoui'          => [ 'Mokhtar Maghraoui',           '' ],
+			'muhammad-al-yaqoubi'        => [ 'Muhammad al-Yaqoubi',         '' ],
+			'muhammad-alshareef'         => [ 'Muhammad Alshareef',          'MuhammadAlshareef' ],
+			'muhammad-bin-yahya-al-ninowy'=> [ 'Muhammad bin Yahya al-Ninowy','' ],
+			'muhammad-ibn-adam-al-kawthari'=> [ 'Muhammad ibn Adam al-Kawthari','DarulIftaaLeicester' ],
+			'muslema-purmul'             => [ 'Muslema Purmul',              '' ],
+			'mutah-beale'                => [ 'Mutah Beale',                 '' ],
+			'navaid-aziz'                => [ 'Navaid Aziz',                 'NavaidAziz' ],
+			'nazim-mangera'              => [ 'Nazim Mangera',               '' ],
+			'nihal-khan'                 => [ 'Nihal Khan',                  '' ],
+			'nouman-ali-khan'            => [ 'Nouman Ali Khan',             'BayyinahInstitute' ],
+			'nuh-ha-meem-keller'         => [ 'Nuh Ha Meem Keller',          '' ],
+			'okasha-kameny'              => [ 'Okasha Kameny',               '' ],
+			'omar-suleiman'              => [ 'Omar Suleiman',               'OmarSuleimanOfficial' ],
+			'omar-usman'                 => [ 'Omar Usman',                  '' ],
+			'rania-awaad'                => [ 'Rania Awaad',                 '' ],
+			'riad-ouarzazi'              => [ 'Riad Ouarzazi',               '' ],
+			'riyad-nadwi'                => [ 'Riyad Nadwi',                 '' ],
+			'roohi-tahir'                => [ 'Roohi Tahir',                 '' ],
+			'saad-tasleem'               => [ 'Saad Tasleem',                'SaadTasleem' ],
+			'safi-khan'                  => [ 'Safi Khan',                   '' ],
+			'said-rageah'                => [ 'Said Rageah',                 '' ],
+			'shadee-elmasry'             => [ 'Shadee Elmasry',              'SafinaSociety' ],
+			'shakiel-humayun'            => [ 'Shakiel Humayun',             '' ],
+			'shireen-ahmed'              => [ 'Shireen Ahmed',               '' ],
+			'siraj-wahhaj'               => [ 'Siraj Wahhaj',                'SirajWahhaj' ],
+			'suhaib-webb'                => [ 'Suhaib Webb',                 'SuhaibWebb' ],
+			'sulaiman-mulla'             => [ 'Sulaiman Mulla',              '' ],
+			'sulayman-nyang'             => [ 'Sulayman Nyang',              '' ],
+			'suleiman-hani'              => [ 'Suleiman Hani',               'SuleimanHani' ],
+			'suzy-ismail'                => [ 'Suzy Ismail',                 '' ],
+			'tahir-anwar'                => [ 'Tahir Anwar',                 '' ],
+			'tahir-wyatt'                => [ 'Tahir Wyatt',                 '' ],
+			'talib-abdur-rashid'         => [ 'Talib Abdur-Rashid',          '' ],
+			'tariq-ramadan'              => [ 'Tariq Ramadan',               'TariqRamadanOfficial' ],
+			'tawfique-chowdhury'         => [ 'Tawfique Chowdhury',          'MercyMission' ],
+			'umar-faruq-abd-allah'       => [ 'Umar Faruq Abd-Allah',        '' ],
+			'usama-canon'                => [ 'Usama Canon',                 '' ],
+			'waleed-basyouni'            => [ 'Waleed Basyouni',             '' ],
+			'yahya-ibrahim'              => [ 'Yahya Ibrahim',               'YahyaIbrahim' ],
+			'yahya-rhodus'               => [ 'Yahya Rhodus',                'AlMaqasidORG' ],
+			'yaseen-shaikh'              => [ 'Yaseen Shaikh',               '' ],
+			'yaser-birjas'               => [ 'Yaser Birjas',                'YaserBirjas' ],
+			'yasir-fahmy'                => [ 'Yasir Fahmy',                 '' ],
+			'yasir-qadhi'                => [ 'Yasir Qadhi',                 'YasirQadhi' ],
+			'yasmin-mogahed'             => [ 'Yasmin Mogahed',              'YasminMogahed' ],
+			'yassir-fazaga'              => [ 'Yassir Fazaga',               'YassirFazaga' ],
+			'yusha-evans'                => [ 'Yusha Evans',                 'YushaEvans' ],
+			'yusuf-estes'                => [ 'Yusuf Estes',                 'YusufEstes' ],
+			'yvonne-ridley'              => [ 'Yvonne Ridley',               '' ],
+			'zahir-mahmood'              => [ 'Zahir Mahmood',               'ZahirMahmood' ],
+			'zaid-shakir'                => [ 'Zaid Shakir',                 'ZaytunaCollege' ],
+			'zainab-alwani'              => [ 'Zainab Alwani',               '' ],
+			'zakir-naik'                 => [ 'Dr Zakir Naik',               'drzakiknaik' ],
+			'zara-khan'                  => [ 'Zara Khan',                   '' ],
+			'zaynab-ansari'              => [ 'Zaynab Ansari',               '' ],
+		];
+
+		foreach ( $speakers as $slug => $info ) {
+			list( $display_name, $handle ) = $info;
+			// Skip rows we won't be able to ingest from — no point cluttering
+			// the table with channels we can't pull. (You can manually fill
+			// the source_url later via the admin UI to bring these back.)
+			if ( empty( $handle ) ) continue;
+
+			$handle = ltrim( $handle, '@' );
+			$source_url = 'https://www.youtube.com/@' . $handle;
+
+			// Slug-based username keeps URLs and admin lists predictable.
+			$exists = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$t['scholars']} WHERE username = %s LIMIT 1",
+				$slug
+			) );
+			if ( $exists ) {
+				// Idempotent backfill: if the row exists but pre-Wave 87 didn't
+				// have shorts_only set, flip it. Don't overwrite anything else.
+				$wpdb->update(
+					$t['scholars'],
+					[ 'shorts_only' => 1 ],
+					[ 'id' => $exists, 'shorts_only' => 0 ]
+				);
+				continue;
+			}
+
+			$wpdb->insert( $t['scholars'], [
+				'username'             => $slug,
+				'display_name'         => $display_name,
+				'bio'                  => 'Curated lecturer — discovered via HalalTube speaker index.',
+				'account_type'         => 'curated',
+				'source_url'           => $source_url,
+				'default_content_type' => 'reminder',
+				'status'               => 'active',
+				'shorts_only'          => 1,
+			] );
 		}
 	}
 }

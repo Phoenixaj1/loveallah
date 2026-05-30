@@ -233,33 +233,43 @@ class LA_YouTube {
 			return [ 'inserted' => 0, 'reason' => 'no_channel_id' ];
 		}
 
-		// Step 2 — fetch videos. Three sources in priority order, deduped
-		// by video id:
-		//   1. YouTube RSS (15 latest, fast, but top creators return 0)
-		//   2. Invidious public API (~60 videos, JSON, no auth)        ← Wave 79
-		//   3. /videos page scrape (~30 from ytInitialData, captcha-prone)
-		// Top creators like Mufti Menk fail #1 (RSS turned off) AND #3
-		// (Cloudways IP gets a captcha page). Invidious is the missing
-		// middle source — public YouTube proxies that pass through the
-		// real data without bot challenges.
-		$videos = self::rss_videos( $channel_id );
-		$invidious = self::invidious_videos( $channel_id );
-		if ( $invidious ) {
-			$known_ids = array_flip( array_column( $videos, 'id' ) );
-			foreach ( $invidious as $v ) {
-				if ( ! isset( $known_ids[ $v['id'] ] ) ) {
-					$videos[] = $v;
-					$known_ids[ $v['id'] ] = true;
+		// Wave 87 — shorts-only path. When scholar.shorts_only=1 we skip
+		// every mixed-content source (RSS, Invidious, /videos page) and
+		// hit ONLY /shorts. Shorts are guaranteed portrait + <60s by
+		// YouTube's own definition, so we don't need any client-side
+		// duration/orientation filtering — every video that appears on a
+		// channel's /shorts tab is automatically feed-ready. This pivot
+		// makes the feed addictive in the TikTok sense — every card is a
+		// punchy <1-minute reminder, never a 30-minute lecture sitting
+		// awkwardly inside a vertical scroller.
+		$shorts_only = ! empty( $scholar->shorts_only );
+		if ( $shorts_only ) {
+			$videos = self::scrape_channel_shorts( $scholar->source_url );
+		} else {
+			// Legacy mixed-content path. Three sources in priority order,
+			// deduped by video id:
+			//   1. YouTube RSS (15 latest, fast, but top creators return 0)
+			//   2. Invidious public API (~60 videos, JSON, no auth)        ← Wave 79
+			//   3. /videos page scrape (~30 from ytInitialData, captcha-prone)
+			$videos = self::rss_videos( $channel_id );
+			$invidious = self::invidious_videos( $channel_id );
+			if ( $invidious ) {
+				$known_ids = array_flip( array_column( $videos, 'id' ) );
+				foreach ( $invidious as $v ) {
+					if ( ! isset( $known_ids[ $v['id'] ] ) ) {
+						$videos[] = $v;
+						$known_ids[ $v['id'] ] = true;
+					}
 				}
 			}
-		}
-		$scraped = self::scrape_channel_videos( $scholar->source_url );
-		if ( $scraped ) {
-			$known_ids = array_flip( array_column( $videos, 'id' ) );
-			foreach ( $scraped as $v ) {
-				if ( ! isset( $known_ids[ $v['id'] ] ) ) {
-					$videos[] = $v;
-					$known_ids[ $v['id'] ] = true;
+			$scraped = self::scrape_channel_videos( $scholar->source_url );
+			if ( $scraped ) {
+				$known_ids = array_flip( array_column( $videos, 'id' ) );
+				foreach ( $scraped as $v ) {
+					if ( ! isset( $known_ids[ $v['id'] ] ) ) {
+						$videos[] = $v;
+						$known_ids[ $v['id'] ] = true;
+					}
 				}
 			}
 		}
@@ -316,14 +326,25 @@ class LA_YouTube {
 			) );
 			if ( $exists ) continue;
 
+			// Wave 87: when sourced from /shorts we know it IS a short,
+			// so tag the type accordingly. This keeps the LA_Algorithm
+			// type-balancer (Wave 82) working — it can still rotate
+			// "short" alongside "lecture"/"qirat" for the legacy mixed
+			// content. The original_source_url uses /shorts/{id} so the
+			// share buttons + clip links open native YouTube Shorts UI
+			// on mobile (full-screen autoplay loop) rather than the
+			// regular /watch?v= player.
+			$post_type = $shorts_only ? 'short' : $type;
+			$shorts_source_url = "https://www.youtube.com/shorts/{$v['id']}";
+
 			$wpdb->insert( $t['feed_posts'], [
 				'scholar_id'          => (int) $scholar->id,
-				'type'                => $type,
+				'type'                => $post_type,
 				'title'               => mb_substr( $v['title'], 0, 250 ),
 				'caption'             => mb_substr( $v['description'] ?? '', 0, 220 ),
 				'video_url'           => "https://www.youtube.com/embed/{$v['id']}",
 				'thumbnail_url'       => ! empty( $v['thumbnail'] ) ? $v['thumbnail'] : "https://i.ytimg.com/vi/{$v['id']}/hqdefault.jpg",
-				'original_source_url' => $source_url,
+				'original_source_url' => $shorts_only ? $shorts_source_url : $source_url,
 				'duration_sec'        => 0,
 				'published_at'        => ! empty( $v['published'] ) ? $v['published'] : gmdate( 'Y-m-d H:i:s' ),
 				// `created_at` is when WE ingested it (drives the +200 freshness
@@ -339,7 +360,109 @@ class LA_YouTube {
 			$update_data['last_sync_error'] = null;
 		}
 		$wpdb->update( $t['scholars'], $update_data, [ 'id' => (int) $scholar->id ] );
-		return [ 'inserted' => $inserted, 'fetched' => count( $videos ), 'via' => 'rss' ];
+		return [
+			'inserted' => $inserted,
+			'fetched'  => count( $videos ),
+			'via'      => $shorts_only ? 'shorts_scrape' : 'rss',
+		];
+	}
+
+	/**
+	 * Wave 87: scrape the channel's /shorts tab for portrait <60s clips.
+	 *
+	 * YouTube's /shorts tab only ever lists videos that meet the Shorts
+	 * definition (vertical 9:16 aspect, ≤60s duration, music-track or no-
+	 * music). So if we extract videoIds from this page, we don't need
+	 * any further duration/aspect-ratio filter — every result is a
+	 * portrait clip ready to drop into the snap feed.
+	 *
+	 * Same anti-bot tricks as scrape_channel_videos():
+	 *   - ?app=desktop&hl=en + PREF cookie to bypass m.youtube.com
+	 *   - Linux Chrome UA which YouTube serves desktop HTML to
+	 *   - CONSENT cookie to skip the EU consent wall
+	 *
+	 * Returns up to 60 shorts (more than enough for catalog backfill).
+	 */
+	private static function scrape_channel_shorts( string $source_url ) : array {
+		if ( empty( $source_url ) ) return [];
+		// Normalise to .../shorts regardless of what suffix the source_url had.
+		$base = preg_replace( '#/(shorts|videos|featured|streams|playlists|community|about)/?$#', '', $source_url );
+		$base = rtrim( (string) $base, '/' );
+		$url  = $base . '/shorts?app=desktop&hl=en';
+
+		$res = wp_remote_get( $url, [
+			'timeout'     => 15,
+			'redirection' => 5,
+			'user-agent'  => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+			'headers'     => [
+				'Accept'          => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+				'Accept-Language' => 'en-GB,en;q=0.9',
+				'Cookie'          => 'CONSENT=YES+cb.20210328-17-p0.en+FX+999; SOCS=CAI; PREF=f6=4000000',
+			],
+		] );
+		if ( is_wp_error( $res ) ) return [];
+		if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) return [];
+		$body = (string) wp_remote_retrieve_body( $res );
+		if ( empty( $body ) ) return [];
+		// Mobile-redirect guard, same as the /videos scraper.
+		if ( strpos( $body, 'm.youtube.com' ) !== false && strpos( $body, '"videoId"' ) === false ) {
+			return [];
+		}
+
+		// Locate the ytInitialData blob; cap the window so big channel
+		// pages don't blow up the regex engine.
+		$start = strpos( $body, 'var ytInitialData' );
+		$haystack = $start === false ? $body : substr( $body, $start, 1500000 );
+
+		$videos = [];
+		$seen   = [];
+
+		// Pattern 1 (preferred): shortsLockupViewModel — newer card shape
+		// that wraps a videoId with the title text right after.
+		if ( preg_match_all(
+			'#"videoId":"([A-Za-z0-9_-]{11})"[^{]*?(?:"headline":\{"runs":\[\{"text":"|"accessibilityText":")([^"]{1,200})#',
+			$haystack,
+			$matches,
+			PREG_SET_ORDER
+		) ) {
+			foreach ( $matches as $m ) {
+				$id = $m[1];
+				if ( isset( $seen[ $id ] ) ) continue;
+				$seen[ $id ] = true;
+				$title = json_decode( '"' . str_replace( '"', '\\"', $m[2] ) . '"' );
+				if ( ! is_string( $title ) ) $title = $m[2];
+				$videos[] = [
+					'id'          => $id,
+					'title'       => trim( (string) $title ),
+					'published'   => '',
+					'thumbnail'   => "https://i.ytimg.com/vi/{$id}/hqdefault.jpg",
+					'description' => '',
+				];
+				if ( count( $videos ) >= 60 ) break;
+			}
+		}
+
+		// Pattern 2 (fallback): naked videoId scan — picks up everything
+		// the structured matcher missed. Safe here because we're on /shorts
+		// — every videoId on this page is, by definition, a Short.
+		if ( count( $videos ) < 60
+		     && preg_match_all( '#"videoId":"([A-Za-z0-9_-]{11})"#', $haystack, $bare )
+		) {
+			foreach ( $bare[1] as $id ) {
+				if ( isset( $seen[ $id ] ) ) continue;
+				$seen[ $id ] = true;
+				$videos[] = [
+					'id'          => $id,
+					'title'       => '',
+					'published'   => '',
+					'thumbnail'   => "https://i.ytimg.com/vi/{$id}/hqdefault.jpg",
+					'description' => '',
+				];
+				if ( count( $videos ) >= 60 ) break;
+			}
+		}
+
+		return $videos;
 	}
 
 	/**
