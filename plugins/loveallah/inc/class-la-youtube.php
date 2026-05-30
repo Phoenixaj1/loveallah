@@ -251,11 +251,21 @@ class LA_YouTube {
 			// YouTube Data API v3 to enumerate the channel's recent
 			// uploads and filter to those with duration ≤ 60s (Shorts).
 			// Requires la_yt_api_key option to be set.
+			$api_key = (string) get_option( 'la_yt_api_key', '' );
 			if ( empty( $videos ) ) {
-				$api_key = (string) get_option( 'la_yt_api_key', '' );
 				if ( $api_key !== '' ) {
 					$videos = self::yt_api_v3_shorts( $channel_id, $api_key );
 				}
+			}
+			// Wave 89: validate every scraped ID is actually a Short via
+			// the Data API. /shorts page scrape can leak non-shorts from
+			// related-content panels (10-minute lectures sneaking in).
+			// yt_api_v3_shorts already filters by duration so we only
+			// double-check the scrape path. duration_sec gets stamped on
+			// each kept video so the auto-advance timer (Wave 88) can use
+			// the real duration instead of the 30s fallback.
+			if ( $api_key !== '' && ! empty( $videos ) ) {
+				$videos = self::filter_shorts_by_duration( $videos, $api_key );
 			}
 		} else {
 			// Legacy mixed-content path. Three sources in priority order,
@@ -388,7 +398,11 @@ class LA_YouTube {
 				'video_url'           => "https://www.youtube.com/embed/{$v['id']}",
 				'thumbnail_url'       => ! empty( $v['thumbnail'] ) ? $v['thumbnail'] : "https://i.ytimg.com/vi/{$v['id']}/hqdefault.jpg",
 				'original_source_url' => $shorts_only ? $shorts_source_url : $source_url,
-				'duration_sec'        => 0,
+				// Wave 89: stamp the real duration from Data API videos.list
+				// (set by filter_shorts_by_duration). Drives the auto-advance
+				// timer fallback in Wave 88 so a 15s clip advances at 20s, not
+				// the old 35s default.
+				'duration_sec'        => (int) ( $v['duration_sec'] ?? 0 ),
 				'published_at'        => ! empty( $v['published'] ) ? $v['published'] : gmdate( 'Y-m-d H:i:s' ),
 				// `created_at` is when WE ingested it (drives the +200 freshness
 				// boost in LA_Algorithm). Stamp explicitly so values are
@@ -630,6 +644,80 @@ class LA_YouTube {
 			];
 		}
 		return $out;
+	}
+
+	/**
+	 * Wave 89: validate which scraped video IDs are actually Shorts.
+	 *
+	 * The /shorts page scrape (scrape_channel_shorts) sometimes leaks
+	 * non-Shorts video IDs — YouTube's HTML contains related-content
+	 * panels, search suggestions, etc. that aren't shorts but match the
+	 * 11-char videoId regex. That's how a 10-minute lecture sneaked into
+	 * the user's Shorts feed.
+	 *
+	 * Fix: ask the Data API's videos.list endpoint for the actual duration
+	 * of every scraped ID. Drop anything > 61s. Stamp duration_sec onto the
+	 * kept ones so the auto-advance timer (Wave 88) can use the real
+	 * duration instead of guessing 30s.
+	 *
+	 * Cost: 1 quota unit per batch of 50 IDs. Most channels return ≤ 60 IDs
+	 * so this is typically 1-2 units per sync. Cron does 15 channels/tick =
+	 * ~30 quota units extra. Within budget.
+	 *
+	 * Fails open (returns input unchanged) if api_key is empty — so the
+	 * pipeline still works on installations without API access, they just
+	 * lose the duration validation.
+	 *
+	 * @param array $videos List of [id, title, ...] arrays from scraper.
+	 * @return array Same shape with duration_sec stamped + non-shorts removed.
+	 */
+	public static function filter_shorts_by_duration( array $videos, string $api_key ) : array {
+		if ( empty( $videos ) || $api_key === '' ) return $videos;
+
+		// Build id → video map for fast lookup after the API call.
+		$by_id = [];
+		foreach ( $videos as $v ) {
+			if ( ! empty( $v['id'] ) ) $by_id[ $v['id'] ] = $v;
+		}
+		if ( empty( $by_id ) ) return [];
+
+		$kept = [];
+		foreach ( array_chunk( array_keys( $by_id ), 50 ) as $batch ) {
+			$url = add_query_arg( [
+				'key'  => $api_key,
+				'id'   => implode( ',', $batch ),
+				'part' => 'contentDetails',
+				'maxResults' => 50,
+			], 'https://www.googleapis.com/youtube/v3/videos' );
+			$res = wp_remote_get( $url, [ 'timeout' => 15 ] );
+			if ( is_wp_error( $res ) ) continue;
+			// Bump the daily counter so the quota guard sees this usage.
+			$today_key = 'la_yt_api_calls_today_' . gmdate( 'Ymd' );
+			update_option( $today_key, (int) get_option( $today_key, 0 ) + 1, false );
+			$json = json_decode( (string) wp_remote_retrieve_body( $res ), true );
+			if ( ! is_array( $json ) || empty( $json['items'] ) ) continue;
+			foreach ( $json['items'] as $item ) {
+				$id = $item['id'] ?? '';
+				if ( ! $id || ! isset( $by_id[ $id ] ) ) continue;
+				$sec = self::iso8601_to_seconds( $item['contentDetails']['duration'] ?? '' );
+				// Shorts are by definition ≤ 60 seconds. We accept up to 61s
+				// to absorb +/- 1s rounding noise in YT's encoding pipeline.
+				if ( $sec > 0 && $sec <= 61 ) {
+					$v = $by_id[ $id ];
+					$v['duration_sec'] = $sec;
+					$kept[] = $v;
+				}
+			}
+		}
+		return $kept;
+	}
+
+	/**
+	 * Public alias for the ISO-8601 duration parser, used by the admin
+	 * purge handler (handle_purge_non_shorts) which lives in LA_Admin.
+	 */
+	public static function iso8601_to_seconds_public( string $iso ) : int {
+		return self::iso8601_to_seconds( $iso );
 	}
 
 	/**

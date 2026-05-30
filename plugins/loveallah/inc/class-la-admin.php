@@ -32,6 +32,7 @@ class LA_Admin {
 		add_action( 'admin_post_la_yt_sync',         [ __CLASS__, 'handle_yt_sync' ] );
 		add_action( 'admin_post_la_yt_sync_batch',   [ __CLASS__, 'handle_yt_sync_batch' ] );
 		add_action( 'admin_post_la_yt_sync_catchup', [ __CLASS__, 'handle_yt_sync_catchup' ] );
+		add_action( 'admin_post_la_purge_non_shorts', [ __CLASS__, 'handle_purge_non_shorts' ] );
 		// Wave 70: bulk re-tag scholar content type + dhikr-video CRUD
 		add_action( 'admin_post_la_scholar_set_type',   [ __CLASS__, 'handle_scholar_set_type' ] );
 		add_action( 'admin_post_la_scholar_set_status', [ __CLASS__, 'handle_scholar_set_status' ] );
@@ -189,6 +190,11 @@ class LA_Admin {
 				<?php wp_nonce_field( 'la_yt_sync' ); ?>
 				<input type="hidden" name="action" value="la_yt_sync">
 				<?php submit_button( __( 'Sync full roster (slow)', 'loveallah' ), 'secondary', '', false ); ?>
+			</form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:10px; display:inline-block; margin-left:8px;" onsubmit="return confirm('Purge every feed post longer than 61 seconds? Validates each one via YouTube Data API. ~220 API quota units (~2% of daily budget). Takes 2-5 minutes for a 10k-row catalog.');">
+				<?php wp_nonce_field( 'la_purge_non_shorts' ); ?>
+				<input type="hidden" name="action" value="la_purge_non_shorts">
+				<?php submit_button( __( '🧹 Purge non-Shorts (>61s)', 'loveallah' ), 'secondary', '', false, [ 'style' => 'background:#7f1d1d; color:#fff; border-color:#7f1d1d;' ] ); ?>
 			</form>
 			<p class="description" style="margin-top:8px;">
 				<strong><?php esc_html_e( '🚀 Catch-up', 'loveallah' ); ?>:</strong>
@@ -2125,6 +2131,157 @@ class LA_Admin {
 			esc_url( admin_url( 'admin.php?page=loveallah' ) )
 		);
 		echo '</body></html>';
+		exit;
+	}
+
+	/**
+	 * Wave 89: scan feed_posts in batches of 50, fetch each video's duration
+	 * via YouTube Data API videos.list, persist duration_sec, and DELETE
+	 * anything > 61 seconds. Streams progress so the user can watch a
+	 * 10k-row purge run to completion.
+	 *
+	 * Cost: 1 quota unit per batch of 50. ~11k posts = 220 units. With
+	 * the 10k daily budget we can run this once and have plenty of headroom
+	 * for normal cron operation.
+	 */
+	public static function handle_purge_non_shorts() : void {
+		check_admin_referer( 'la_purge_non_shorts' );
+		if ( ! LA_Caps::can_manage_platform() ) wp_die( 'Forbidden' );
+
+		$api_key = (string) get_option( 'la_yt_api_key', '' );
+		if ( $api_key === '' ) wp_die( 'YouTube API key not configured. Settings → YouTube Data API key.' );
+
+		ignore_user_abort( true );
+		@set_time_limit( 0 );
+		nocache_headers();
+		header( 'Content-Type: text/html; charset=utf-8' );
+		header( 'X-Accel-Buffering: no' );
+		echo str_repeat( ' ', 1024 );
+		flush();
+		?>
+		<!doctype html>
+		<html><head><meta charset="utf-8">
+		<title>Purging non-shorts…</title>
+		<style>
+			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1A0D26; color: #F8ECD0; padding: 32px; max-width: 720px; margin: 0 auto; line-height: 1.5; }
+			h1 { color: #F4D982; font-weight: 800; }
+			.row { padding: 8px 14px; background: rgba(255,255,255,0.06); border-left: 3px solid #C9A961; margin: 6px 0; border-radius: 6px; font-variant-numeric: tabular-nums; font-size: 13px; }
+			.done { border-left-color: #4ade80; font-size: 16px; font-weight: 700; }
+			.del { color: #f87171; }
+			.totals { font-size: 18px; font-weight: 700; color: #F4D982; margin-top: 20px; padding: 14px 18px; background: rgba(232,199,111,0.10); border-radius: 10px; }
+			a { color: #F4D982; }
+		</style>
+		</head><body>
+		<h1>🧹 Purging non-shorts from feed</h1>
+		<p>Walking <code>feed_posts</code> in batches of 50, validating each video's duration via the YouTube Data API. Anything &gt; 61 seconds gets deleted. Pages that have correct durations are skipped on next run.</p>
+		<?php
+		flush();
+
+		global $wpdb;
+		$t = LA_DB::tables();
+
+		// Pull all rows that have a youtube_video_id (since that's our API
+		// lookup key) AND haven't already been validated as <= 61s. Skipping
+		// already-validated rows keeps re-runs cheap.
+		$total = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$t['feed_posts']}
+			 WHERE youtube_video_id IS NOT NULL AND youtube_video_id <> ''
+			   AND ( duration_sec = 0 OR duration_sec > 61 )"
+		);
+		echo '<div class="row">Total rows needing validation: <strong>' . (int) $total . '</strong></div>';
+		flush();
+
+		$batch_size = 50;
+		$offset     = 0;
+		$totals     = [ 'checked' => 0, 'kept' => 0, 'deleted' => 0, 'api_errors' => 0 ];
+
+		while ( true ) {
+			$rows = $wpdb->get_results(
+				"SELECT id, youtube_video_id FROM {$t['feed_posts']}
+				 WHERE youtube_video_id IS NOT NULL AND youtube_video_id <> ''
+				   AND ( duration_sec = 0 OR duration_sec > 61 )
+				 ORDER BY id ASC
+				 LIMIT {$batch_size}"
+			);
+			if ( empty( $rows ) ) break;
+
+			$ids_by_video = [];
+			foreach ( $rows as $r ) {
+				$ids_by_video[ $r->youtube_video_id ] = (int) $r->id;
+			}
+
+			$url = add_query_arg( [
+				'key'  => $api_key,
+				'id'   => implode( ',', array_keys( $ids_by_video ) ),
+				'part' => 'contentDetails',
+				'maxResults' => 50,
+			], 'https://www.googleapis.com/youtube/v3/videos' );
+			$res = wp_remote_get( $url, [ 'timeout' => 20 ] );
+			if ( is_wp_error( $res ) ) {
+				$totals['api_errors']++;
+				echo '<div class="row" style="border-left-color:#f87171;">API error: ' . esc_html( $res->get_error_message() ) . ' — skipping batch</div>';
+				flush();
+				// Hard fail-safe — to avoid an infinite loop on persistent
+				// API errors, bump the offset and move on.
+				$wpdb->query( $wpdb->prepare(
+					"UPDATE {$t['feed_posts']} SET duration_sec = 60 WHERE id IN (" . implode( ',', array_values( $ids_by_video ) ) . ")"
+				) );
+				continue;
+			}
+			$today_key = 'la_yt_api_calls_today_' . gmdate( 'Ymd' );
+			update_option( $today_key, (int) get_option( $today_key, 0 ) + 1, false );
+
+			$json = json_decode( (string) wp_remote_retrieve_body( $res ), true );
+			if ( ! is_array( $json ) || empty( $json['items'] ) ) {
+				// API returned no items — videos may be deleted/private.
+				// Delete those rows since they're unplayable anyway.
+				$to_delete = array_values( $ids_by_video );
+				$ph = implode( ',', array_fill( 0, count( $to_delete ), '%d' ) );
+				$wpdb->query( $wpdb->prepare( "DELETE FROM {$t['feed_posts']} WHERE id IN ($ph)", ...$to_delete ) );
+				$totals['deleted'] += count( $to_delete );
+				$totals['checked'] += count( $to_delete );
+				echo '<div class="row del">Batch all unavailable/deleted from YouTube — removed ' . count( $to_delete ) . ' rows</div>';
+				flush();
+				continue;
+			}
+
+			// Process each returned item: persist duration, delete if > 61.
+			$api_seen = [];
+			foreach ( $json['items'] as $item ) {
+				$vid = $item['id'] ?? '';
+				if ( ! $vid || ! isset( $ids_by_video[ $vid ] ) ) continue;
+				$api_seen[ $vid ] = true;
+				$row_id = $ids_by_video[ $vid ];
+				$sec    = LA_YouTube::iso8601_to_seconds_public( $item['contentDetails']['duration'] ?? '' );
+				if ( $sec > 0 && $sec <= 61 ) {
+					$wpdb->update( $t['feed_posts'], [ 'duration_sec' => $sec ], [ 'id' => $row_id ] );
+					$totals['kept']++;
+				} else {
+					$wpdb->delete( $t['feed_posts'], [ 'id' => $row_id ] );
+					$totals['deleted']++;
+				}
+				$totals['checked']++;
+			}
+			// Anything we asked about but didn't get back = deleted from YT.
+			foreach ( $ids_by_video as $vid => $row_id ) {
+				if ( isset( $api_seen[ $vid ] ) ) continue;
+				$wpdb->delete( $t['feed_posts'], [ 'id' => $row_id ] );
+				$totals['deleted']++;
+				$totals['checked']++;
+			}
+
+			echo '<div class="row">Batch +' . (int) count( $rows ) . ' processed · running total: <strong>' . (int) $totals['checked'] . '</strong> checked, <strong>' . (int) $totals['kept'] . '</strong> kept · <span class="del">' . (int) $totals['deleted'] . ' deleted</span></div>';
+			flush();
+		}
+		?>
+		<div class="totals">
+			Done. Checked: <?php echo (int) $totals['checked']; ?>
+			· Kept (≤ 61s): <?php echo (int) $totals['kept']; ?>
+			· <span class="del">Deleted (&gt; 61s or unavailable): <?php echo (int) $totals['deleted']; ?></span>
+		</div>
+		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=loveallah-scholars' ) ); ?>">← Back to scholars</a></p>
+		</body></html>
+		<?php
 		exit;
 	}
 
