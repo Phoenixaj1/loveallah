@@ -595,6 +595,35 @@ class LA_Admin {
 			· consent-redirect=<?php echo ! empty( $probe['consent_page'] ) ? 'YES' : 'no'; ?>
 		</div>
 		<?php
+		// Wave 87e — surface the shorts-only + API v3 diagnostics so we can
+		// see what the new pipeline branches actually return for this channel.
+		?>
+		<div class="box">
+			<strong>🩺 Shorts-only probe (Wave 87e)</strong><br>
+			shorts_only_flag: <strong><?php echo (int) ( $probe['shorts_only_flag'] ?? 0 ); ?></strong>
+			<?php if ( empty( $probe['shorts_only_flag'] ) ) : ?>
+				<span style="color:#f87171"> ← legacy path active; flip to 1 to enable Shorts-only ingest</span>
+			<?php endif; ?>
+			<br>
+			<?php if ( ! empty( $probe['shorts_page_url'] ) ) : ?>
+				Shorts URL: <code><?php echo esc_html( $probe['shorts_page_url'] ); ?></code><br>
+				Shorts page: status=<code><?php echo esc_html( $probe['shorts_page_status'] ?? '' ); ?></code>
+				· body=<?php echo (int) ( $probe['shorts_page_body_len'] ?? 0 ); ?>B
+				· videoId-hits=<strong><?php echo (int) ( $probe['shorts_page_vid_hits'] ?? 0 ); ?></strong>
+				· mobile-shell=<?php echo ! empty( $probe['shorts_page_mobile'] ) ? 'YES' : 'no'; ?><br>
+			<?php endif; ?>
+			YouTube API v3 key set: <?php echo ! empty( $probe['api_v3_key_set'] ) ? 'YES' : 'NO'; ?><br>
+			<?php if ( isset( $probe['api_v3_search_status'] ) ) : ?>
+				search.list: status=<code><?php echo esc_html( $probe['api_v3_search_status'] ); ?></code>
+				· items=<strong><?php echo (int) ( $probe['api_v3_search_items'] ?? 0 ); ?></strong>
+				<?php if ( ! empty( $probe['api_v3_search_error'] ) ) : ?>
+					· <span style="color:#f87171">error: <code><?php echo esc_html( $probe['api_v3_search_error'] ); ?></code></span>
+				<?php endif; ?>
+				<br>
+				videos.list shorts (≤61s): <strong><?php echo (int) ( $probe['api_v3_shorts_count'] ?? 0 ); ?></strong>
+			<?php endif; ?>
+		</div>
+		<?php
 		flush();
 		$start = microtime( true );
 		$result = [];
