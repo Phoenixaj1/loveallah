@@ -935,6 +935,22 @@ class LA_Admin {
 		];
 
 		$id = (int) ( $_POST['id'] ?? 0 );
+
+		// Wave 87f — if source_url changes, the cached youtube_channel_id is
+		// stale (points at the OLD handle's channel). Clear it so the next
+		// sync re-resolves the new URL → channelId via the API/scrape.
+		// Without this, changing /@muftimenk → /@muftimenkofficial still
+		// queries the old channel's stats and returns no Shorts.
+		if ( $id ) {
+			$old_src = (string) $wpdb->get_var( $wpdb->prepare(
+				"SELECT source_url FROM {$t['scholars']} WHERE id = %d",
+				$id
+			) );
+			if ( $old_src && $old_src !== $data['source_url'] ) {
+				$data['youtube_channel_id'] = '';
+			}
+		}
+
 		if ( $id ) {
 			$wpdb->update( $t['scholars'], $data, [ 'id' => $id ] );
 		} else {
