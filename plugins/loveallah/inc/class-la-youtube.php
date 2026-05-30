@@ -921,6 +921,81 @@ class LA_YouTube {
 			$out['captcha']         = ( stripos( $body, 'captcha' ) !== false );
 			$out['consent_page']    = ( stripos( $body, 'consent.youtube.com' ) !== false );
 		}
+
+		// Wave 87e — diagnose the new shorts-only paths separately so we
+		// can see exactly why a channel is or isn't filling.
+		$out['shorts_only_flag'] = (int) ( $scholar->shorts_only ?? 0 );
+
+		// 1. /shorts page scrape
+		if ( ! empty( $out['source_url'] ) ) {
+			$shorts_url = preg_replace( '#/(shorts|videos|featured|streams|playlists|community|about)/?$#', '', $out['source_url'] );
+			$shorts_url = rtrim( (string) $shorts_url, '/' ) . '/shorts?app=desktop&hl=en';
+			$out['shorts_page_url'] = $shorts_url;
+			$sh = wp_remote_get( $shorts_url, [
+				'timeout' => 15, 'redirection' => 5,
+				'user-agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+				'headers' => [
+					'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+					'Accept-Language' => 'en-GB,en;q=0.9',
+					'Cookie' => 'CONSENT=YES+cb.20210328-17-p0.en+FX+999; SOCS=CAI; PREF=f6=4000000',
+				],
+			] );
+			if ( is_wp_error( $sh ) ) {
+				$out['shorts_page_status'] = 'wp_error: ' . $sh->get_error_message();
+			} else {
+				$body = (string) wp_remote_retrieve_body( $sh );
+				$out['shorts_page_status']   = (string) wp_remote_retrieve_response_code( $sh );
+				$out['shorts_page_body_len'] = strlen( $body );
+				$out['shorts_page_vid_hits'] = preg_match_all( '/"videoId":"[A-Za-z0-9_-]{11}"/', $body, $junk );
+				$out['shorts_page_mobile']   = ( strpos( $body, 'm.youtube.com' ) !== false ) && ( strpos( $body, '"videoId"' ) === false );
+			}
+		}
+
+		// 2. YouTube Data API v3 path
+		$api_key = (string) get_option( 'la_yt_api_key', '' );
+		$out['api_v3_key_set'] = ( $api_key !== '' );
+		if ( $cid && $api_key !== '' ) {
+			$search_url = add_query_arg( [
+				'key' => $api_key, 'channelId' => $cid, 'part' => 'id',
+				'type' => 'video', 'order' => 'date', 'maxResults' => 25,
+			], 'https://www.googleapis.com/youtube/v3/search' );
+			$ar = wp_remote_get( $search_url, [ 'timeout' => 15 ] );
+			if ( is_wp_error( $ar ) ) {
+				$out['api_v3_search_status'] = 'wp_error: ' . $ar->get_error_message();
+			} else {
+				$out['api_v3_search_status'] = (string) wp_remote_retrieve_response_code( $ar );
+				$body = (string) wp_remote_retrieve_body( $ar );
+				$json = json_decode( $body, true );
+				$out['api_v3_search_items']  = is_array( $json ) ? count( $json['items'] ?? [] ) : 0;
+				$out['api_v3_search_error']  = is_array( $json ) && isset( $json['error']['message'] ) ? substr( (string) $json['error']['message'], 0, 200 ) : '';
+				// Count how many of those have duration ≤ 61s (i.e. Shorts)
+				if ( ! empty( $json['items'] ) ) {
+					$ids = [];
+					foreach ( $json['items'] as $item ) {
+						$vid = $item['id']['videoId'] ?? '';
+						if ( $vid ) $ids[] = $vid;
+					}
+					if ( $ids ) {
+						$videos_url = add_query_arg( [
+							'key' => $api_key, 'id' => implode( ',', $ids ),
+							'part' => 'contentDetails',
+						], 'https://www.googleapis.com/youtube/v3/videos' );
+						$vr = wp_remote_get( $videos_url, [ 'timeout' => 15 ] );
+						if ( ! is_wp_error( $vr ) ) {
+							$vjson = json_decode( (string) wp_remote_retrieve_body( $vr ), true );
+							$shorts_count = 0;
+							foreach ( ( $vjson['items'] ?? [] ) as $v ) {
+								$dur = $v['contentDetails']['duration'] ?? '';
+								$sec = self::iso8601_to_seconds( $dur );
+								if ( $sec > 0 && $sec <= 61 ) $shorts_count++;
+							}
+							$out['api_v3_shorts_count'] = $shorts_count;
+						}
+					}
+				}
+			}
+		}
+
 		return $out;
 	}
 
