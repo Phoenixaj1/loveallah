@@ -857,46 +857,103 @@
 	}
 
 	// Wave 88: auto-advance to next card when video finishes.
-	// Cleared whenever the active video changes (manual scroll, pause, swap).
+	//
+	// Strategy: hook the YouTube iframe's onStateChange via postMessage —
+	// state 0 = ENDED fires the INSTANT the video reaches its natural end,
+	// not on a duration-guess timer. We send a "listening" handshake to
+	// every iframe we start playing so YouTube will postMessage state
+	// updates back to us. A single window-level message handler routes
+	// the ENDED event to the active card.
+	//
+	// We KEEP a duration-based timer as a safety net (fires at duration+5s)
+	// because:
+	//   - YT API can fail to handshake on flaky networks
+	//   - Some videos throw an error and never fire ENDED
+	//   - User's data-duration-sec may be 0 (we use 30s default) but the
+	//     actual video might be longer — falling back at 35s gives the
+	//     user something to do if the API never reports ENDED.
 	let advanceTimer = null;
 	function cancelAdvanceTimer() {
 		if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; }
 	}
+	function advanceFromCard(card) {
+		const iframe = card.querySelector('.la-snap-iframe');
+		if (!iframe || currentPlaying !== iframe) return;
+		// Skip while tab is hidden — YouTube pauses backgrounded iframes,
+		// so the timer (or even ENDED) firing then would race past videos
+		// the user never watched. Just re-arm and wait for focus.
+		if (document.visibilityState === 'hidden') {
+			scheduleAdvance(card);
+			return;
+		}
+		let next = card.nextElementSibling;
+		while (next && !next.classList.contains('la-snap--content')) {
+			next = next.nextElementSibling;
+		}
+		if (next) {
+			next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+	}
 	function scheduleAdvance(card) {
 		cancelAdvanceTimer();
-		// Read declared duration. data-duration-sec is stamped from
-		// feed_posts.duration_sec at render time. Falls back to 30s
-		// (typical Short length) if missing or zero — better to advance
-		// slightly too soon than never.
+		// data-duration-sec from the DB. Falls back to 30s typical Short.
+		// We add 5s buffer to give the YT ENDED event a chance to fire
+		// first (it normally beats the timer by 1-2s on real video end).
 		const dur = parseInt(card.dataset.durationSec, 10) || 30;
-		// YouTube buffer adds ~0.5-1s before real playback start; pad
-		// the timer by 1s so the user sees the video finish on its
-		// own beat before the next one snaps in.
-		const ms = (dur + 1) * 1000;
-		advanceTimer = setTimeout(() => {
-			// Only advance if THIS card is still the active one. If the
-			// user manually scrolled away between schedule and fire,
-			// pauseVideoIn would have already cleared currentPlaying.
-			const iframe = card.querySelector('.la-snap-iframe');
-			if (!iframe || currentPlaying !== iframe) return;
-			// Don't fire while the tab is in the background — the YouTube
-			// iframe is paused (browser throttling) so the timer would
-			// race past videos the user never actually watched. We let
-			// the visibilitychange handler resume on focus instead.
-			if (document.visibilityState === 'hidden') {
-				// Re-arm a short check so we resume promptly once visible.
-				scheduleAdvance(card);
-				return;
-			}
-			// Find the next CONTENT card (skip signup/dhikr interruptions).
-			let next = card.nextElementSibling;
-			while (next && !next.classList.contains('la-snap--content')) {
-				next = next.nextElementSibling;
-			}
-			if (next) {
-				next.scrollIntoView({ behavior: 'smooth', block: 'start' });
-			}
-		}, ms);
+		const ms = (dur + 5) * 1000;
+		advanceTimer = setTimeout(() => advanceFromCard(card), ms);
+	}
+
+	// Wave 88d: YouTube postMessage listener. When an iframe with
+	// enablejsapi=1 receives our "listening" handshake, YouTube starts
+	// firing onStateChange events back via window.postMessage. We capture
+	// those here and advance on state===0 (ENDED).
+	window.addEventListener('message', (e) => {
+		// Validate origin — YouTube embeds come from youtube.com or
+		// youtube-nocookie.com. Anything else is some other widget.
+		if (typeof e.origin !== 'string' || !/youtube(-nocookie)?\.com$/.test(e.origin)) return;
+		if (typeof e.data !== 'string') return;
+		let data;
+		try { data = JSON.parse(e.data); } catch { return; }
+		// Wave 88d: telemetry — verify YouTube is talking to us. Strip
+		// after we confirm onStateChange fires.
+		window.__laYtMsg = window.__laYtMsg || [];
+		if (window.__laYtMsg.length < 60) {
+			window.__laYtMsg.push({ ev: data.event, info: typeof data.info === 'object' ? Object.keys(data.info || {}).slice(0, 5) : data.info, t: Date.now() });
+		}
+		// onStateChange comes through under several event names depending
+		// on which API version the iframe is using. Cover both.
+		const isStateEvent = data && (data.event === 'onStateChange' || data.event === 'infoDelivery');
+		if (!isStateEvent) return;
+		// YT.PlayerState.ENDED === 0. Some channels report it as data.info,
+		// others as data.info.playerState. Check both.
+		const state = (typeof data.info === 'object') ? data.info.playerState : data.info;
+		if (state !== 0) return;
+		// Verify the message came from our active iframe — multiple iframes
+		// (lazy-loaded ones still in memory) could fire ENDED stragglers.
+		if (!currentPlaying || e.source !== currentPlaying.contentWindow) return;
+		const card = currentPlaying.closest('.la-snap--content');
+		if (card) advanceFromCard(card);
+	});
+
+	// Send the "listening" handshake once the iframe has loaded its src.
+	// Without this, YouTube never sends state events back even though
+	// enablejsapi=1 is set in the URL.
+	function bindYouTubeEvents(iframe) {
+		const send = () => {
+			try {
+				iframe.contentWindow.postMessage(JSON.stringify({
+					event: 'listening',
+					id: iframe.id || 'la-yt',
+					channel: 'widget',
+				}), '*');
+			} catch (_) {}
+		};
+		// onload fires once per src change; re-send so YouTube sees us.
+		iframe.addEventListener('load', send);
+		// Belt-and-braces: also send after a short delay in case the
+		// load event already fired before we attached.
+		setTimeout(send, 800);
 	}
 
 	function playVideoIn(card) {
@@ -923,6 +980,15 @@
 			currentPlaying.src = 'about:blank';
 		}
 		currentPlaying = iframe;
+		// Wave 88d: ensure the iframe has an id (YT API uses it for the
+		// listening handshake) and start listening for ENDED events.
+		if (!iframe.id) iframe.id = 'la-yt-' + Math.random().toString(36).slice(2, 9);
+		// Only attach the listener once per iframe — subsequent playVideoIn
+		// calls reuse the same iframe and the existing handler still works.
+		if (!iframe.dataset.ytBound) {
+			iframe.dataset.ytBound = '1';
+			bindYouTubeEvents(iframe);
+		}
 		scheduleAdvance(card);
 	}
 	function pauseVideoIn(card) {
