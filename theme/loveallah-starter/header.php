@@ -134,6 +134,39 @@ if ( class_exists( 'IntlDateFormatter' ) ) {
 			data-next-name="<?php echo esc_attr( $la_next['name'] ); ?>"
 		<?php endif; ?>>
 
+		<?php
+		// Wave 93b: target-design top row (only on feed / home page).
+		// Three elements: location pill · "Maghrib in 2h 07m" countdown ·
+		// circular avatar. Below: a thin accent progress line showing the
+		// portion of the previous→next prayer interval that's elapsed.
+		// JS fills the progress + ticks the countdown.
+		if ( is_front_page() && $la_timings && ! empty( $la_next['time'] ) ) :
+			$la_user_top = function_exists( 'la_current_user' ) ? la_current_user() : null;
+			$la_user_initial = $la_user_top
+				? strtoupper( substr( (string) ( $la_user_top->name ?: $la_user_top->email ), 0, 1 ) )
+				: 'M';
+		?>
+			<div class="la-prayer-top">
+				<button type="button" class="la-loc-pill" data-action="use-geo" title="<?php echo esc_attr( $la_geo_label ); ?>">
+					<svg class="la-loc-pill-pin" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 22s-7-7-7-12a7 7 0 0 1 14 0c0 5-7 12-7 12z"/><circle cx="12" cy="10" r="2.5" fill="#fff"/></svg>
+					<span class="la-loc-pill-text"><?php echo esc_html( $la_geo_label ?: 'Set location' ); ?></span>
+					<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+				</button>
+				<div class="la-next-block">
+					<span class="la-next-label"><?php echo esc_html( $la_next['name'] ); ?> in</span>
+					<span class="la-next-eta" data-countdown data-progress-source>—</span>
+				</div>
+				<?php if ( $la_user_top ) : ?>
+					<span class="la-top-avatar" title="<?php echo esc_attr( $la_user_top->email ); ?>"><?php echo esc_html( $la_user_initial ); ?></span>
+				<?php else : ?>
+					<button type="button" class="la-top-avatar la-top-avatar--cta" data-action="signin" aria-label="Sign in">M</button>
+				<?php endif; ?>
+			</div>
+			<div class="la-prayer-progress" aria-hidden="true">
+				<div class="la-prayer-progress-fill" data-progress-fill></div>
+			</div>
+		<?php endif; ?>
+
 		<!-- Compact single-row header: brand + 5 prayer cells + actions.
 		     Mobile-first: collapses to just the NEXT prayer cell + countdown below 600px. -->
 		<div class="la-header-row la-header-row--main">

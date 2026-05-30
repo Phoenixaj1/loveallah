@@ -1157,8 +1157,27 @@
 		const nextTime = header.getAttribute('data-next-time');
 		const nextName = header.getAttribute('data-next-name');
 		if (!nextTime) return;
-		const etaEl = header.querySelector('[data-countdown]');
-		if (!etaEl) return;
+		// Wave 93b: multiple countdown elements now — the existing
+		// .la-prayer-cell-eta inside chip + the new top-row .la-next-eta.
+		// querySelectorAll matches both.
+		const etaEls = header.querySelectorAll('[data-countdown]');
+		if (!etaEls.length) return;
+		// Wave 93b: progress bar fill — % of the previous→next prayer
+		// interval that's elapsed. Computed from the prayer-cell times
+		// already in the DOM since the server doesn't pass prev time
+		// directly.
+		const progressFill = header.querySelector('[data-progress-fill]');
+
+		// Build sorted list of today's prayer times in minutes-of-day so
+		// we can find the "previous" prayer to anchor progress at.
+		const prayerTimes = Array.from(header.querySelectorAll('[data-prayer-name]'))
+			.map(el => {
+				const t = el.querySelector('.la-prayer-cell-time')?.textContent?.trim() || '';
+				const m = t.match(/^(\d{1,2}):(\d{2})/);
+				return m ? (parseInt(m[1], 10) * 60 + parseInt(m[2], 10)) : null;
+			})
+			.filter(n => n !== null)
+			.sort((a, b) => a - b);
 
 		function tick() {
 			const now = new Date();
@@ -1169,10 +1188,30 @@
 			const h = Math.floor(diffMs / 3600000);
 			const m = Math.floor((diffMs % 3600000) / 60000);
 			const s = Math.floor((diffMs % 60000) / 1000);
-			// Wave 83b (per user): keep seconds, drop the "in " prefix.
-			if (h > 0)      etaEl.textContent = `${h}h ${m}m`;
-			else if (m > 0) etaEl.textContent = `${m}m ${String(s).padStart(2,'0')}s`;
-			else            etaEl.textContent = `${s}s`;
+			// Wave 93b: format depends on which element — chip eta wants
+			// compact like "2h 07m"; top-row eta wants the same. Single format.
+			let label;
+			if (h > 0)      label = `${h}h ${String(m).padStart(2,'0')}m`;
+			else if (m > 0) label = `${m}m ${String(s).padStart(2,'0')}s`;
+			else            label = `${s}s`;
+			etaEls.forEach(el => { el.textContent = label; });
+
+			// Update the progress bar — find the most recent prayer time
+			// that's before NOW. If none (before Fajr), progress = 0.
+			if (progressFill && prayerTimes.length) {
+				const nowMin = now.getHours() * 60 + now.getMinutes() + now.getSeconds()/60;
+				const nextMin = hh * 60 + mm;
+				const prev = [...prayerTimes].reverse().find(t => t < nowMin);
+				let pct;
+				if (prev == null) {
+					pct = 0;
+				} else {
+					const total = (nextMin > prev) ? (nextMin - prev) : (nextMin + 1440 - prev);
+					const elapsed = (nowMin >= prev) ? (nowMin - prev) : (nowMin + 1440 - prev);
+					pct = Math.max(0, Math.min(100, (elapsed / total) * 100));
+				}
+				progressFill.style.width = pct.toFixed(1) + '%';
+			}
 		}
 		tick();
 		setInterval(tick, 1000);
