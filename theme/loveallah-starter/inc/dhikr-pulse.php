@@ -222,29 +222,38 @@ $la_pulse_targets = [
 			resetBtn.hidden  = ! ( count > 0 );
 		}
 
+		/* Wave 101d: gentler ripple — slower expansion, longer
+		   lifetime, starts at a soft 0.45 opacity rather than full
+		   1.0 so the "ring" never feels like a startle. */
 		function ripple() {
 			if ( ! wrap ) return;
 			const r = document.createElement('div');
 			r.className = 'pulse-ripple';
+			r.style.opacity = '0.45';
 			wrap.appendChild(r);
 			requestAnimationFrame(() => {
-				r.style.width   = '236px';
-				r.style.height  = '236px';
+				r.style.width   = '220px';
+				r.style.height  = '220px';
 				r.style.opacity = '0';
 			});
-			setTimeout(() => r.remove(), 2000);
+			setTimeout(() => r.remove(), 3600);   // matches 3.5s transition + a tick
 		}
 
 		function beat() {
-			// pulse the core
+			/* Wave 101d: class-toggle for the core's beat. CSS
+			   handles the soft .6s scale + glow swell. Hold the
+			   peak briefly (220ms) before releasing — feels like
+			   a settled heart, not a startled one. */
 			if ( core ) {
-				core.style.transform = 'scale(1.34)';
-				setTimeout(() => { if ( core ) core.style.transform = 'scale(1)'; }, 130);
+				core.classList.add('beat');
+				setTimeout(() => { if ( core ) core.classList.remove('beat'); }, 220);
 			}
 			ripple();
 			const tn = tg().n;
 			if ( tn === 0 || count < tn ) count++;
-			if ( navigator.vibrate ) navigator.vibrate(6);
+			/* Wave 101d: shorter, softer haptic — 4ms instead of 6.
+			   Tactile but not buzzy. */
+			if ( navigator.vibrate ) navigator.vibrate(4);
 			render();
 			// Wave 101c: auto-stop when target reached so the visual
 			// pulse, ripples, and vibrate all end together. The beat

@@ -9213,9 +9213,10 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	z-index: 2;
 	pointer-events: none;
 }
-/* Wave 101b: pulse-core sized to harmonise with the new stack
-   layout. Wrap is the ripple host (sized to peak ripple +
-   margin); core is the gold sphere itself. */
+/* Wave 101b/d: pulse-core sized to harmonise with the new stack
+   layout. Wrap hosts the expanding ripples; core is the gold
+   sphere itself. Wave 101d: gentle, meditative beat — subtle
+   scale + glow swell, soft attack/release. */
 .pulse-core-wrap {
 	position: relative;
 	width: 220px; height: 220px;
@@ -9225,23 +9226,35 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 .pulse-core {
 	width: 96px; height: 96px; border-radius: 50%;
 	z-index: 2;
-	transition: transform .12s ease;
+	transition: transform   .6s cubic-bezier(.4, 0, .25, 1),
+	            box-shadow  .6s cubic-bezier(.4, 0, .25, 1);
 	background: radial-gradient(56% 56% at 38% 32%,
 		rgba(255,255,255,.96) 0%,
 		color-mix(in oklab, var(--gold) 70%, #fff) 30%,
 		var(--gold) 62%,
 		color-mix(in oklab, var(--gold) 70%, transparent) 100%);
 	box-shadow:
-		0 0 80px -4px color-mix(in oklab, var(--gold) 55%, transparent),
-		0 0 34px -2px color-mix(in oklab, var(--gold) 70%, transparent),
+		0 0 80px -4px color-mix(in oklab, var(--gold) 50%, transparent),
+		0 0 34px -2px color-mix(in oklab, var(--gold) 60%, transparent),
 		inset 0 1px 0 rgba(255,255,255,.55);
 }
+.pulse-core.beat {
+	transform: scale(1.14);
+	box-shadow:
+		0 0 120px -4px color-mix(in oklab, var(--gold) 70%, transparent),
+		0 0 50px  -2px color-mix(in oklab, var(--gold) 85%, transparent),
+		inset 0 1px 0 rgba(255,255,255,.7);
+}
+/* Wave 101d: ripple expands slowly and fades softly — feels like
+   a candle's halo widening, not a startled wave. */
 .pulse-ripple {
 	position: absolute;
 	width: 0; height: 0;
 	border-radius: 50%;
-	border: 1px solid color-mix(in oklab, var(--gold) 45%, transparent);
-	transition: width 2s ease-out, height 2s ease-out, opacity 2s ease-out;
+	border: 1px solid color-mix(in oklab, var(--gold) 28%, transparent);
+	transition: width   3.5s cubic-bezier(.16, 1, .3, 1),
+	            height  3.5s cubic-bezier(.16, 1, .3, 1),
+	            opacity 3.5s cubic-bezier(.4, 0, .6, 1);
 }
 
 /* Wave 101b: BPM block is now a flex child of pul-live-core (was
