@@ -222,28 +222,67 @@ get_header();
 								<span class="la-dua-step-of">of <?php echo $cat_total; ?></span>
 							</div>
 
-							<!-- Header — title + repeat-count chip -->
+							<?php /* Wave 112: header now carries the gold source pill
+							     right under the title (Claude-Design pattern). Source
+							     was previously footer-level — moving it up gives the
+							     dua an immediate context line (e.g. "BUKHARI 6306")
+							     before the reciter starts. */ ?>
 							<header class="la-dua-head">
 								<h2 class="la-dua-title"><?php echo esc_html( $d->title ); ?></h2>
+								<?php if ( ! empty( $d->source ) ) : ?>
+									<span class="la-dua-source-pill"><?php echo esc_html( strtoupper( $d->source ) ); ?></span>
+								<?php endif; ?>
 								<?php if ( (int) $d->repeat_count > 1 ) : ?>
-									<span class="la-dua-repeat" title="Recite this many times"><?php echo (int) $d->repeat_count; ?>×</span>
+									<span class="la-dua-repeat" title="Recite this many times">×<?php echo (int) $d->repeat_count; ?></span>
 								<?php endif; ?>
 							</header>
 
-							<!-- Body — Arabic + translit + meaning, centred for a meditative read -->
+							<?php /* Wave 112: interlinear render — each ayah/clause gets
+							     its Arabic on top, transliteration directly below it,
+							     so the user's eye doesn't have to scan an entire wall
+							     of Arabic then re-scan a wall of translit. We split:
+							        Arabic   on " ۞ "
+							        Translit on " / "
+							     If counts match and there are 2+ pieces, render
+							     interlinear. Otherwise fall back to the original
+							     two-blob layout (no data is lost — this just keeps
+							     older duas without per-line separators readable). */ ?>
+							<?php
+							$ar_lines = array_values( array_filter( array_map( 'trim', explode( '۞', $d->arabic ?? '' ) ) ) );
+							$tr_lines = array_values( array_filter( array_map( 'trim', explode( '/',  $d->transliteration ?? '' ) ) ) );
+							$can_interlinear = ( count( $ar_lines ) >= 2 && count( $ar_lines ) === count( $tr_lines ) );
+							?>
 							<div class="la-dua-body">
-								<div class="la-dua-arabic" dir="rtl" lang="ar"><?php echo esc_html( $d->arabic ); ?></div>
-								<?php if ( ! empty( $d->transliteration ) ) : ?>
-									<div class="la-dua-translit"><?php echo esc_html( $d->transliteration ); ?></div>
-								<?php endif; ?>
-								<?php if ( ! empty( $d->meaning ) ) : ?>
-									<p class="la-dua-meaning"><?php echo esc_html( $d->meaning ); ?></p>
-								<?php endif; ?>
-								<?php if ( ! empty( $d->source ) ) : ?>
-									<div class="la-dua-source">
-										<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-										<?php echo esc_html( $d->source ); ?>
+								<?php if ( $can_interlinear ) : ?>
+									<div class="la-dua-lines">
+										<?php for ( $li = 0; $li < count( $ar_lines ); $li++ ) : ?>
+											<div class="la-dua-line">
+												<div class="la-dua-line-ar ar" dir="rtl" lang="ar"><?php echo esc_html( $ar_lines[ $li ] ); ?></div>
+												<?php if ( ! empty( $tr_lines[ $li ] ) ) : ?>
+													<div class="la-dua-line-tr"><?php echo esc_html( $tr_lines[ $li ] ); ?></div>
+												<?php endif; ?>
+											</div>
+										<?php endfor; ?>
 									</div>
+								<?php else : ?>
+									<div class="la-dua-arabic ar" dir="rtl" lang="ar"><?php echo esc_html( $d->arabic ); ?></div>
+									<?php if ( ! empty( $d->transliteration ) ) : ?>
+										<div class="la-dua-translit"><?php echo esc_html( $d->transliteration ); ?></div>
+									<?php endif; ?>
+								<?php endif; ?>
+
+								<?php /* Wave 112: Meaning is now collapsible — the dua
+								     itself (Arabic + translit) is the recitation surface;
+								     the English meaning is one tap away when you want it.
+								     Stops the meaning paragraph from dominating the card. */ ?>
+								<?php if ( ! empty( $d->meaning ) ) : ?>
+									<details class="la-dua-meaning-toggle">
+										<summary class="la-dua-meaning-summary">
+											<span>MEANING</span>
+											<svg class="la-dua-meaning-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+										</summary>
+										<p class="la-dua-meaning"><?php echo esc_html( $d->meaning ); ?></p>
+									</details>
 								<?php endif; ?>
 							</div>
 
@@ -405,40 +444,60 @@ get_header();
 			}[c]));
 		}
 
-		/* Split the arabic text into per-ayah lines using ۞ as separator
-		   (matches the convention we use across the seed). Wrap each in
-		   a span we can later highlight. If there's no ۞, the whole text
-		   becomes one line — still highlights as a whole on playback. */
+		/* Wave 110 → Wave 112: read-along finds lines in TWO shapes:
+		     A) Interlinear (Wave 112+ markup): each ayah already has its
+		        own .la-dua-line-ar element. Just collect them — no DOM
+		        mutation needed, no innerHTML to restore.
+		     B) Single-blob fallback (older duas without per-line breaks):
+		        the original .la-dua-arabic exists; we split its text on
+		        ۞ and wrap each segment in a span. We cache the original
+		        innerHTML so closing the player restores the text exactly.
+		   The activeMode flag tells restoreReadAlong which cleanup to do. */
+		let activeMode = null;   // 'interlinear' | 'blob' | null
 		function prepareReadAlong(card, keys) {
 			if ( activeCard === card ) {
-				// Already wrapped — just rebuild the key→line map
 				keyToLine = buildKeyToLineMap(keys, lineNodes.length);
 				return;
 			}
-			restoreReadAlong();   // unwrap any previous card
+			restoreReadAlong();
 			if ( ! card ) return;
+
+			// Mode A: interlinear
+			const interlinear = card.querySelectorAll('.la-dua-line-ar');
+			if ( interlinear.length >= 1 ) {
+				lineNodes  = Array.from(interlinear);
+				activeMode = 'interlinear';
+				activeCard = card;
+				keyToLine  = buildKeyToLineMap(keys, lineNodes.length);
+				return;
+			}
+
+			// Mode B: single-blob fallback — split + wrap
 			const ar = card.querySelector('.la-dua-arabic');
 			if ( ! ar ) return;
 			originalArHTML = ar.innerHTML;
-			const text = ar.textContent.trim();
+			const text  = ar.textContent.trim();
 			const parts = text.split('۞').map(s => s.trim()).filter(Boolean);
-			let html;
-			if ( parts.length < 2 ) {
-				html = `<span class="la-dua-arabic-line">${escHTML(text)}</span>`;
-			} else {
-				html = parts.map(p => `<span class="la-dua-arabic-line">${escHTML(p)}</span>`)
+			ar.innerHTML = ( parts.length < 2 )
+				? `<span class="la-dua-arabic-line">${escHTML(text)}</span>`
+				: parts.map(p => `<span class="la-dua-arabic-line">${escHTML(p)}</span>`)
 					.join(' <span class="la-dua-arabic-sep" aria-hidden="true">۞</span> ');
-			}
-			ar.innerHTML = html;
-			lineNodes = Array.from( ar.querySelectorAll('.la-dua-arabic-line') );
+			lineNodes  = Array.from( ar.querySelectorAll('.la-dua-arabic-line') );
+			activeMode = 'blob';
 			activeCard = card;
-			keyToLine = buildKeyToLineMap(keys, lineNodes.length);
+			keyToLine  = buildKeyToLineMap(keys, lineNodes.length);
 		}
 		function restoreReadAlong() {
 			if ( ! activeCard ) return;
-			const ar = activeCard.querySelector('.la-dua-arabic');
-			if ( ar && originalArHTML !== null ) ar.innerHTML = originalArHTML;
+			if ( activeMode === 'interlinear' ) {
+				// No DOM mutation happened — just clear the highlight.
+				lineNodes.forEach( l => l.classList.remove('is-active') );
+			} else if ( activeMode === 'blob' ) {
+				const ar = activeCard.querySelector('.la-dua-arabic');
+				if ( ar && originalArHTML !== null ) ar.innerHTML = originalArHTML;
+			}
 			activeCard     = null;
+			activeMode     = null;
 			originalArHTML = null;
 			lineNodes      = [];
 			keyToLine      = [];

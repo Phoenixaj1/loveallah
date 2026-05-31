@@ -5133,6 +5133,204 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 	background: rgba(212, 160, 44, 0.12);
 	color: #8a6a1a;
 }
+
+/* ─── Wave 112: Duas — hide prayer header + Claude-Design layout ────
+   User screenshot showed the floating prayer bar covering the Duas
+   top (Wave 109/110/111 shipped without QAing for this — bad). Same
+   fix as Wave 94c for Dhikr: hide la-header entirely on /duas/.
+   --------------------------------------------------------------------- */
+body.page-duas .la-header { display: none !important; }
+/* Compensate for the header that's no longer there — the rail + pane
+   shouldn't sit under the OS status bar / iOS notch. */
+body.page-duas .la-app--duas-sidebar {
+	padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+}
+
+/* ─── Wave 112: Claude-Design layout adoption ──────────────────────────
+   Cream paper reading card, gold source pill under the title,
+   interlinear Arabic + transliteration per ayah, collapsible Meaning
+   section. Same accent system (gold action / jade done / ink text).
+   --------------------------------------------------------------------- */
+
+/* Warmer paper surface — was #fdfcfa (Wave 111), now a true reading-
+   paper cream that holds Arabic ink the way a printed mushaf does. */
+.la-dua {
+	background: linear-gradient(180deg, #fbf6ec 0%, #f6f0e2 100%);
+	border-color: rgba(120, 86, 30, 0.10);
+}
+.la-dua.is-ticked {
+	background: linear-gradient(180deg, #f1f6e9 0%, #ebf0e0 100%);
+	border-color: rgba(30, 100, 64, 0.20);
+}
+
+/* Header — title is the visual hero. Source pill + repeat chip sit on
+   their own line under it, centred. */
+.la-dua-head {
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	padding: 4px 8px 0;
+	margin-bottom: 18px;
+	text-align: center;
+}
+.la-dua-title {
+	font-size: 18px;
+	font-weight: 800;
+	letter-spacing: -0.005em;
+	text-transform: none;
+	color: #1a1a26;
+	line-height: 1.3;
+	margin: 0;
+}
+.la-dua.is-ticked .la-dua-title { color: #1e6440; }
+
+/* Gold source pill — "BUKHARI 6306", "MUSLIM 2186" style. Outline-only
+   so it doesn't compete with the title's weight. */
+.la-dua-source-pill {
+	display: inline-block;
+	padding: 5px 12px;
+	border: 1.5px solid rgba(212, 160, 44, 0.55);
+	border-radius: 999px;
+	font-size: 10px;
+	font-weight: 800;
+	letter-spacing: 0.14em;
+	color: #8a6a1a;
+	background: rgba(212, 160, 44, 0.05);
+}
+
+/* Repeat chip — small, sits next to the source pill on the header row.
+   Wave 111 already gave it the gold tint; just make it sit inline. */
+.la-dua-repeat {
+	display: inline-block;
+	padding: 4px 10px;
+	font-size: 10.5px;
+	letter-spacing: 0.04em;
+}
+
+/* ─── Interlinear lines ───────────────────────────────────────────────
+   Each ayah/clause stacks: Arabic on top (large, ink), translit
+   directly below (smaller, soft grey, italic). The pair is its own
+   block with breathing space, so the eye reads ayah-by-ayah without
+   chasing across two walls of text. */
+.la-dua-lines {
+	display: flex;
+	flex-direction: column;
+	gap: 22px;
+	margin: 4px auto 0;
+	max-width: 520px;
+	text-align: center;
+}
+.la-dua-line {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.la-dua-line-ar {
+	font-family: var(--la-font-arabic);
+	font-size: clamp(22px, 5.4vw, 30px);
+	line-height: 1.85;
+	letter-spacing: 0.01em;
+	color: #1a1a26;
+	margin: 0;
+}
+.la-dua-line-tr {
+	font-size: clamp(13px, 3.2vw, 14.5px);
+	font-style: italic;
+	color: #7a7a8c;
+	line-height: 1.5;
+	margin: 0;
+}
+/* When the read-along highlight lights an interlinear Arabic line,
+   pull the matching translit line forward too so the pair reads as
+   one unit. */
+.la-dua-line:has(.la-dua-line-ar.is-active) .la-dua-line-tr,
+.la-dua-line:has(.la-dua-arabic-line.is-active) .la-dua-line-tr {
+	color: #5a4a18;
+}
+/* Inactive interlinear lines fade so the active one is the focal
+   point (mirror of the Wave 110 single-blob behaviour). */
+.la-dua-lines:has(.la-dua-line-ar.is-active) .la-dua-line:not(:has(.la-dua-line-ar.is-active)) {
+	opacity: 0.42;
+}
+/* The read-along helper sets .is-active on the .la-dua-line-ar
+   element directly in interlinear mode — re-use the warm gold glow
+   from Wave 110 so it reads the same. */
+.la-dua-line-ar.is-active {
+	color: #8a6a1a;
+	text-shadow:
+		0 0 28px rgba(212, 175, 55, 0.45),
+		0 0 10px rgba(212, 175, 55, 0.30);
+}
+
+/* ─── Collapsible Meaning ─────────────────────────────────────────────
+   <details>/<summary> — native disclosure, no JS needed. Closed by
+   default so the recitation card stays focused on the Arabic; tap to
+   reveal the English. */
+.la-dua-meaning-toggle {
+	margin-top: 20px;
+	border-top: 1px solid rgba(120, 86, 30, 0.10);
+	padding-top: 14px;
+}
+.la-dua-meaning-toggle[open] {
+	padding-bottom: 4px;
+}
+.la-dua-meaning-summary {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 10px 16px;
+	background: rgba(120, 86, 30, 0.04);
+	border-radius: 999px;
+	font-size: 10.5px;
+	font-weight: 800;
+	letter-spacing: 0.16em;
+	color: #7a6a1a;
+	cursor: pointer;
+	list-style: none;
+	-webkit-tap-highlight-color: transparent;
+	transition: background .15s ease;
+}
+.la-dua-meaning-summary::-webkit-details-marker { display: none; }
+.la-dua-meaning-summary:hover { background: rgba(120, 86, 30, 0.08); }
+.la-dua-meaning-chevron {
+	transition: transform .25s var(--la-easing);
+}
+.la-dua-meaning-toggle[open] .la-dua-meaning-chevron {
+	transform: rotate(180deg);
+}
+.la-dua-meaning-toggle .la-dua-meaning {
+	margin: 14px 8px 0;
+	font-size: clamp(13px, 3.4vw, 14.5px);
+	line-height: 1.65;
+	color: #3a3a48;
+	font-weight: 400;
+	text-align: left;
+}
+
+/* In the new layout the in-body single-blob arabic also wants to be
+   centred and a touch tighter (matches the interlinear ayah size). */
+.la-dua-arabic {
+	text-align: center;
+	font-size: clamp(23px, 5.6vw, 31px);
+	line-height: 1.9;
+}
+.la-dua-translit {
+	text-align: center;
+	margin-top: 12px;
+}
+
+/* The body padding can step in slightly now that the meaning is hidden
+   by default — the dua reads as one centred column. */
+.la-dua-body {
+	padding: 6px 14px 6px;
+	gap: 14px;
+}
+
+/* Footer — actions row stays compact, sits flush to the bottom. */
+.la-dua-foot {
+	border-top: 1px solid rgba(120, 86, 30, 0.10);
+}
 .la-dua-btn {
 	display: inline-flex; align-items: center; gap: 4px;
 	padding: 6px 10px;
