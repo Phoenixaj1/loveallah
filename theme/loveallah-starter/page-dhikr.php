@@ -187,8 +187,14 @@ get_header();
 
 		<?php // Wave 96b: YouTube ambient video layer. One iframe, JS swaps
 		// src when the scene settles. Sits above the gradients, fades in
-		// when a video is present. ?>
-		<div class="sol-yt" data-sol-yt aria-hidden="true"></div>
+		// when a video is present.
+		// Wave 103b: hard click blocker sits inside the wrapper at z 1
+		// so any tap that would land on the iframe is captured and
+		// discarded — iOS Safari ignores pointer-events:none on
+		// loaded iframes, so this is the only reliable guarantee. ?>
+		<div class="sol-yt" data-sol-yt aria-hidden="true">
+			<div class="sol-yt-blocker" aria-hidden="true"></div>
+		</div>
 
 		<div class="sol-scrim" aria-hidden="true"></div>
 
@@ -250,12 +256,19 @@ get_header();
 			<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
 		</button>
 
-		<?php // Wave 96b: mute toggle — top-left mirror of reset. The scene
-		// video is muted by default (otherwise YouTube autoplay blocks),
-		// tap to unmute (counts as a user gesture). ?>
+		<?php // Wave 96b: mute toggle — top-left mirror of reset.
+		// Wave 103b: explicit ambient-video play/pause button next to
+		// mute. Since taps on the screen no longer reach the YT iframe
+		// (click blocker), these two buttons are the only way to
+		// control the backdrop video, by design — keeps the dhikr
+		// surface uncluttered by accidental YT chrome. ?>
 		<button type="button" class="live-mute is-muted" data-sol-mute aria-label="Toggle ambient sound" aria-pressed="false">
 			<svg data-sol-mute-on  width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
 			<svg data-sol-mute-off width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+		</button>
+		<button type="button" class="live-vid" data-sol-vid aria-label="Pause or play ambient video" aria-pressed="true">
+			<svg data-sol-vid-pause width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+			<svg data-sol-vid-play  width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
 		</button>
 
 		<?php // 7. Bottom sheets — phrase + target pickers ?>
@@ -356,13 +369,19 @@ get_header();
 		const phraseOpts  = root.querySelectorAll('[data-sol-pick-phrase]');
 		const targetOpts  = root.querySelectorAll('[data-sol-pick-target]');
 		// Wave 96b — YouTube ambient layer + mute toggle
+		// Wave 103b — explicit play/pause control + YT.Player API
 		const yt          = root.querySelector('[data-sol-yt]');
 		const muteBtn     = root.querySelector('[data-sol-mute]');
 		const muteOn      = root.querySelector('[data-sol-mute-on]');
 		const muteOff     = root.querySelector('[data-sol-mute-off]');
+		const vidBtn      = root.querySelector('[data-sol-vid]');
+		const vidPauseIcn = root.querySelector('[data-sol-vid-pause]');
+		const vidPlayIcn  = root.querySelector('[data-sol-vid-play]');
 		// Start muted by default — YouTube blocks autoplay-with-sound.
 		let isMuted = ( localStorage.getItem('la_sol_muted') !== '0' );
+		let vidPlaying = true;  // ambient video is "playing" by default
 		let currentVideoId = '';
+		let ytPlayer = null;
 
 		const RING_C = 2 * Math.PI * 118;  // ring circumference
 
@@ -370,37 +389,84 @@ get_header();
 		const tg = () => cfg.targets[ti];
 		const sc = () => cfg.scenes[scene];
 
-		/* Wave 96b: swap the YT iframe to the current scene's video.
-		   If no video, fade the layer out. Idempotent — does nothing
-		   if the video hasn't changed (so we don't re-mount on every
-		   render() call). */
+		/* Wave 103b: lazy-load the YT IFrame Player API once. Returns
+		   a promise that resolves to window.YT. Same pattern as
+		   Witness. The API is global so multiple players coexist. */
+		function loadYT() {
+			return new Promise( resolve => {
+				if ( window.YT && window.YT.Player ) return resolve(window.YT);
+				if ( ! document.querySelector('script[src*="youtube.com/iframe_api"]') ) {
+					const tag = document.createElement('script');
+					tag.src = 'https://www.youtube.com/iframe_api';
+					document.head.appendChild(tag);
+				}
+				const prev = window.onYouTubeIframeAPIReady;
+				window.onYouTubeIframeAPIReady = function() {
+					if ( typeof prev === 'function' ) try { prev(); } catch (_) {}
+					resolve(window.YT);
+				};
+			});
+		}
+
+		/* Wave 103b: swap the YT video using the IFrame Player API.
+		   First call mounts the player; subsequent calls swap the
+		   video via loadVideoById (no full iframe re-create — clean,
+		   no flash of YT chrome). onReady forces playVideo() to
+		   guarantee autoplay even on platforms where the URL
+		   `autoplay=1` parameter is ignored. */
 		function applyVideo() {
 			const v = sc().video || '';
 			if ( v === currentVideoId ) return;
 			currentVideoId = v;
-			yt.innerHTML = '';
-			if ( ! v ) { yt.classList.remove('is-active'); return; }
-			const mp = isMuted ? '1' : '0';
-			const url = 'https://www.youtube-nocookie.com/embed/' + v
-				+ '?autoplay=1&mute=' + mp + '&loop=1&playlist=' + v
-				+ '&controls=0&modestbranding=1&playsinline=1&rel=0'
-				+ '&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1';
-			const f = document.createElement('iframe');
-			f.src = url;
-			f.allow = 'autoplay; encrypted-media';
-			f.setAttribute('frameborder', '0');
-			f.setAttribute('aria-hidden', 'true');
-			yt.appendChild(f);
+			if ( ! v ) {
+				yt.classList.remove('is-active');
+				if ( ytPlayer && ytPlayer.stopVideo ) {
+					try { ytPlayer.stopVideo(); } catch (_) {}
+				}
+				return;
+			}
 			yt.classList.add('is-active');
+			if ( ytPlayer && ytPlayer.loadVideoById ) {
+				try { ytPlayer.loadVideoById({ videoId: v }); } catch (_) {}
+				setTimeout( () => {
+					try {
+						if ( isMuted ) ytPlayer.mute();  else ytPlayer.unMute();
+						if ( vidPlaying ) ytPlayer.playVideo(); else ytPlayer.pauseVideo();
+					} catch (_) {}
+				}, 80 );
+				return;
+			}
+			// First mount — create the YT.Player. Replace any old node
+			// in .sol-yt with a fresh placeholder div for the API to
+			// upgrade into an iframe.
+			yt.innerHTML = '';
+			const blocker = document.createElement('div');
+			blocker.className = 'sol-yt-blocker';
+			blocker.setAttribute('aria-hidden', 'true');
+			const mount = document.createElement('div');
+			yt.appendChild(mount);
+			yt.appendChild(blocker);   // blocker AFTER iframe → stacks above
+			loadYT().then( YT => {
+				ytPlayer = new YT.Player(mount, {
+					videoId: v,
+					host: 'https://www.youtube-nocookie.com',
+					playerVars: {
+						autoplay: 1, mute: 1, controls: 0, playsinline: 1,
+						rel: 0, modestbranding: 1, loop: 1, playlist: v,
+						iv_load_policy: 3, fs: 0, disablekb: 1,
+					},
+					events: {
+						onReady: (e) => {
+							try {
+								if ( isMuted ) e.target.mute(); else { e.target.unMute(); e.target.setVolume(100); }
+								if ( vidPlaying ) e.target.playVideo(); else e.target.pauseVideo();
+							} catch (_) {}
+						},
+					},
+				});
+			});
 		}
 
-		/* Wave 96b: postMessage mute control. The YT IFrame API responds
-		   to `{event:'command', func:'mute'/'unMute'}` on its window. */
-		function postYt(func) {
-			const f = yt.querySelector('iframe');
-			if ( ! f || ! f.contentWindow ) return;
-			try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*'); } catch (_) {}
-		}
 		function setMute(on) {
 			isMuted = !! on;
 			localStorage.setItem('la_sol_muted', isMuted ? '1' : '0');
@@ -408,7 +474,24 @@ get_header();
 			muteBtn.setAttribute('aria-pressed', String( ! isMuted ));
 			if ( muteOn )  muteOn.hidden  =   isMuted;
 			if ( muteOff ) muteOff.hidden = ! isMuted;
-			postYt(isMuted ? 'mute' : 'unMute');
+			if ( ytPlayer ) {
+				try {
+					if ( isMuted ) ytPlayer.mute();
+					else { ytPlayer.unMute(); ytPlayer.setVolume(100); }
+				} catch (_) {}
+			}
+		}
+
+		/* Wave 103b: explicit ambient-video play/pause control. */
+		function setVidPlaying(on) {
+			vidPlaying = !! on;
+			vidBtn.classList.toggle('is-paused', ! vidPlaying);
+			vidBtn.setAttribute('aria-pressed', String( vidPlaying ));
+			if ( vidPauseIcn ) vidPauseIcn.hidden = ! vidPlaying;
+			if ( vidPlayIcn  ) vidPlayIcn.hidden  =   vidPlaying;
+			if ( ytPlayer ) {
+				try { vidPlaying ? ytPlayer.playVideo() : ytPlayer.pauseVideo(); } catch (_) {}
+			}
 		}
 
 		function render() {
@@ -617,10 +700,12 @@ get_header();
 			try { activeChip.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (_) {}
 		}
 
-		// Wave 96b: mount the YT layer + sync the mute button to persisted state
+		// Wave 96b/103b: mount the YT layer + sync controls.
 		muteBtn.addEventListener('click', () => setMute( ! isMuted ));
-		setMute( isMuted );   // syncs icon + aria-pressed without postMessage (no iframe yet)
-		applyVideo();         // mount the current scene's video
+		vidBtn .addEventListener('click', () => setVidPlaying( ! vidPlaying ));
+		setMute( isMuted );          // syncs icon + aria-pressed before player exists
+		setVidPlaying( vidPlaying ); // same — defaults to playing
+		applyVideo();                // mount the current scene's video via YT.Player API
 
 		render();
 	})();

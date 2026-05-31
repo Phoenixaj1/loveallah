@@ -85,16 +85,22 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 
 	<div class="pul-live" data-pul>
 
-		<?php // Wave 103: ambient backdrop layers. CSS gradient base
-		// (instant, always visible), YouTube iframe layer above the
-		// gradient. Mute button top-left, like Solitude. ?>
+		<?php // Wave 103/103b: ambient backdrop layers. Gradient base
+		// (instant), YT iframe above (managed by YT.Player API), hard
+		// click blocker so taps can't reach the iframe. ?>
 		<div class="pul-bg-gradient" data-pul-bg style="background: <?php echo esc_attr( $la_dhikr_scenes[0]['bg'] ); ?>;" aria-hidden="true"></div>
-		<div class="sol-yt" data-pul-yt aria-hidden="true"></div>
+		<div class="sol-yt" data-pul-yt aria-hidden="true">
+			<div class="sol-yt-blocker" aria-hidden="true"></div>
+		</div>
 		<div class="sol-scrim" aria-hidden="true"></div>
 
 		<button type="button" class="live-mute is-muted" data-pul-mute aria-label="Toggle ambient sound" aria-pressed="false">
 			<svg data-pul-mute-on  width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
 			<svg data-pul-mute-off width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+		</button>
+		<button type="button" class="live-vid" data-pul-vid aria-label="Pause or play ambient video" aria-pressed="true">
+			<svg data-pul-vid-pause width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+			<svg data-pul-vid-play  width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
 		</button>
 
 		<?php // Top — Arabic phrase + transliteration ?>
@@ -215,9 +221,11 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		let count = 0, playing = false;
 		let bpm   = cfg.phrases[pi].from;
 		let beatT = null, slowT = null;
-		/* Wave 103: scene/mute state mirrors Solitude. */
+		/* Wave 103/103b: scene/mute/vid state mirrors Solitude. */
 		let isMuted = ( localStorage.getItem('la_pul_muted') !== '0' );
+		let vidPlaying = true;
 		let currentVideoId = '';
+		let ytPlayer = null;
 
 		const ph = () => cfg.phrases[pi];
 		const tg = () => cfg.targets[ti];
@@ -229,38 +237,79 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		const chipsNav   = document.querySelector('[data-pul-chips]');
 		const sceneChips = chipsNav ? chipsNav.querySelectorAll('[data-pul-scene-chip]') : [];
 		const bgEl       = root.querySelector('[data-pul-bg]');
-		const yt         = root.querySelector('[data-pul-yt]');
-		const muteBtn    = root.querySelector('[data-pul-mute]');
-		const muteOn     = root.querySelector('[data-pul-mute-on]');
-		const muteOff    = root.querySelector('[data-pul-mute-off]');
+		const yt          = root.querySelector('[data-pul-yt]');
+		const muteBtn     = root.querySelector('[data-pul-mute]');
+		const muteOn      = root.querySelector('[data-pul-mute-on]');
+		const muteOff     = root.querySelector('[data-pul-mute-off]');
+		const vidBtn      = root.querySelector('[data-pul-vid]');
+		const vidPauseIcn = root.querySelector('[data-pul-vid-pause]');
+		const vidPlayIcn  = root.querySelector('[data-pul-vid-play]');
 
-		/* Wave 103: swap the YT iframe to the current scene's video.
-		   Same pattern as Solitude. Idempotent. */
+		/* Wave 103b: same YT.Player API pattern as Solitude. */
+		function loadYT() {
+			return new Promise( resolve => {
+				if ( window.YT && window.YT.Player ) return resolve(window.YT);
+				if ( ! document.querySelector('script[src*="youtube.com/iframe_api"]') ) {
+					const tag = document.createElement('script');
+					tag.src = 'https://www.youtube.com/iframe_api';
+					document.head.appendChild(tag);
+				}
+				const prev = window.onYouTubeIframeAPIReady;
+				window.onYouTubeIframeAPIReady = function() {
+					if ( typeof prev === 'function' ) try { prev(); } catch (_) {}
+					resolve(window.YT);
+				};
+			});
+		}
 		function applyVideo() {
 			if ( ! yt ) return;
 			const s = sc();
 			const v = s?.video || '';
 			if ( v === currentVideoId ) return;
 			currentVideoId = v;
-			yt.innerHTML = '';
-			if ( ! v ) { yt.classList.remove('is-active'); return; }
-			const mp = isMuted ? '1' : '0';
-			const url = 'https://www.youtube-nocookie.com/embed/' + v
-				+ '?autoplay=1&mute=' + mp + '&loop=1&playlist=' + v
-				+ '&controls=0&modestbranding=1&playsinline=1&rel=0'
-				+ '&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1';
-			const f = document.createElement('iframe');
-			f.src = url;
-			f.allow = 'autoplay; encrypted-media';
-			f.setAttribute('frameborder', '0');
-			f.setAttribute('aria-hidden', 'true');
-			yt.appendChild(f);
+			if ( ! v ) {
+				yt.classList.remove('is-active');
+				if ( ytPlayer && ytPlayer.stopVideo ) { try { ytPlayer.stopVideo(); } catch (_) {} }
+				return;
+			}
 			yt.classList.add('is-active');
-		}
-		function postYt(func) {
-			const f = yt?.querySelector('iframe');
-			if ( ! f || ! f.contentWindow ) return;
-			try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*'); } catch (_) {}
+			if ( ytPlayer && ytPlayer.loadVideoById ) {
+				try { ytPlayer.loadVideoById({ videoId: v }); } catch (_) {}
+				setTimeout( () => {
+					try {
+						if ( isMuted ) ytPlayer.mute(); else ytPlayer.unMute();
+						if ( vidPlaying ) ytPlayer.playVideo(); else ytPlayer.pauseVideo();
+					} catch (_) {}
+				}, 80 );
+				return;
+			}
+			// First mount: build placeholder + blocker, create YT.Player.
+			yt.innerHTML = '';
+			const blocker = document.createElement('div');
+			blocker.className = 'sol-yt-blocker';
+			blocker.setAttribute('aria-hidden', 'true');
+			const mount = document.createElement('div');
+			yt.appendChild(mount);
+			yt.appendChild(blocker);
+			loadYT().then( YT => {
+				ytPlayer = new YT.Player(mount, {
+					videoId: v,
+					host: 'https://www.youtube-nocookie.com',
+					playerVars: {
+						autoplay: 1, mute: 1, controls: 0, playsinline: 1,
+						rel: 0, modestbranding: 1, loop: 1, playlist: v,
+						iv_load_policy: 3, fs: 0, disablekb: 1,
+					},
+					events: {
+						onReady: (e) => {
+							try {
+								if ( isMuted ) e.target.mute(); else { e.target.unMute(); e.target.setVolume(100); }
+								if ( vidPlaying ) e.target.playVideo(); else e.target.pauseVideo();
+							} catch (_) {}
+						},
+					},
+				});
+			});
 		}
 		function setMute(on) {
 			isMuted = !! on;
@@ -271,7 +320,24 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			}
 			if ( muteOn )  muteOn.hidden  =   isMuted;
 			if ( muteOff ) muteOff.hidden = ! isMuted;
-			postYt( isMuted ? 'mute' : 'unMute' );
+			if ( ytPlayer ) {
+				try {
+					if ( isMuted ) ytPlayer.mute();
+					else { ytPlayer.unMute(); ytPlayer.setVolume(100); }
+				} catch (_) {}
+			}
+		}
+		function setVidPlaying(on) {
+			vidPlaying = !! on;
+			if ( vidBtn ) {
+				vidBtn.classList.toggle('is-paused', ! vidPlaying);
+				vidBtn.setAttribute('aria-pressed', String( vidPlaying ));
+			}
+			if ( vidPauseIcn ) vidPauseIcn.hidden = ! vidPlaying;
+			if ( vidPlayIcn  ) vidPlayIcn.hidden  =   vidPlaying;
+			if ( ytPlayer ) {
+				try { vidPlaying ? ytPlayer.playVideo() : ytPlayer.pauseVideo(); } catch (_) {}
+			}
 		}
 		function applyBgGradient() {
 			const s = sc();
@@ -425,8 +491,9 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			applyVideo();
 			try { c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (_) {}
 		}) );
-		// Mute toggle
+		// Mute + video play/pause toggles
 		muteBtn?.addEventListener( 'click', () => setMute( ! isMuted ) );
+		vidBtn ?.addEventListener( 'click', () => setVidPlaying( ! vidPlaying ) );
 
 		// Initial chip sync to persisted scene, then mount video + bg
 		sceneChips.forEach( c => c.classList.toggle( 'is-active', parseInt(c.dataset.pulSceneChip, 10) === scene ) );
@@ -435,6 +502,7 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			try { activeChip.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (_) {}
 		}
 		setMute( isMuted );
+		setVidPlaying( vidPlaying );
 		applyBgGradient();
 		applyVideo();
 
