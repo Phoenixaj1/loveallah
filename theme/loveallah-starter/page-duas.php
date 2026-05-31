@@ -46,6 +46,14 @@ $la_dua_audio = [
 	'morning-three-quls'     => [ '112001','112002','112003','112004','113001','113002','113003','113004','113005','114001','114002','114003','114004','114005','114006' ],
 	'evening-three-quls'     => [ '112001','112002','112003','112004','113001','113002','113003','113004','113005','114001','114002','114003','114004','114005','114006' ],
 	'sleep-three-quls-blow'  => [ '112001','112002','112003','112004','113001','113002','113003','113004','113005','114001','114002','114003','114004','114005','114006' ],
+
+	// Wave 120: duas that ARE Qur'anic verses (or contain a Qur'anic
+	// closing) now get real Mishary Al-Afasy recitation via everyayah
+	// instead of the awful browser TTS that was reading them previously.
+	'hasbunallah'            => [ '003173' ],  // "Hasbunallahu wa ni'mal-wakil" — Āl ʿImrān 3:173
+	'la-ilaha-illa-anta'     => [ '021087' ],  // Dua of Yunus — Al-Anbiyāʾ 21:87 closing
+	'dua-rabbana-atina'      => [ '002201' ],  // "Rabbana atina fid-dunya hasanah" — Al-Baqarah 2:201
+	'travel-mounting'        => [ '043013','043014' ],  // The Qur'anic verses in the travel dua — Az-Zukhruf 43:13-14
 ];
 
 // Group by category
@@ -664,87 +672,15 @@ get_header();
 			});
 		}
 
-		/* ── TTS-mode (non-Qur'anic) playback ──────────────────────────
-		   Browser SpeechSynthesis reads the ARABIC text itself using
-		   the device's Arabic voice (iOS has Maged/Tarik built in;
-		   Android has at least one ar-SA voice on most devices; macOS
-		   Safari has Majed). If no Arabic voice is available, falls
-		   back to English reading the transliteration so the play
-		   button is never a dead button. */
-		let ttsUtter = null;
-		let ttsVoices = [];
-
-		function loadVoices() {
-			return new Promise( resolve => {
-				if ( ! ( 'speechSynthesis' in window ) ) { return resolve([]); }
-				const cur = speechSynthesis.getVoices();
-				if ( cur && cur.length ) { ttsVoices = cur; return resolve(cur); }
-				// Voices load async on first call in Chrome — wait for the event
-				const t = setTimeout( () => {
-					ttsVoices = speechSynthesis.getVoices() || [];
-					resolve(ttsVoices);
-				}, 800 );
-				speechSynthesis.addEventListener( 'voiceschanged', () => {
-					clearTimeout(t);
-					ttsVoices = speechSynthesis.getVoices() || [];
-					resolve(ttsVoices);
-				}, { once: true } );
-			});
-		}
-
-		function findArabicVoice() {
-			if ( ! ttsVoices.length ) return null;
-			// Prefer Saudi (most standard recitation pronunciation), then any Arabic
-			return ttsVoices.find( v => v.lang && /^ar-SA/i.test(v.lang) )
-				|| ttsVoices.find( v => v.lang && /^ar/i.test(v.lang) )
-				|| null;
-		}
-
-		async function ttsSpeak( arabicText, translitFallback ) {
-			if ( ! ( 'speechSynthesis' in window ) ) {
-				playing = false; renderPlayingIcons();
-				return;
-			}
-			try { speechSynthesis.cancel(); } catch(_){}
-			await loadVoices();
-			const arVoice = findArabicVoice();
-			const text = ( arVoice && arabicText ) ? arabicText : ( translitFallback || arabicText || '' );
-			if ( ! text ) { playing = false; renderPlayingIcons(); return; }
-
-			ttsUtter = new SpeechSynthesisUtterance(text);
-			// Arabic recitation wants a more measured pace — drop the rate
-			// further so the speech doesn't blur the verse together.
-			ttsUtter.rate = ( arVoice ? speed * 0.75 : speed * 0.9 );
-			ttsUtter.pitch = 1;
-			if ( arVoice ) {
-				ttsUtter.voice = arVoice;
-				ttsUtter.lang  = arVoice.lang;
-			} else {
-				ttsUtter.lang = 'en-US';
-			}
-			ttsUtter.onstart = () => { playing = true; renderPlayingIcons(); };
-			ttsUtter.onend   = () => { playing = false; renderPlayingIcons(); progress.style.width = '100%'; };
-			ttsUtter.onerror = (e) => {
-				playing = false; renderPlayingIcons();
-				// If Arabic failed (some Android browsers reject ar-SA) and
-				// we have a transliteration fallback, try once more with EN.
-				if ( arVoice && translitFallback && e?.error && /language|voice/i.test(e.error) ) {
-					const fb = new SpeechSynthesisUtterance(translitFallback);
-					fb.lang = 'en-US';
-					fb.rate = speed * 0.9;
-					try { speechSynthesis.speak(fb); } catch(_) {}
-				}
-			};
-			speechSynthesis.speak(ttsUtter);
-		}
-		function ttsStop() {
-			if ( 'speechSynthesis' in window ) {
-				try { speechSynthesis.cancel(); } catch(_){}
-			}
-			ttsUtter = null;
-		}
-		// Warm the voices list so the first play doesn't lose time.
-		loadVoices();
+		/* Wave 120: TTS removed. The browser's Arabic voices vary
+		   wildly (iOS Maged is OK; everywhere else is mechanical) and
+		   reading transliteration in an English voice was indignant
+		   for the verse. Better to have NO audio than bad audio. For
+		   pure-hadith duas the play button is now dimmed and a small
+		   hint sits under it: "Recite from text". When a hadith dua
+		   has a Mishary Alafasy recording sourced, we'll wire it up
+		   in $la_dua_audio later (TODO). */
+		function ttsStop() {}   // no-op shim so existing call sites stay valid
 
 		/* ── Unified play-current ─────────────────────────────────────
 		   Reads the active card, decides audio vs TTS based on whether
@@ -769,23 +705,14 @@ get_header();
 				}
 				playKey(keys[0]);
 			} else {
-				/* TTS mode — read the ARABIC text via the device's
-				   Arabic voice. We grab the arabic from the rendered
-				   card (handles both interlinear .la-dua-line-ar
-				   markup and the .la-dua-arabic single-blob fallback).
-				   Translit goes along as a fallback for devices with
-				   no Arabic voice available. */
-				mode = 'tts';
-				let arabic = Array.from( card.querySelectorAll('.la-dua-line-ar') ).map( n => n.textContent.trim() ).join(' ');
-				if ( ! arabic ) {
-					const blob = card.querySelector('.la-dua-arabic');
-					if ( blob ) arabic = blob.textContent.trim();
-				}
-				let translit = Array.from( card.querySelectorAll('.la-dua-line-tr') ).map( n => n.textContent.trim() ).join(' ');
-				if ( ! translit ) translit = card.dataset.translit || '';
-				prepareReadAlong(card, []);
-				if ( lineNodes.length ) setActiveLine(0);
-				ttsSpeak( arabic, translit );
+				/* Wave 120: no audio for this dua. Don't TTS — sounds
+				   terrible. Just briefly flash the play button as a
+				   "noop ack" so the user knows their tap registered. */
+				mode = null;
+				playBtn?.classList.add('is-flash');
+				setTimeout(() => playBtn?.classList.remove('is-flash'), 240);
+				playing = false;
+				renderPlayingIcons();
 			}
 		}
 		function stopPlayback(restore = true) {
@@ -909,6 +836,18 @@ get_header();
 			if ( totalEl ) totalEl.textContent = String(tot);
 			if ( ameenCountEl ) ameenCountEl.textContent = card.dataset.ameenCount || '0';
 			if ( ameenBtn ) ameenBtn.classList.toggle( 'is-active', card.dataset.isAmened === '1' );
+
+			/* Wave 120: dim play button + change tooltip when this dua
+			   has no Arabic audio (i.e. it's a hadith dua with no Qur'anic
+			   source to stream from everyayah). Visual cue tells the user
+			   why tapping play doesn't speak. */
+			const hasAudio = !! ( card.dataset.audioKeys || '' ).split(',').filter(Boolean).length;
+			if ( playBtn ) {
+				playBtn.classList.toggle( 'is-disabled', ! hasAudio );
+				playBtn.setAttribute('title', hasAudio ? 'Play recitation' : 'Recite from text — audio coming soon');
+				playBtn.setAttribute('aria-label', hasAudio ? 'Play recitation' : 'Recite from text — audio coming soon');
+			}
+
 			renderProgressDots();
 		}
 

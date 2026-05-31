@@ -5632,6 +5632,28 @@ body.page-duas .la-app--duas-sidebar {
 .la-duas-player-btn--play:hover {
 	background: linear-gradient(180deg, #f6c95a 0%, #d4a02c 100%);
 }
+/* Wave 120: dim the play button when the current dua has no Arabic
+   audio source (pure hadith duas — Mishary Alafasy Hisn al-Muslim
+   recordings to be sourced and added later). User can still tap it;
+   the JS does a brief flash to ack the tap, then nothing — better
+   than playing bad TTS. */
+.la-duas-player-btn--play.is-disabled {
+	background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%);
+	border-color: rgba(255,255,255,0.10);
+	color: rgba(255,255,255,0.35);
+	box-shadow: none;
+}
+.la-duas-player-btn--play.is-disabled:hover {
+	background: linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.06) 100%);
+}
+.la-duas-player-btn--play.is-flash {
+	animation: la-duas-flash .25s ease;
+}
+@keyframes la-duas-flash {
+	0%   { background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04)); }
+	50%  { background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.10)); }
+	100% { background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04)); }
+}
 .la-duas-player-btn--speed {
 	width: auto; padding: 0 9px; height: 28px;
 	border-radius: 999px;
