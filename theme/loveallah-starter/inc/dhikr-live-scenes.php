@@ -3,14 +3,17 @@
  * Shared scene library for the live dhikr modes (Wave 103).
  *
  * Solitude (page-dhikr.php), Pulse (dhikr-pulse.php), and Names
- * (dhikr-names.php) all use the same 6 ambient scenes:
+ * (dhikr-names.php) all use the same 6 ambient scenes. Every
+ * scene now has a verified-embeddable YouTube ambient backdrop
+ * (Wave 103e — Moonlit was previously silent, Forest had the
+ * wrong content type):
  *
- *   • Ocean    🌊 — waves only, no music     (NJXzcQJi_A8)
- *   • Moonlit  🌙 — silence, gradient only   (no video)
- *   • Forest   🌿 — birds at dawn, no music  (BHACKCNDMW8)
- *   • Cosmos   ✨ — hubble + ambient music   (Y_plhk1FUQA)
- *   • Sahara   🌅 — dunes, cinematic score   (gFmDx9oj3DU)
- *   • Haram    🕋 — live tawaf from Makkah   (bNY8a2BB5Gc)
+ *   • Ocean    🌊 — 10 hr peaceful waves        (NJXzcQJi_A8)
+ *   • Moonlit  🌙 — 8 hr calm moonlight lake    (PS4tTrNuE5E)
+ *   • Forest   🌿 — woodland ambience, birds    (xNN7iTA57jM)
+ *   • Cosmos   ✨ — 8 hr deep space NASA + music (Y_plhk1FUQA)
+ *   • Sahara   🌅 — Sahara dunes cinematic       (gFmDx9oj3DU)
+ *   • Haram    🕋 — live tawaf from Makkah       (bNY8a2BB5Gc)
  *
  * Each scene carries:
  *   - id          machine-readable key
@@ -37,11 +40,15 @@ if ( ! isset( $la_dhikr_scenes ) ) {
 		[ 'id' => 'moonlit', 'label' => 'Moonlit', 'emoji' => '🌙',
 		  'bg'    => 'radial-gradient(80% 55% at 50% 26%, #33386a 0%, #1a1d3e 48%, #0a0b1c 100%)',
 		  'orb'   => '#cfd6ff',
-		  'video' => '' ],
+		  /* Wave 103e: 8hr "Silent Night Ambience · Calm Moonlight Lake"
+		     by David Carter — verified embeddable. */
+		  'video' => 'PS4tTrNuE5E' ],
 		[ 'id' => 'forest', 'label' => 'Forest', 'emoji' => '🌿',
 		  'bg'    => 'radial-gradient(85% 58% at 50% 26%, #265141 0%, #143026 46%, #08160f 100%)',
 		  'orb'   => '#cdeed2',
-		  'video' => 'BHACKCNDMW8' ],
+		  /* Wave 103e: was BHACKCNDMW8 ("Relaxing Music" — wrong content).
+		     New: pure forest birdsong ambient, no music. */
+		  'video' => 'xNN7iTA57jM' ],
 		[ 'id' => 'cosmos', 'label' => 'Cosmos', 'emoji' => '✨',
 		  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #3a2a5c 0%, #1e1438 48%, #0a0712 100%)',
 		  'orb'   => '#e6d4ff',
