@@ -330,39 +330,46 @@ get_header();
 								<?php endif; ?>
 							</header>
 
-							<?php /* Wave 123: per-line stacking — each Arabic clause sits
-							     directly with its transliteration AND its meaning. Splits:
+							<?php /* Wave 124: per-line stacking — each Arabic clause sits
+							     with its transliteration AND its English translation.
+							     Splits:
 							        Arabic   → on " ۞ " first, then Arabic comma ،
 							        Translit → on " / " first, then Latin comma ,
-							        Meaning  → on sentence boundaries (.!؟)
-							     If all three split to the same count ≥ 2, render true
-							     per-line (each line gets ar + tr + mn together).
-							     If only ar+tr match, render those per-line and show the
-							     full meaning ONCE underneath (always visible — no
-							     collapsible, the user wants the "feeling" of meaning
-							     right there with the words).
-							     If nothing splits, single-blob fallback. */ ?>
+							        Meaning  → on explicit " | " (author-curated per-clause).
+							                   If the meaning has "||" the part AFTER it is
+							                   treated as a context/virtue note shown
+							                   beneath all the lines.
+							     If explicit | count matches Arabic clause count → true
+							     per-line. Otherwise fall back: show full meaning as one
+							     visible block under the per-line ar+tr stack. */ ?>
 							<?php
 							$split_by = function( $text, $primary, $secondary ) {
 								if ( ! $text ) return [];
-								// Try primary separator first; if it produces >1, use that.
 								$primary_parts = array_values( array_filter( array_map( 'trim',
 									preg_split( '/\s*' . preg_quote( $primary, '/' ) . '\s*/u', $text ) ) ) );
 								if ( count( $primary_parts ) >= 2 ) return $primary_parts;
-								// Else split by secondary (comma etc.)
 								return array_values( array_filter( array_map( 'trim',
 									preg_split( '/\s*' . preg_quote( $secondary, '/' ) . '\s*/u', $text ) ) ) );
 							};
 							$ar_lines = $split_by( $d->arabic ?? '',          '۞', '،' );
 							$tr_lines = $split_by( $d->transliteration ?? '', '/',  ',' );
-							// Meaning: split on sentence-ending punctuation (period only —
-							// commas are too noisy for English prose).
+							// Meaning may contain "||" to separate per-line clauses
+							// from a trailing context/virtue note.
 							$mn_raw   = $d->meaning ?? '';
+							$mn_split = array_map( 'trim', explode( '||', $mn_raw, 2 ) );
+							$mn_clauses_str = $mn_split[0] ?? '';
+							$mn_note        = isset( $mn_split[1] ) ? trim( $mn_split[1] ) : '';
 							$mn_lines = array_values( array_filter( array_map( 'trim',
-								preg_split( '/(?<=[\.\!\?])\s+/', $mn_raw ) ) ) );
+								explode( '|', $mn_clauses_str ) ) ) );
 
 							$lines_match = ( count( $ar_lines ) >= 2 && count( $ar_lines ) === count( $tr_lines ) );
 							$mn_per_line = ( $lines_match && count( $mn_lines ) === count( $ar_lines ) );
+							// When per-line meaning is NOT available, the full meaning
+							// block underneath shows the original prose (or the joined
+							// clauses if they're present but mismatch).
+							$mn_full_block = $mn_per_line
+								? $mn_note
+								: ( $mn_raw === '' ? '' : str_replace( [ '||', '|' ], [ ' · ', ', ' ], $mn_raw ) );
 							?>
 							<div class="la-dua-body">
 								<?php if ( $lines_match ) : ?>
@@ -379,16 +386,16 @@ get_header();
 											</div>
 										<?php endfor; ?>
 									</div>
-									<?php if ( ! $mn_per_line && ! empty( $mn_raw ) ) : ?>
-										<p class="la-dua-meaning-block"><?php echo esc_html( $mn_raw ); ?></p>
+									<?php if ( ! empty( $mn_full_block ) ) : ?>
+										<p class="la-dua-meaning-block"><?php echo esc_html( $mn_full_block ); ?></p>
 									<?php endif; ?>
 								<?php else : ?>
 									<div class="la-dua-arabic ar" dir="rtl" lang="ar"><?php echo esc_html( $d->arabic ); ?></div>
 									<?php if ( ! empty( $d->transliteration ) ) : ?>
 										<div class="la-dua-translit"><?php echo esc_html( $d->transliteration ); ?></div>
 									<?php endif; ?>
-									<?php if ( ! empty( $mn_raw ) ) : ?>
-										<p class="la-dua-meaning-block"><?php echo esc_html( $mn_raw ); ?></p>
+									<?php if ( ! empty( $mn_full_block ) ) : ?>
+										<p class="la-dua-meaning-block"><?php echo esc_html( $mn_full_block ); ?></p>
 									<?php endif; ?>
 								<?php endif; ?>
 							</div>
