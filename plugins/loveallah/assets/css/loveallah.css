@@ -6982,16 +6982,19 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: 8px 14px;
+	padding: 9px 16px;
 	border-radius: 999px;
 	color: rgba(40,30,15,0.62);
-	font-size: 13px;
-	font-weight: 700;
-	letter-spacing: 0.01em;
+	font-size: 12.5px;
+	font-weight: 600;
+	letter-spacing: 0.04em;       /* Wave 101: airier — was 0.01em */
 	text-decoration: none;
 	white-space: nowrap;
-	transition: background 0.2s var(--la-easing, ease), color 0.2s var(--la-easing, ease);
+	transition: background 0.25s var(--la-easing, ease),
+	            color      0.25s var(--la-easing, ease),
+	            transform  0.18s var(--la-easing, ease);
 }
+.la-dhikr-mode:active { transform: scale(.96); }
 .la-dhikr-mode:hover {
 	background: rgba(0,0,0,0.05);
 	color: var(--la-ink-dark, #2a1d0e);
@@ -8686,6 +8689,32 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	background: linear-gradient(180deg, rgba(8,6,12,.5) 0%, rgba(8,6,12,0) 22% 64%, rgba(8,6,12,.66) 100%);
 }
 
+/* Wave 101: soft edge vignette + atmospheric film grain. The
+   vignette frames the centre (orb sits in the bright zone, edges
+   recede); the grain breaks up the gradient bands and adds organic
+   warmth to what would otherwise feel "screen-y". */
+.la-dhikr-live::before {
+	content: '';
+	position: absolute; inset: 0;
+	z-index: 4;
+	pointer-events: none;
+	background:
+		radial-gradient(120% 90% at 50% 38%,
+			transparent 0%,
+			transparent 38%,
+			rgba(4,2,8,.18) 70%,
+			rgba(4,2,8,.42) 100%);
+}
+.la-dhikr-live::after {
+	content: '';
+	position: absolute; inset: 0;
+	z-index: 41;
+	pointer-events: none;
+	opacity: .055;
+	mix-blend-mode: overlay;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 /* ── Wave 96b: YouTube ambient video layer.
    Sits ABOVE the static CSS gradients but BELOW the scrim/orb.
    One iframe per app — JS swaps src when the scene changes (cheap)
@@ -8715,23 +8744,30 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	pointer-events: none;
 }
 
-/* ── Wave 96b: mute toggle, lives top-left mirroring the reset
-   button on the right. Small glass pill with speaker icon. */
+/* ── Wave 96b: mute toggle, top-left mirroring the reset button.
+   Wave 101: pinned to viewport top (not header-relative) for
+   consistency across modes; subtler border + softer bg; tap
+   feedback adds opacity dip alongside scale. */
 .live-mute {
 	position: absolute;
-	top: calc(var(--la-header-h, 110px) + 10px);
-	left: 16px;
+	top: calc(env(safe-area-inset-top, 0px) + 78px);
+	left: 18px;
 	z-index: 6;
-	width: 38px; height: 38px; border-radius: 50%;
+	width: 40px; height: 40px; border-radius: 50%;
 	display: grid; place-items: center;
-	cursor: pointer; border: 1px solid var(--hair);
+	cursor: pointer; border: 1px solid rgba(255,255,255,.08);
 	color: var(--muted);
-	background: rgba(20,16,24,.5);
-	-webkit-backdrop-filter: blur(12px);
-	        backdrop-filter: blur(12px);
-	transition: transform .12s, color .2s;
+	background: rgba(18,14,22,.46);
+	-webkit-backdrop-filter: blur(18px) saturate(1.3);
+	        backdrop-filter: blur(18px) saturate(1.3);
+	box-shadow:
+		0 8px 22px -12px rgba(0,0,0,.7),
+		inset 0 1px 0 rgba(255,255,255,.06);
+	transition: transform .18s var(--la-easing, ease),
+	            color .2s var(--la-easing, ease),
+	            opacity .18s var(--la-easing, ease);
 }
-.live-mute:active { transform: scale(.9); }
+.live-mute:active { transform: scale(.92); opacity: .82; }
 .live-mute.is-muted { color: var(--gold); }
 
 /* ── 2. Stage — centre column with orb + counter + translit.
@@ -8749,17 +8785,29 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	display: grid; place-items: center;
 }
 .sol-ring { position: absolute; inset: 0; }
+/* Wave 101: 3-layer orb — ambient halo (huge, soft, takes the
+   scene's tint) + color wash (the orb body itself) + bright inner
+   highlight (top-left, sells the sphericality). Plus a faint
+   outer ring for definition. This is the "sacred presence" feel. */
 .sol-orb {
 	width: 196px; height: 196px; border-radius: 50%;
-	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-	background: radial-gradient(58% 58% at 42% 36%,
-		#fff 0%,
-		color-mix(in oklab, var(--orbtint, #fff) 60%, #fff) 36%,
-		color-mix(in oklab, var(--orbtint, #fff) 70%, transparent) 70%,
-		transparent 80%);
+	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+	background:
+		radial-gradient(46% 46% at 38% 32%,
+			rgba(255,255,255,.92) 0%,
+			rgba(255,255,255,.55) 22%,
+			color-mix(in oklab, var(--orbtint, #fff) 75%, #fff) 50%,
+			color-mix(in oklab, var(--orbtint, #fff) 78%, transparent) 78%,
+			transparent 88%);
 	box-shadow:
-		0 0 90px -8px color-mix(in oklab, var(--orbtint, #fff) 55%, transparent),
-		inset 0 0 50px rgba(255,255,255,.35);
+		/* ambient halo — far, soft, scene-tinted */
+		0 0 140px -10px color-mix(in oklab, var(--orbtint, #fff) 45%, transparent),
+		/* mid glow — closer ring of light */
+		0 0 60px -6px color-mix(in oklab, var(--orbtint, #fff) 60%, transparent),
+		/* inner highlight — perceptual depth */
+		inset 0 0 38px rgba(255,255,255,.32),
+		/* hairline — defines the orb edge without harshness */
+		inset 0 0 0 .5px rgba(255,255,255,.18);
 }
 /* Wave 100c: bigger expansion range + per-keyframe easing so the
    orb visibly grows the moment "Inhale" starts (not slow-start
@@ -8785,39 +8833,71 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	}
 }
 
-/* Wave 100: transliteration line on the orb. Small, gold-ish on the
-   light orb, low contrast so it doesn't fight the Arabic. */
+/* Wave 100/101: transliteration line on the orb. Italic + lower
+   weight so it reads as the "voice cue" beneath the Arabic, not
+   a competing layer. Tight tracking. */
 .sol-orb-translit {
-	font-size: 13px;
-	font-weight: 700;
-	letter-spacing: .3px;
-	color: rgba(40,30,15,.62);
-	margin-top: -2px;
+	font-size: 12.5px;
+	font-weight: 500;
+	font-style: italic;
+	letter-spacing: .25px;
+	color: rgba(40,30,15,.55);
+	margin-top: -1px;
 }
+/* Wave 101: cue label tighter weight, more open tracking, no
+   background pill (the orb body IS the background). Reads as
+   "this is a meditative cue" not "this is a UI badge". */
 .sol-cue {
-	font-size: 10px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
-	color: rgba(30,24,40,.6);
-	background: rgba(255,255,255,.4);
-	padding: 3px 9px; border-radius: 8px;
+	font-size: 9.5px;
+	font-weight: 700;
+	letter-spacing: .42em;
+	text-transform: uppercase;
+	color: rgba(30,24,40,.45);
+	padding: 0;
+	background: none;
+	border-radius: 0;
+	margin-bottom: 2px;
 }
-.sol-ar { font-size: 27px; color: #241a2e; line-height: 1.3; }
+.sol-ar { font-size: 26px; color: #241a2e; line-height: 1.32; letter-spacing: .2px; }
+/* Wave 101: counter feels more meditative when larger + thinner.
+   Apple-watch breathing-app territory. Tabular nums so the digit
+   transition doesn't shift width. */
 .sol-readout {
-	display: flex; align-items: baseline; gap: 8px;
-	margin-top: 26px;
+	display: flex; align-items: baseline; gap: 10px;
+	margin-top: 38px;
 	font-variant-numeric: tabular-nums;
 }
 .sol-count {
-	font-size: 44px; font-weight: 300; letter-spacing: -1px;
-	color: #fff; text-shadow: 0 2px 20px rgba(0,0,0,.4);
+	font-size: 64px;
+	font-weight: 200;
+	letter-spacing: -2px;
+	line-height: 1;
+	color: #fff;
+	text-shadow: 0 2px 24px rgba(0,0,0,.35);
 }
-.sol-target { font-size: 18px; font-weight: 600; color: var(--muted); }
+.sol-target {
+	font-size: 17px;
+	font-weight: 500;
+	color: var(--muted);
+	letter-spacing: .2px;
+}
 .sol-translit {
-	font-size: 13px; font-weight: 600;
-	color: rgba(255,255,255,.78);
-	margin-top: 10px; padding: 0 28px; text-align: center;
+	font-size: 13.5px;
+	font-weight: 500;
+	letter-spacing: .15px;
+	color: rgba(255,255,255,.82);
+	margin-top: 14px;
+	padding: 0 36px;
+	text-align: center;
+	line-height: 1.5;
 	text-shadow: 0 1px 8px rgba(0,0,0,.5);
 }
-.sol-en { color: var(--muted); font-weight: 500; font-style: italic; }
+.sol-en {
+	color: var(--muted);
+	font-weight: 400;
+	font-style: italic;
+	letter-spacing: .1px;
+}
 
 /* ── 3. Tap overlay — receives count taps + horizontal swipe gestures.
    `touch-action: pan-y` lets the browser handle vertical scrolling
@@ -8857,58 +8937,93 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 
 /* ── 5. Bottom bar — phrase chip / play button / target chip.
    Sits above the bottom nav (tabbar). Spans full width with small gaps. */
+/* Wave 101: more generous spacing + refined glass + proper tap
+   feedback (scale + opacity together, like iOS controls). */
 .live-bar {
 	position: absolute;
-	left: 20px; right: 20px;
-	bottom: calc(var(--la-tabbar-h, 64px) + 26px);
+	left: 24px; right: 24px;
+	bottom: calc(var(--la-tabbar-h, 64px) + 30px);
 	z-index: 6;
 	display: flex; align-items: center; justify-content: space-between;
+	gap: 14px;
 	pointer-events: none;
 }
 .live-bar > * { pointer-events: auto; }
 .live-ctl {
-	height: 54px; min-width: 80px; padding: 0 16px; border-radius: 27px;
+	height: 52px; min-width: 78px;
+	padding: 0 18px;
+	border-radius: 26px;
 	cursor: pointer; font: inherit;
-	display: flex; align-items: center; justify-content: center; gap: 8px;
+	display: flex; align-items: center; justify-content: center; gap: 9px;
 	color: var(--ink);
-	background: rgba(20,16,24,.46);
-	border: 1px solid var(--hair);
-	-webkit-backdrop-filter: blur(var(--blur)) saturate(1.3);
-	        backdrop-filter: blur(var(--blur)) saturate(1.3);
-	box-shadow: 0 12px 30px -16px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.06);
-	transition: transform .12s;
+	background: rgba(18,14,22,.48);
+	border: 1px solid rgba(255,255,255,.08);
+	-webkit-backdrop-filter: blur(24px) saturate(1.4);
+	        backdrop-filter: blur(24px) saturate(1.4);
+	box-shadow:
+		0 14px 36px -18px rgba(0,0,0,.75),
+		0 1px 2px rgba(0,0,0,.4),
+		inset 0 1px 0 rgba(255,255,255,.08);
+	transition: transform .18s var(--la-easing, ease), opacity .18s var(--la-easing, ease);
 }
-.live-ctl:active { transform: scale(.95); }
-.live-ctl-ar { font-size: 19px; color: #fff; }
-.live-ctl-n  { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.live-ctl:active { transform: scale(.96); opacity: .82; }
+.live-ctl-ar { font-size: 18px; color: #fff; letter-spacing: .2px; }
+.live-ctl-n  { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
 .live-play {
-	width: 72px; height: 72px; border-radius: 50%;
+	width: 70px; height: 70px; border-radius: 50%;
 	flex: 0 0 auto; cursor: pointer; border: none;
 	display: grid; place-items: center;
-	color: #2a1d08;
-	background: linear-gradient(180deg, color-mix(in oklab, var(--gold) 94%, #fff), var(--gold));
+	color: #281c08;
+	background:
+		radial-gradient(60% 60% at 40% 32%,
+			color-mix(in oklab, var(--gold) 70%, #fff) 0%,
+			var(--gold) 60%,
+			color-mix(in oklab, var(--gold) 88%, #000) 100%);
 	box-shadow:
-		0 16px 40px -10px color-mix(in oklab, var(--gold) 60%, transparent),
-		inset 0 1px 0 rgba(255,255,255,.5);
-	transition: transform .12s;
+		/* ambient ground shadow — far, soft */
+		0 22px 48px -14px color-mix(in oklab, var(--gold) 55%, transparent),
+		/* tight grounding shadow — defines contact */
+		0 4px 12px -2px color-mix(in oklab, var(--gold) 35%, rgba(0,0,0,.4)),
+		/* top highlight — sells the bevel */
+		inset 0 1.5px 0 rgba(255,255,255,.5),
+		inset 0 -1px 0 rgba(0,0,0,.12);
+	transition: transform .14s var(--la-easing, ease), box-shadow .2s var(--la-easing, ease);
 }
-.live-play:active { transform: scale(.94); }
+.live-play:active {
+	transform: scale(.93);
+	box-shadow:
+		0 14px 30px -10px color-mix(in oklab, var(--gold) 55%, transparent),
+		0 2px 6px -1px color-mix(in oklab, var(--gold) 35%, rgba(0,0,0,.4)),
+		inset 0 1.5px 0 rgba(255,255,255,.5),
+		inset 0 -1px 0 rgba(0,0,0,.12);
+}
 
-/* ── 6. Reset — appears once count > 0, top-right. Subtle glass. */
+/* ── 6. Reset — appears once count > 0. Wave 101: viewport-relative
+   top (consistent with mute mirror), softer borders + shadow,
+   fade-in entrance. */
 .live-reset {
 	position: absolute;
-	top: calc(var(--la-header-h, 110px) + 10px);
-	right: 16px; z-index: 6;
-	width: 38px; height: 38px; border-radius: 50%;
+	top: calc(env(safe-area-inset-top, 0px) + 78px);
+	right: 18px; z-index: 6;
+	width: 40px; height: 40px; border-radius: 50%;
 	display: grid; place-items: center;
-	cursor: pointer; border: 1px solid var(--hair);
+	cursor: pointer; border: 1px solid rgba(255,255,255,.08);
 	color: var(--muted);
-	background: rgba(20,16,24,.5);
-	-webkit-backdrop-filter: blur(12px);
-	        backdrop-filter: blur(12px);
-	transition: transform .12s, opacity .35s;
+	background: rgba(18,14,22,.46);
+	-webkit-backdrop-filter: blur(18px) saturate(1.3);
+	        backdrop-filter: blur(18px) saturate(1.3);
+	box-shadow:
+		0 8px 22px -12px rgba(0,0,0,.7),
+		inset 0 1px 0 rgba(255,255,255,.06);
+	transition: transform .18s var(--la-easing, ease),
+	            opacity   .35s var(--la-easing, ease);
+	animation: la-reset-in .45s cubic-bezier(.16, 1, .3, 1);
 }
-.live-reset:active { transform: scale(.9); }
+.live-reset:active { transform: scale(.92); opacity: .82; }
+@keyframes la-reset-in {
+	from { opacity: 0; transform: scale(.86); }
+	to   { opacity: 1; transform: none; }
+}
 
 /* ── 7. Bottom sheets — phrase + target pickers. Z 60/61 sits ABOVE
    our bottom tab nav (which is typically z 50). No ancestor on the
@@ -8919,22 +9034,40 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	-webkit-backdrop-filter: blur(2px);
 	        backdrop-filter: blur(2px);
 }
+/* Wave 101: more generous top padding, longer + softer entrance
+   curve. Sheet now feels considered, not abrupt. */
 .sheet {
 	position: fixed; left: 0; right: 0; bottom: 0;
 	z-index: 61;
-	padding: 10px 18px calc(env(safe-area-inset-bottom, 0px) + 26px);
-	background: rgba(20,16,24,.86);
-	-webkit-backdrop-filter: blur(30px) saturate(1.3);
-	        backdrop-filter: blur(30px) saturate(1.3);
-	border-top: 1px solid var(--hair);
-	border-radius: 28px 28px 0 0;
-	box-shadow: 0 -20px 50px -20px rgba(0,0,0,.7);
-	animation: la-sol-sheetUp .36s cubic-bezier(.22,.61,.36,1);
+	padding: 14px 20px calc(env(safe-area-inset-bottom, 0px) + 30px);
+	background: rgba(20,16,24,.88);
+	-webkit-backdrop-filter: blur(36px) saturate(1.4);
+	        backdrop-filter: blur(36px) saturate(1.4);
+	border-top: 1px solid rgba(255,255,255,.06);
+	border-radius: 32px 32px 0 0;
+	box-shadow:
+		0 -24px 60px -24px rgba(0,0,0,.72),
+		inset 0 1px 0 rgba(255,255,255,.05);
+	animation: la-sol-sheetUp .48s cubic-bezier(.16, 1, .3, 1);
 	max-height: 76vh; overflow-y: auto;
 }
 @keyframes la-sol-sheetUp {
-	from { transform: translateY(26px); }
-	to   { transform: none; }
+	from { transform: translateY(36px); opacity: .85; }
+	to   { transform: none;              opacity: 1;   }
+}
+.sheet-grab {
+	width: 36px; height: 4px; border-radius: 4px;
+	background: rgba(255,255,255,.18);
+	margin: 2px auto 18px;
+}
+.sheet-title {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 1.4px;
+	text-transform: uppercase;
+	color: var(--muted);
+	text-align: center;
+	margin-bottom: 18px;
 }
 .sheet-grab {
 	width: 38px; height: 4px; border-radius: 4px;
@@ -8946,26 +9079,30 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	color: var(--muted);
 	text-align: center; margin-bottom: 14px;
 }
-.sheet-list { display: flex; flex-direction: column; gap: 8px; }
+.sheet-list { display: flex; flex-direction: column; gap: 9px; }
 .phrase-opt {
 	position: relative;
-	display: flex; align-items: center; gap: 14px;
-	padding: 13px 15px; border-radius: 18px;
+	display: flex; align-items: center; gap: 16px;
+	padding: 15px 17px; border-radius: 20px;
 	cursor: pointer; text-align: left;
-	background: var(--card);
-	border: 1px solid var(--hair);
+	background: rgba(255,255,255,.035);
+	border: 1px solid rgba(255,255,255,.07);
 	color: var(--ink); font: inherit;
-	transition: border-color .2s, background .2s;
+	transition: border-color .22s var(--la-easing, ease),
+	            background   .22s var(--la-easing, ease),
+	            transform    .15s var(--la-easing, ease);
 }
+.phrase-opt:active { transform: scale(.985); }
 .phrase-opt-ar {
-	font-size: 24px; color: rgba(255,255,255,.86);
-	min-width: 78px; text-align: center;
+	font-size: 23px; color: rgba(255,255,255,.86);
+	min-width: 84px; text-align: center;
+	letter-spacing: .3px;
 }
 .phrase-opt-meta {
-	display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;
+	display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1;
 }
-.phrase-opt-meta b    { font-size: 14.5px; font-weight: 700; }
-.phrase-opt-meta span { font-size: 12px; color: var(--muted); }
+.phrase-opt-meta b    { font-size: 14.5px; font-weight: 600; letter-spacing: .15px; }
+.phrase-opt-meta span { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 .phrase-opt-check {
 	margin-left: auto; width: 24px; height: 24px; border-radius: 50%;
 	display: grid; place-items: center;
@@ -8983,16 +9120,19 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
 }
 .target-opt {
-	display: flex; flex-direction: column; align-items: center; gap: 3px;
-	padding: 18px 8px; border-radius: 18px;
+	display: flex; flex-direction: column; align-items: center; gap: 5px;
+	padding: 22px 8px; border-radius: 20px;
 	cursor: pointer;
-	background: var(--card);
-	border: 1px solid var(--hair);
+	background: rgba(255,255,255,.035);
+	border: 1px solid rgba(255,255,255,.07);
 	color: var(--ink); font: inherit;
-	transition: border-color .2s, background .2s;
+	transition: border-color .22s var(--la-easing, ease),
+	            background   .22s var(--la-easing, ease),
+	            transform    .15s var(--la-easing, ease);
 }
-.target-opt-n   { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.target-opt-tag { font-size: 10.5px; font-weight: 600; color: var(--muted); letter-spacing: .3px; }
+.target-opt:active { transform: scale(.985); }
+.target-opt-n   { font-size: 32px; font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: -1px; line-height: 1; }
+.target-opt-tag { font-size: 10.5px; font-weight: 700; color: var(--muted); letter-spacing: 1.4px; text-transform: uppercase; }
 .target-opt.sel {
 	border-color: color-mix(in oklab, var(--gold) 55%, transparent);
 	background:    color-mix(in oklab, var(--gold) 11%, transparent);
