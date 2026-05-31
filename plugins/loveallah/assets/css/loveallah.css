@@ -4279,21 +4279,26 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 /* ============================================================
    DUAS — Left emoji-rail + scrollable card pane
    ============================================================ */
+/* Wave 115: dark theme across the Duas sidebar. Card stays cream so
+   the Arabic reads as ink-on-paper; everything ELSE goes charcoal so
+   the rail's coloured tiles + the dark player pop against it. */
 .la-app--duas-sidebar {
 	padding: 0;
 	display: flex;
 	min-height: calc(100vh - var(--la-tabbar-h));
 	min-height: calc(100dvh - var(--la-tabbar-h));
-	background: #faf8fc;
+	background: #0e0c14;
+	color: #fff;
 }
 
-/* Left rail */
+/* Left rail — transparent over the dark app, gives the coloured
+   tiles room to breathe. */
 .la-duas-rail {
 	flex-shrink: 0;
 	width: 78px;
-	background: #fff;
-	border-right: 1px solid var(--la-line);
-	padding: 12px 6px;
+	background: transparent;
+	border-right: 1px solid rgba(255, 255, 255, 0.06);
+	padding: 12px 8px;
 	overflow-y: auto;
 	scrollbar-width: none;
 	position: sticky; top: 0;
@@ -4301,70 +4306,84 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 	height: calc(100dvh - var(--la-tabbar-h));
 }
 .la-duas-rail::-webkit-scrollbar { display: none; }
+
+/* Rail button — column with tile on top, label below, count pip
+   floating top-right. The whole tile-stack is the visual unit. */
 .la-duas-rail-btn {
 	display: flex; flex-direction: column; align-items: center;
 	width: 100%;
-	padding: 12px 4px 10px;
+	gap: 4px;
+	padding: 10px 4px 12px;
 	background: transparent;
 	border: none;
 	border-radius: 14px;
-	color: var(--la-ink-dark);
+	color: rgba(255, 255, 255, 0.85);
 	font-family: inherit;
 	cursor: pointer;
-	margin-bottom: 4px;
+	margin-bottom: 6px;
 	position: relative;
-	transition: all 0.18s var(--la-easing);
+	transition: transform 0.18s var(--la-easing);
 	-webkit-tap-highlight-color: transparent;
 }
-.la-duas-rail-emoji {
-	font-size: 24px;
-	line-height: 1;
-	margin-bottom: 4px;
-	filter: grayscale(0.4);
-	transition: filter 0.2s ease, transform 0.2s ease;
+
+/* The coloured tile — background = category colour (set via --cat-
+   colour inline style). White SVG icon, rounded corners. */
+.la-duas-rail-tile {
+	width: 44px; height: 44px;
+	border-radius: 12px;
+	display: grid; place-items: center;
+	background: var(--cat-colour, #666);
+	color: #fff;
+	box-shadow:
+		0 4px 12px color-mix(in oklab, var(--cat-colour, #666) 35%, transparent),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15);
+	transition: transform 0.2s var(--la-spring, cubic-bezier(.34,1.56,.64,1)),
+	            box-shadow 0.2s ease;
 }
+.la-duas-rail-tile svg {
+	width: 22px; height: 22px;
+}
+
 .la-duas-rail-label {
-	font-size: 9.5px;
+	font-size: 10px;
 	font-weight: 700;
-	color: var(--la-ink-soft);
+	color: rgba(255, 255, 255, 0.85);
 	letter-spacing: 0.02em;
 	white-space: nowrap;
+	transition: color 0.2s ease;
 }
+
+/* Count pip — top-right of the tile, the category colour tints it. */
 .la-duas-rail-count {
 	position: absolute;
-	top: 6px; right: 8px;
-	background: rgba(15, 15, 30, 0.10);
-	color: var(--la-ink-soft);
+	top: 4px; right: 6px;
+	background: var(--cat-colour, #666);
+	color: #fff;
 	font-size: 9px;
 	font-weight: 800;
 	padding: 1px 5px;
 	border-radius: 999px;
 	min-width: 14px; text-align: center;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+	border: 1.5px solid #0e0c14;   /* punches a "halo" out of the dark bg */
 }
-.la-duas-rail-btn.is-active {
-	background: rgba(237, 28, 108, 0.10);
+
+/* Active state — brighter tile, gentle scale, gold ring underneath
+   the tile so the user always knows which is selected. */
+.la-duas-rail-btn.is-active .la-duas-rail-tile {
+	transform: scale(1.08);
+	box-shadow:
+		0 0 0 2px rgba(255, 255, 255, 0.18),
+		0 8px 22px color-mix(in oklab, var(--cat-colour, #666) 55%, transparent),
+		inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
-.la-duas-rail-btn.is-active .la-duas-rail-emoji {
-	filter: grayscale(0);
-	transform: scale(1.12);
-}
-.la-duas-rail-btn.is-active .la-duas-rail-label { color: var(--la-primary-dark); }
-.la-duas-rail-btn.is-active .la-duas-rail-count {
-	background: var(--la-primary);
+.la-duas-rail-btn.is-active .la-duas-rail-label {
 	color: #fff;
 }
-.la-duas-rail-btn::before {
-	content: '';
-	position: absolute;
-	left: -6px; top: 50%;
-	transform: translateY(-50%) scaleY(0);
-	width: 3px; height: 26px;
-	background: var(--la-primary);
-	border-radius: 0 3px 3px 0;
-	transition: transform 0.2s var(--la-spring);
-}
-.la-duas-rail-btn.is-active::before { transform: translateY(-50%) scaleY(1); }
 .la-duas-rail-btn:active { transform: scale(0.96); }
+.la-duas-rail-btn:hover .la-duas-rail-tile {
+	transform: scale(1.04);
+}
 
 /* Right pane */
 .la-duas-pane {

@@ -72,18 +72,67 @@ if ( $identity && $duas ) {
 // sihr (magic), ayn (evil eye), hasad (envy), and jinn interference.
 // The category renders a knowledge intro card on top so the user
 // learns the prophetic method, not just the words.
+// Wave 115: each category now carries its own colour + monochrome SVG
+// icon path. The rail renders coloured tiles (background = category
+// colour, icon = white line SVG) to match the Claude-Design look the
+// user pointed to. Emojis stay in the entry for screen-reader/title
+// fallback but the visible icon is the SVG.
 $cats = [
-	'morning'    => [ 'emoji' => '🌅', 'label' => 'Morning',    'sub' => 'After Fajr' ],
-	'evening'    => [ 'emoji' => '🌙', 'label' => 'Evening',    'sub' => 'After Maghrib' ],
-	'ruqyah'     => [ 'emoji' => '🛡️', 'label' => 'Ruqyah',     'sub' => 'Quranic protection' ],
-	'worry'      => [ 'emoji' => '💗', 'label' => 'Anxiety',    'sub' => 'When the heart is heavy' ],
-	'general'    => [ 'emoji' => '⭐', 'label' => 'Daily',      'sub' => 'For every day' ],
-	'waking'     => [ 'emoji' => '☀️', 'label' => 'Waking',     'sub' => 'On opening your eyes' ],
-	'sleep'      => [ 'emoji' => '✨', 'label' => 'Sleep',      'sub' => 'As you lay down' ],
-	'food'       => [ 'emoji' => '🍽️', 'label' => 'Food',       'sub' => 'Before & after meals' ],
-	'travel'     => [ 'emoji' => '🛣️', 'label' => 'Travel',     'sub' => 'On the road' ],
-	'sickness'   => [ 'emoji' => '🤲', 'label' => 'Sickness',   'sub' => 'When health falters' ],
-	'gratitude'  => [ 'emoji' => '🌸', 'label' => 'Gratitude',  'sub' => 'For blessings' ],
+	'morning'    => [
+		'emoji'  => '🌅', 'label' => 'Morning',   'sub' => 'After Fajr',
+		'colour' => '#e8a956',
+		'icon'   => '<path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/>',
+	],
+	'evening'    => [
+		'emoji'  => '🌙', 'label' => 'Evening',   'sub' => 'After Maghrib',
+		'colour' => '#5b6dad',
+		'icon'   => '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+	],
+	'ruqyah'     => [
+		'emoji'  => '🛡️', 'label' => 'Ruqyah',   'sub' => 'Quranic protection',
+		'colour' => '#3e8e6e',
+		'icon'   => '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+	],
+	'worry'      => [
+		'emoji'  => '💗', 'label' => 'Anxiety',   'sub' => 'When the heart is heavy',
+		'colour' => '#c97694',
+		'icon'   => '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+	],
+	'general'    => [
+		'emoji'  => '⭐', 'label' => 'Daily',     'sub' => 'For every day',
+		'colour' => '#d4af37',
+		'icon'   => '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+	],
+	'waking'     => [
+		'emoji'  => '☀️', 'label' => 'Waking',    'sub' => 'On opening your eyes',
+		'colour' => '#e08549',
+		'icon'   => '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+	],
+	'sleep'      => [
+		'emoji'  => '✨', 'label' => 'Sleep',     'sub' => 'As you lay down',
+		'colour' => '#8b7bc4',
+		'icon'   => '<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>',
+	],
+	'food'       => [
+		'emoji'  => '🍽️', 'label' => 'Food',      'sub' => 'Before & after meals',
+		'colour' => '#4a8c5e',
+		'icon'   => '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>',
+	],
+	'travel'     => [
+		'emoji'  => '🛣️', 'label' => 'Travel',    'sub' => 'On the road',
+		'colour' => '#3e9aa8',
+		'icon'   => '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+	],
+	'sickness'   => [
+		'emoji'  => '🤲', 'label' => 'Sickness',  'sub' => 'When health falters',
+		'colour' => '#8b6cb8',
+		'icon'   => '<path d="M9 11V6a2 2 0 0 1 4 0v5"/><path d="M9 11V4a2 2 0 0 1 4 0v7"/><path d="M13 11V5a2 2 0 0 1 4 0v6"/><path d="M17 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.5 0-4.5-1-6-2.5L2 17a2 2 0 0 1 3-2.5L8 17V6a2 2 0 0 1 4 0"/>',
+	],
+	'gratitude'  => [
+		'emoji'  => '🌸', 'label' => 'Gratitude', 'sub' => 'For blessings',
+		'colour' => '#dc6c8d',
+		'icon'   => '<circle cx="12" cy="12" r="3"/><path d="M12 9a3 3 0 0 1 0-6 3 3 0 0 1 0 6z"/><path d="M12 21a3 3 0 0 1 0-6 3 3 0 0 1 0 6z"/><path d="M9 12a3 3 0 0 1-6 0 3 3 0 0 1 6 0z"/><path d="M21 12a3 3 0 0 1-6 0 3 3 0 0 1 6 0z"/>',
+	],
 ];
 
 // Filter to only categories that have duas
@@ -100,14 +149,22 @@ get_header();
 ?>
 <main class="la-app la-app--duas-sidebar">
 
-	<!-- Left sidebar: emoji column. Each is a button that switches the right pane. -->
+	<?php /* Wave 115: rail buttons are now coloured tiles (per Claude-
+	     Design). Each category has its own colour + white SVG icon —
+	     the tile becomes the visual identity for that category, the
+	     label and count sit under it. */ ?>
 	<aside class="la-duas-rail" aria-label="Dua categories">
-		<?php $i = 0; foreach ( $active_cats as $key => $meta ) : ?>
+		<?php $i = 0; foreach ( $active_cats as $key => $meta ) :
+			$is_active_cat = ( $key === $first_cat );
+		?>
 			<button type="button"
-				class="la-duas-rail-btn <?php echo $key === $first_cat ? 'is-active' : ''; ?>"
+				class="la-duas-rail-btn <?php echo $is_active_cat ? 'is-active' : ''; ?>"
 				data-cat="<?php echo esc_attr( $key ); ?>"
+				style="--cat-colour: <?php echo esc_attr( $meta['colour'] ?? '#888' ); ?>;"
 				aria-label="<?php echo esc_attr( $meta['label'] ); ?>">
-				<span class="la-duas-rail-emoji" aria-hidden="true"><?php echo $meta['emoji']; ?></span>
+				<span class="la-duas-rail-tile" aria-hidden="true">
+					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><?php echo $meta['icon'] ?? ''; ?></svg>
+				</span>
 				<span class="la-duas-rail-label"><?php echo esc_html( $meta['label'] ); ?></span>
 				<span class="la-duas-rail-count"><?php echo count( $by_cat[ $key ] ); ?></span>
 			</button>
