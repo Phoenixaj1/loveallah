@@ -5340,23 +5340,28 @@ body.page-duas .la-app--duas-sidebar {
    Listen / Copy / Share dropped from cards entirely.
    --------------------------------------------------------------------- */
 
-/* Pane is now the scroll context for the active card AND the anchor
-   for the absolutely-positioned player. */
+/* Wave 114: pane is just a flex container — NO fixed height. The
+   player is `position: fixed` to the viewport (see below) so we
+   don't need the pane to be a height-bounded positioning context
+   anymore. That removes a whole class of viewport-math bugs on
+   iOS Safari where 100vh ≠ visible area + URL-bar quirks were
+   pushing the player off-screen. */
 .la-duas-pane {
 	position: relative;
-	height: calc(100vh - var(--la-tabbar-h, 64px) - env(safe-area-inset-top, 0px));
-	height: calc(100dvh - var(--la-tabbar-h, 64px) - env(safe-area-inset-top, 0px));
-	padding: 14px 16px 0;        /* bottom padding handled by .la-duas-lists margin */
-	overflow: hidden;            /* the list inside scrolls; the pane itself doesn't */
+	padding: 14px 16px 0;
+	/* bottom padding inside .la-duas-lists clears the fixed player */
 	display: flex; flex-direction: column;
+	min-height: 0;
+	flex: 1;
 }
 
-/* Lists wrapper takes all available space minus the inline player at
-   the bottom (~150px). The active list scrolls vertically inside this. */
+/* Lists wrapper — vertical column that grows with the active card.
+   Inner card scrolls internally. The big bottom padding makes sure
+   the last lines of the card never sit under the fixed player. */
 .la-duas-lists {
 	flex: 1;
 	min-height: 0;
-	padding-bottom: 160px;       /* clear the player */
+	padding-bottom: 180px;        /* clear the fixed player + bottom safe area */
 	overflow: hidden;
 }
 
@@ -5373,8 +5378,6 @@ body.page-duas .la-app--duas-sidebar {
 .la-duas-list.is-active::-webkit-scrollbar { display: none; }
 .la-duas-list .la-dua { display: none; }
 .la-duas-list .la-dua.la-dua--knowledge {
-	/* Knowledge card behaves like a regular dua now — only shown when
-	   it's the current step. */
 	display: none;
 }
 .la-duas-list.is-active .la-dua.is-current,
@@ -5385,7 +5388,7 @@ body.page-duas .la-app--duas-sidebar {
 	min-height: 0;
 	margin: 0;
 	scroll-snap-align: none;
-	overflow-y: auto;            /* scroll WITHIN the card for long content */
+	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
 	scrollbar-width: none;
 	padding: 24px 18px;
@@ -5401,11 +5404,25 @@ body.page-duas .la-app--duas-sidebar {
 	margin-bottom: 0;
 }
 
-/* ─── Inline player (bottom of pane) ──────────────────────────────── */
+/* ─── Inline player — pinned to the viewport bottom ─────────────────
+   Wave 114: switched from `position: absolute` (inside pane) to
+   `position: fixed` (to viewport). Reason: the pane height calc was
+   unreliable on iOS Safari — 100vh includes the URL bar, my parent
+   sidebar had safe-area padding stacking on top of that, so the
+   pane bottom sometimes ended up BELOW the visible viewport,
+   taking the absolute player with it. User saw NO player at all on
+   their phone.
+   With position:fixed:
+     - left:  rail width (78px) + 10px gap → never covers the rail
+     - right: 10px → flush to the screen's right edge
+     - bottom: clears the bottom tab nav (64px) + safe-area + 10px
+   Player is now ALWAYS visible at the bottom of the right column,
+   no matter what the viewport quirks are. */
 .la-duas-player.la-duas-player--inline {
-	position: absolute;
-	left: 14px; right: 14px;
-	bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+	position: fixed;
+	left: calc(78px + 10px);
+	right: 10px;
+	bottom: calc(var(--la-tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 10px);
 	background: linear-gradient(180deg, #1a1410 0%, #0e0a06 100%);
 	border: 1px solid rgba(212, 175, 55, 0.18);
 	border-radius: 18px;
@@ -5413,7 +5430,7 @@ body.page-duas .la-app--duas-sidebar {
 	color: #fff;
 	overflow: hidden;
 	padding: 0;
-	z-index: 5;
+	z-index: 50;
 }
 
 /* Title row — category icon + dua title + step pip */
