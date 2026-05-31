@@ -913,6 +913,13 @@ body.page-dhikr {
 	   to match the Dhikr accent. */
 	background: radial-gradient(120% 90% at 50% 0%, #0F1F1A 0%, #050B0A 60%) fixed !important;
 }
+
+/* Wave 94c: hide the prayer-times header entirely on /dhikr/.
+   Per user: "remove the prayer times from dhikr page it could be a
+   distraction". The Dhikr hub is a sacred-mode screen — the user is
+   here to remember Allah, not check Maghrib timing. Other tabs still
+   show the floating prayer card. */
+body.page-dhikr .la-header { display: none !important; }
 body.page-dhikr .la-top-avatar,
 body.page-dhikr .la-top-avatar--cta {
 	background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
