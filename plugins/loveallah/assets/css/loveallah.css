@@ -8835,6 +8835,14 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	display: none !important;
 }
 
+/* Wave 104c: hard-override the hidden attribute on icons inside
+   the rail. Grid containers blockify children, so the user-agent
+   `[hidden] { display: none }` was losing the cascade race and
+   both play+pause / muted+volume SVGs were rendering at once. */
+.amb-rail-btn svg[hidden] {
+	display: none !important;
+}
+
 /* ── 2. Stage — centre column with orb + counter + translit.
    `pointer-events: none` so the tap overlay above (sol-touch) gets
    the input. Top offset clears the mode-switcher pills + safe area. */
