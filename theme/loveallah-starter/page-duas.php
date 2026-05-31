@@ -179,13 +179,27 @@ get_header();
 		<?php $i++; endforeach; ?>
 	</aside>
 
-	<?php /* Wave 113: pane head dropped — user said "title at the top is way
-	     too big". The category context (icon + name + sub-label) moved
-	     down into the inline player at the bottom of the pane. The
-	     progress strip is hidden too — its info ("3 of 8 read today")
-	     now lives inline next to the player title as a small pip. */ ?>
-	<!-- Right pane: one card visible at a time + inline player at bottom -->
+	<!-- Right pane: header band (Wave 122) + one card + inline player -->
 	<div class="la-duas-pane">
+
+		<?php /* Wave 122: clean header zone at the top of the pane.
+		     ADHD/autism principle: clear "where am I" cue at eye-level,
+		     not buried in the bottom player. Shows "Dua 1 of 3" + small
+		     progress dots, or "✓ Complete · Alhamdulillah" when the
+		     whole category is read. Nothing else. */ ?>
+		<header class="la-duas-top-header" data-duas-top-header>
+			<div class="la-duas-top-step" data-duas-top-step>
+				<span class="word">Dua</span>
+				<b data-current-idx>1</b>
+				<span class="word">of</span>
+				<b data-current-total><?php echo count( $by_cat[ $first_cat ] ); ?></b>
+			</div>
+			<div class="la-duas-top-complete" data-duas-top-complete hidden>
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+				<span>Complete · Alhamdulillah</span>
+			</div>
+			<div class="la-duas-top-dots" data-duas-dots aria-hidden="true"></div>
+		</header>
 
 		<!-- Card lists — one section per category, only active is visible -->
 		<div class="la-duas-lists">
@@ -408,35 +422,18 @@ get_header();
 		     dropped from card footers; the player is the single action
 		     surface. */ ?>
 		<div class="la-duas-player la-duas-player--inline" data-duas-player>
-			<div class="la-duas-player-title-row">
-				<span class="la-duas-player-cat-icon" data-cat-icon><?php echo $active_cats[ $first_cat ]['emoji']; ?></span>
-				<div class="la-duas-player-cat-text">
-					<span class="la-duas-player-dua-title" data-duas-player-title><?php echo esc_html( $by_cat[ $first_cat ][0]->title ?? '' ); ?></span>
-					<span class="la-duas-player-cat-sub">
-						<span data-cat-title><?php echo esc_html( $active_cats[ $first_cat ]['label'] ); ?></span>
-						<span class="dot">·</span>
-						<span data-cat-sub><?php echo esc_html( $active_cats[ $first_cat ]['sub'] ); ?></span>
-					</span>
-				</div>
-				<?php /* Wave 119: clearer step counter — "Dua 1 of 3" instead
-			     of "1 / 3", plus per-dua dots so the user can see at a
-			     glance how many duas are in this category and which ones
-			     they've already read. When ALL are ticked the pip swaps
-			     to "✓ Complete · Alhamdulillah" in jade. */ ?>
-				<span class="la-duas-player-step-cluster" data-duas-step-cluster>
-					<span class="la-duas-player-step">
-						<span class="word">Dua</span>
-						<span data-current-idx>1</span>
-						<span class="word">of</span>
-						<span data-current-total><?php echo count( $by_cat[ $first_cat ] ); ?></span>
-					</span>
-					<span class="la-duas-player-complete-pip" hidden>
-						<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-						Complete
-					</span>
-					<span class="la-duas-player-dots" data-duas-dots aria-hidden="true"></span>
-				</span>
-			</div>
+			<?php /* Wave 122: title row dropped. The dua title is on the
+			     card, the step counter is in the top header band, the
+			     active rail tile shows the category. The player is now
+			     PURELY controls — like a music player.
+			     Hidden meta spans kept so renderPlayerForCurrent's JS
+			     still has DOM targets to write to (the data-current-idx
+			     etc. now live in the top header above the card, but
+			     these placeholders keep the old write paths safe). */ ?>
+			<span hidden data-duas-player-title></span>
+			<span hidden data-cat-icon></span>
+			<span hidden data-cat-title></span>
+			<span hidden data-cat-sub></span>
 
 			<div class="la-duas-player-controls-row">
 				<button type="button" class="la-duas-player-btn la-duas-player-btn--nav" data-duas-prev aria-label="Previous dua">
@@ -870,11 +867,14 @@ get_header();
 		   green "✓ Complete" badge — gives the user an unambiguous
 		   "you're done with Morning" signal. */
 		function renderProgressDots() {
-			const dotsEl    = document.querySelector('[data-duas-dots]');
-			const cluster   = document.querySelector('[data-duas-step-cluster]');
-			const stepEl    = cluster?.querySelector('.la-duas-player-step');
-			const completeEl= cluster?.querySelector('.la-duas-player-complete-pip');
-			if ( ! dotsEl || ! cluster ) return;
+			/* Wave 122: dots + step + complete now live in the top header
+			   band above the card, not inside the player. The data attrs
+			   moved but the logic is unchanged. */
+			const dotsEl     = document.querySelector('[data-duas-dots]');
+			const header     = document.querySelector('[data-duas-top-header]');
+			const stepEl     = document.querySelector('[data-duas-top-step]');
+			const completeEl = document.querySelector('[data-duas-top-complete]');
+			if ( ! dotsEl || ! header ) return;
 
 			const sec = activeSection();
 			if ( ! sec ) return;
@@ -893,7 +893,7 @@ get_header();
 
 			// Complete state — every card has is-ticked
 			const allRead = cards.length > 0 && cards.every( c => c.classList.contains('is-ticked') );
-			cluster.classList.toggle('is-complete', allRead);
+			header.classList.toggle('is-complete', allRead);
 			if ( stepEl )     stepEl.hidden     =   allRead;
 			if ( completeEl ) completeEl.hidden = ! allRead;
 		}
