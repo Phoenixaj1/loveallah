@@ -8761,16 +8761,28 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 		0 0 90px -8px color-mix(in oklab, var(--orbtint, #fff) 55%, transparent),
 		inset 0 0 50px rgba(255,255,255,.35);
 }
-/* Wave 100: animation-duration driven by JS via --breath-s so the
-   peak/trough align with the cue toggle (inhale half = scaling up,
-   exhale half = scaling down). Peak now at 50% (was 45%) so the
-   two halves are symmetric. */
+/* Wave 100c: bigger expansion range + per-keyframe easing so the
+   orb visibly grows the moment "Inhale" starts (not slow-start
+   ease-in-out which made it look like nothing was happening for
+   the first second of each breath). Range bumped from .84→1.08
+   to .76→1.20 — a 58% scale pop, undeniably "expanding". Each
+   half uses cubic-bezier(.34,.85,.5,1) — strong initial motion,
+   gentle approach to peak/trough. */
 .sol-orb.playing {
-	animation: la-sol-breathe var(--breath-s, 7s) ease-in-out infinite;
+	animation: la-sol-breathe var(--breath-s, 7s) linear infinite;
 }
 @keyframes la-sol-breathe {
-	0%, 100% { transform: scale(.84); }
-	50%      { transform: scale(1.08); }
+	0% {
+		transform: scale(.76);
+		animation-timing-function: cubic-bezier(.34, .85, .5, 1);
+	}
+	50% {
+		transform: scale(1.20);
+		animation-timing-function: cubic-bezier(.34, .85, .5, 1);
+	}
+	100% {
+		transform: scale(.76);
+	}
 }
 
 /* Wave 100: transliteration line on the orb. Small, gold-ish on the
