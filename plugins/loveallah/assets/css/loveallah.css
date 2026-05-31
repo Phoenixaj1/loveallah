@@ -9552,89 +9552,99 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	box-shadow: 0 0 8px color-mix(in oklab, var(--gold) 55%, transparent);
 }
 
-/* Centre stage — current step's content. Vertically centred,
-   max-width for readability on tablet. */
+/* Wave 106b: rebuilt Pray stage layout. Previous version
+   overflowed on long Arabic (tahleel, peace dua) — content
+   collided with step dots above and the right rail beside.
+   Now: smaller defaults, tighter spacing, right padding clears
+   the rail, overflow:auto as a safety net for very long steps. */
 .pray-stage {
 	position: absolute;
-	top: calc(env(safe-area-inset-top, 0px) + 110px);
-	bottom: calc(var(--la-tabbar-h, 64px) + 70px);
+	top: calc(env(safe-area-inset-top, 0px) + 100px);
+	bottom: calc(var(--la-tabbar-h, 64px) + 40px);
 	left: 0; right: 0;
 	z-index: 2;
 	display: flex; flex-direction: column;
 	align-items: center; justify-content: center;
-	padding: 0 28px;
+	/* extra right padding so the right-rail (60-70px wide cluster)
+	   never collides with translit / meaning text */
+	padding: 16px 84px 16px 28px;
 	text-align: center;
 	pointer-events: none;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 .pray-eyebrow {
-	font-size: 11px;
+	font-size: 10.5px;
 	font-weight: 700;
-	letter-spacing: 2.4px;
+	letter-spacing: 2px;
 	text-transform: uppercase;
 	color: color-mix(in oklab, var(--gold) 75%, transparent);
-	margin-bottom: 24px;
-	max-width: 340px;
+	margin-bottom: 14px;
+	max-width: 280px;
 }
 .pray-arabic {
-	font-size: clamp(28px, 7.5vw, 46px);
-	line-height: 1.55;
+	font-size: clamp(22px, 6.5vw, 34px);
+	line-height: 1.5;
 	color: #fff;
 	letter-spacing: .3px;
-	max-width: 720px;
+	max-width: min(320px, 90vw);
 	text-shadow: 0 2px 28px rgba(0,0,0,.45);
 }
 .pray-translit {
-	font-size: clamp(14px, 4vw, 18px);
+	font-size: 14.5px;
 	font-weight: 600;
 	color: rgba(255,255,255,.86);
-	margin-top: 18px;
+	margin-top: 14px;
 	letter-spacing: .2px;
-	max-width: 620px;
+	max-width: min(300px, 88vw);
 	line-height: 1.45;
 }
 .pray-meaning {
-	font-size: 13.5px;
+	font-size: 12.5px;
 	font-style: italic;
 	font-weight: 500;
 	color: var(--muted);
-	margin-top: 12px;
-	max-width: 480px;
-	line-height: 1.55;
+	margin-top: 10px;
+	max-width: min(280px, 86vw);
+	line-height: 1.5;
 }
 .pray-counter {
-	display: flex; align-items: baseline; gap: 10px;
-	margin-top: 32px;
+	display: flex; align-items: baseline; gap: 8px;
+	margin-top: 20px;
 	font-variant-numeric: tabular-nums;
 }
 .pray-count {
-	font-size: 56px;
+	font-size: 44px;
 	font-weight: 200;
-	letter-spacing: -1.5px;
+	letter-spacing: -1px;
 	line-height: 1;
 	color: #fff;
 	text-shadow: 0 2px 20px rgba(0,0,0,.4);
 }
 .pray-target {
-	font-size: 16px;
+	font-size: 14px;
 	font-weight: 500;
 	color: var(--muted);
 	letter-spacing: .2px;
 }
 .pray-hint {
-	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 1.6px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 1.4px;
 	text-transform: uppercase;
 	color: var(--faint);
-	margin-top: 22px;
+	margin-top: 14px;
 }
 
-/* Tap-anywhere overlay — covers the stage area so any tap counts. */
+/* Tap overlay — covers the centre, NOT the rail.
+   Right inset clears the rail's hit area so chip taps still
+   land on the rail (not get swallowed by the count overlay). */
 .pray-touch {
 	position: absolute;
-	top: calc(env(safe-area-inset-top, 0px) + 110px);
-	bottom: calc(var(--la-tabbar-h, 64px) + 30px);
-	left: 0; right: 0;
+	top: calc(env(safe-area-inset-top, 0px) + 100px);
+	bottom: calc(var(--la-tabbar-h, 64px) + 20px);
+	left: 0;
+	right: 80px;
 	z-index: 3;
 	cursor: pointer;
 	touch-action: none;
