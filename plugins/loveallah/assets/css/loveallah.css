@@ -9369,70 +9369,55 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	display: grid; place-items: center;
 	margin-top: 0;
 }
+/* Wave 103c: cleaned-up pulse-core.
+   Previous gradient (white highlight + gold body + transparent edge)
+   read as a metallic ball — too "object-y", too busy for meditation.
+   New design: a single uniform gold sphere with a soft halo. Reads
+   as a meditative light — like a small lamp in the dark. Calmer.
+   The lub-dub animation is preserved but its glow intensities are
+   gentler. */
 .pulse-core {
-	width: 96px; height: 96px; border-radius: 50%;
+	width: 84px; height: 84px; border-radius: 50%;
 	z-index: 2;
-	background: radial-gradient(56% 56% at 38% 32%,
-		rgba(255,255,255,.96) 0%,
-		color-mix(in oklab, var(--gold) 70%, #fff) 30%,
-		var(--gold) 62%,
-		color-mix(in oklab, var(--gold) 70%, transparent) 100%);
-	box-shadow:
-		0 0 80px -4px color-mix(in oklab, var(--gold) 50%, transparent),
-		0 0 34px -2px color-mix(in oklab, var(--gold) 60%, transparent),
-		inset 0 1px 0 rgba(255,255,255,.55);
+	background: radial-gradient(60% 60% at 50% 50%,
+		color-mix(in oklab, var(--gold) 85%, #fff) 0%,
+		var(--gold) 70%,
+		color-mix(in oklab, var(--gold) 80%, transparent) 100%);
+	box-shadow: 0 0 60px -4px color-mix(in oklab, var(--gold) 45%, transparent);
 }
 
-/* Wave 101e: lub-dub heartbeat pattern.
-   Real hearts don't pulse once per beat — they contract twice:
-   a strong primary (ventricular systole) followed by a softer
-   secondary (atrial contribution). The whole sequence completes
-   in ~600ms regardless of BPM, leaving the long pause between
-   beats — which is what makes a slow heart feel calm. The
-   glow swells alongside the contractions so the light itself
-   breathes. */
+/* Wave 101e/103c: lub-dub heartbeat. Real hearts contract twice
+   per beat. Whole pattern completes in 600ms; the long quiet
+   between beats is what makes a slow heart feel calm. Glow
+   intensities softened in 103c so the light "breathes" without
+   pulsating aggressively. */
 .pulse-core.beat {
 	animation: la-pulse-heartbeat .6s cubic-bezier(.4, 0, .25, 1) both;
 }
 @keyframes la-pulse-heartbeat {
 	0% {
 		transform: scale(1);
-		box-shadow:
-			0 0 80px -4px color-mix(in oklab, var(--gold) 50%, transparent),
-			0 0 34px -2px color-mix(in oklab, var(--gold) 60%, transparent),
-			inset 0 1px 0 rgba(255,255,255,.55);
+		box-shadow: 0 0 60px -4px color-mix(in oklab, var(--gold) 45%, transparent);
 	}
 	18% {
-		/* LUB — primary contraction, the big one */
-		transform: scale(1.12);
-		box-shadow:
-			0 0 130px -4px color-mix(in oklab, var(--gold) 72%, transparent),
-			0 0 56px  -2px color-mix(in oklab, var(--gold) 82%, transparent),
-			inset 0 1px 0 rgba(255,255,255,.72);
+		/* LUB — primary contraction */
+		transform: scale(1.10);
+		box-shadow: 0 0 90px -4px color-mix(in oklab, var(--gold) 60%, transparent);
 	}
 	38% {
-		/* brief release between contractions */
+		/* brief release */
 		transform: scale(1.01);
-		box-shadow:
-			0 0 90px -4px color-mix(in oklab, var(--gold) 55%, transparent),
-			0 0 38px -2px color-mix(in oklab, var(--gold) 65%, transparent),
-			inset 0 1px 0 rgba(255,255,255,.58);
+		box-shadow: 0 0 68px -4px color-mix(in oklab, var(--gold) 50%, transparent);
 	}
 	55% {
-		/* DUB — softer secondary contraction */
-		transform: scale(1.07);
-		box-shadow:
-			0 0 110px -4px color-mix(in oklab, var(--gold) 65%, transparent),
-			0 0 48px  -2px color-mix(in oklab, var(--gold) 75%, transparent),
-			inset 0 1px 0 rgba(255,255,255,.66);
+		/* DUB — softer secondary */
+		transform: scale(1.06);
+		box-shadow: 0 0 78px -4px color-mix(in oklab, var(--gold) 55%, transparent);
 	}
 	100% {
-		/* settle back to rest — the longest part of any cardiac cycle */
+		/* rest */
 		transform: scale(1);
-		box-shadow:
-			0 0 80px -4px color-mix(in oklab, var(--gold) 50%, transparent),
-			0 0 34px -2px color-mix(in oklab, var(--gold) 60%, transparent),
-			inset 0 1px 0 rgba(255,255,255,.55);
+		box-shadow: 0 0 60px -4px color-mix(in oklab, var(--gold) 45%, transparent);
 	}
 }
 /* Wave 101d: ripple expands slowly and fades softly — feels like

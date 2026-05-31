@@ -221,8 +221,9 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		let count = 0, playing = false;
 		let bpm   = cfg.phrases[pi].from;
 		let beatT = null, slowT = null;
-		/* Wave 103/103b: scene/mute/vid state mirrors Solitude. */
-		let isMuted = ( localStorage.getItem('la_pul_muted') !== '0' );
+		/* Wave 103/103b/103c: scene/mute/vid state mirrors Solitude.
+		   Default unmuted preference — auto-unmute on chip click. */
+		let isMuted = ( localStorage.getItem('la_pul_muted') === '1' );
 		let vidPlaying = true;
 		let currentVideoId = '';
 		let ytPlayer = null;
@@ -480,15 +481,21 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		phraseOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.pulPickPhrase, 10) === pi ) );
 		targetOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.pulPickTarget, 10) === ti ) );
 
-		/* Wave 103: scene chip clicks — swap bg + iframe to picked scene. */
+		/* Wave 103/103c: scene chip clicks — swap bg + iframe.
+		   Wave 103c: chip click also unmutes the player (user gesture
+		   satisfies browser autoplay-with-sound policy). */
 		sceneChips.forEach( c => c.addEventListener( 'click', () => {
 			const i = parseInt( c.dataset.pulSceneChip, 10 );
-			if ( i === scene ) return;
+			if ( i === scene ) {
+				if ( ! isMuted ) setMute( false );
+				return;
+			}
 			scene = i;
 			localStorage.setItem( 'la_pul_scene', String(scene) );
 			sceneChips.forEach( o => o.classList.toggle( 'is-active', parseInt(o.dataset.pulSceneChip, 10) === scene ) );
 			applyBgGradient();
 			applyVideo();
+			if ( ! isMuted ) setMute( false );
 			try { c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (_) {}
 		}) );
 		// Mute + video play/pause toggles

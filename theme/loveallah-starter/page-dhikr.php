@@ -377,8 +377,14 @@ get_header();
 		const vidBtn      = root.querySelector('[data-sol-vid]');
 		const vidPauseIcn = root.querySelector('[data-sol-vid-pause]');
 		const vidPlayIcn  = root.querySelector('[data-sol-vid-play]');
-		// Start muted by default — YouTube blocks autoplay-with-sound.
-		let isMuted = ( localStorage.getItem('la_sol_muted') !== '0' );
+		/* Wave 103c: default to UNMUTED preference (user wants nature
+		   sound). The player still has to START muted because of
+		   browser autoplay policy — but the moment the user picks
+		   a scene chip (a real user gesture), we unmute. After that,
+		   the preference is sticky unless the user explicitly hits
+		   the mute button. The localStorage value is '1' = muted,
+		   '0' or missing = unmuted. */
+		let isMuted = ( localStorage.getItem('la_sol_muted') === '1' );
 		let vidPlaying = true;  // ambient video is "playing" by default
 		let currentVideoId = '';
 		let ytPlayer = null;
@@ -680,15 +686,27 @@ get_header();
 		phraseOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.solPickPhrase, 10) === pi ) );
 		targetOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.solPickTarget, 10) === ti ) );
 
-		/* Wave 102: scene chip selector — tap a chip to switch scene.
-		   Calls applyVideo + render so the iframe and dots also sync. */
+		/* Wave 102/103c: scene chip selector — tap a chip to switch
+		   scene. Calls applyVideo + render so iframe / dots sync.
+		   Wave 103c: chip click also unmutes the player (if the user
+		   hasn't explicitly muted) — chip taps are user gestures, so
+		   the browser allows sound to start. This is how the natural
+		   sound for Ocean / Forest / etc. starts playing without the
+		   user having to hunt for the mute button. */
 		sceneChips.forEach( c => c.addEventListener( 'click', () => {
 			const i = parseInt( c.dataset.solSceneChip, 10 );
-			if ( i === scene ) return;
+			if ( i === scene ) {
+				// Already active — but still treat as a "yes, I want this"
+				// gesture: unmute if not explicitly muted.
+				if ( ! isMuted ) setMute( false );
+				return;
+			}
 			scene = i;
 			localStorage.setItem( 'la_sol_scene', String(scene) );
 			applyVideo();
 			render();
+			// Auto-unmute on this user-gesture (browser policy compliant).
+			if ( ! isMuted ) setMute( false );
 			// Scroll the chip into the centre of the row for visual
 			// confirmation that the selection took.
 			try { c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (_) {}
