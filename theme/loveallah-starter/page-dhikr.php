@@ -494,16 +494,39 @@ get_header();
 
 		function reset() { count = 0; render(); }
 
+		/* Wave 100b: forcibly restart the orb's CSS keyframe animation
+		   so its visual position is locked to frame 0 (= scale .84 =
+		   ready to inflate). Used (a) when playback starts, (b) when
+		   phrase changes mid-play (duration changes but the animation
+		   would otherwise continue from its old position), and (c) at
+		   the start of every breath cycle (when cue resets to Inhale)
+		   so setInterval drift can't desync them over time. */
+		function restartOrbAnim() {
+			if ( ! orb ) return;
+			orb.classList.remove('playing');
+			void orb.offsetWidth;   // force reflow → next add re-triggers anim
+			if ( playing ) orb.classList.add('playing');
+		}
+
+		function toggleCue() {
+			cue = ( cue === 'Inhale' ) ? 'Exhale' : 'Inhale';
+			// Start of a new breath cycle — re-lock the orb visual
+			// to the cue so they never drift apart.
+			if ( cue === 'Inhale' ) restartOrbAnim();
+			render();
+		}
+
 		function setPlaying(p) {
-			playing = p;
+			playing = !! p;
 			if ( cueT ) { clearInterval(cueT); cueT = null; }
 			if ( cntT ) { clearInterval(cntT); cntT = null; }
 			if ( playing ) {
 				cue = 'Inhale';
+				restartOrbAnim();   // start visual at scale .84, ready to inflate
 				const half = Math.round( ( ph().breath_s || 7 ) * 1000 / 2 );
 				const full = Math.round( ( ph().breath_s || 7 ) * 1000 );
-				cueT = setInterval( () => { cue = ( cue === 'Inhale' ) ? 'Exhale' : 'Inhale'; render(); }, half );
-				cntT = setInterval( () => { doCount(); }, full );
+				cueT = setInterval( toggleCue,   half );
+				cntT = setInterval( doCount,     full );
 			}
 			render();
 		}
