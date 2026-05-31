@@ -410,8 +410,23 @@ get_header();
 						<span data-cat-sub><?php echo esc_html( $active_cats[ $first_cat ]['sub'] ); ?></span>
 					</span>
 				</div>
-				<span class="la-duas-player-step">
-					<span data-current-idx>1</span><span class="slash">/</span><span data-current-total><?php echo count( $by_cat[ $first_cat ] ); ?></span>
+				<?php /* Wave 119: clearer step counter — "Dua 1 of 3" instead
+			     of "1 / 3", plus per-dua dots so the user can see at a
+			     glance how many duas are in this category and which ones
+			     they've already read. When ALL are ticked the pip swaps
+			     to "✓ Complete · Alhamdulillah" in jade. */ ?>
+				<span class="la-duas-player-step-cluster" data-duas-step-cluster>
+					<span class="la-duas-player-step">
+						<span class="word">Dua</span>
+						<span data-current-idx>1</span>
+						<span class="word">of</span>
+						<span data-current-total><?php echo count( $by_cat[ $first_cat ] ); ?></span>
+					</span>
+					<span class="la-duas-player-complete-pip" hidden>
+						<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+						Complete
+					</span>
+					<span class="la-duas-player-dots" data-duas-dots aria-hidden="true"></span>
 				</span>
 			</div>
 
@@ -843,6 +858,41 @@ get_header();
 			if ( playing ) stopPlayback();
 			showCardAt(next);
 		}
+		/* Wave 119: render the per-dua progress dots + detect the
+		   "category complete" state. One dot per dua in the active
+		   section. Filled = read (is-ticked), gold = current, empty =
+		   unread. When EVERY dua is ticked, swap the step text for a
+		   green "✓ Complete" badge — gives the user an unambiguous
+		   "you're done with Morning" signal. */
+		function renderProgressDots() {
+			const dotsEl    = document.querySelector('[data-duas-dots]');
+			const cluster   = document.querySelector('[data-duas-step-cluster]');
+			const stepEl    = cluster?.querySelector('.la-duas-player-step');
+			const completeEl= cluster?.querySelector('.la-duas-player-complete-pip');
+			if ( ! dotsEl || ! cluster ) return;
+
+			const sec = activeSection();
+			if ( ! sec ) return;
+			const cards = Array.from( sec.querySelectorAll('.la-dua') );
+			const curIdx = cards.findIndex( c => c.classList.contains('is-current') );
+
+			// Rebuild dots
+			dotsEl.innerHTML = '';
+			cards.forEach( (c, i) => {
+				const dot = document.createElement('span');
+				dot.className = 'dot' +
+					( c.classList.contains('is-ticked') ? ' is-read' : '' ) +
+					( i === curIdx ? ' is-current' : '' );
+				dotsEl.appendChild(dot);
+			});
+
+			// Complete state — every card has is-ticked
+			const allRead = cards.length > 0 && cards.every( c => c.classList.contains('is-ticked') );
+			cluster.classList.toggle('is-complete', allRead);
+			if ( stepEl )     stepEl.hidden     =   allRead;
+			if ( completeEl ) completeEl.hidden = ! allRead;
+		}
+
 		function renderPlayerForCurrent() {
 			const card = currentCard();
 			const sec  = activeSection();
@@ -859,6 +909,7 @@ get_header();
 			if ( totalEl ) totalEl.textContent = String(tot);
 			if ( ameenCountEl ) ameenCountEl.textContent = card.dataset.ameenCount || '0';
 			if ( ameenBtn ) ameenBtn.classList.toggle( 'is-active', card.dataset.isAmened === '1' );
+			renderProgressDots();
 		}
 
 		// Player UI wiring
@@ -883,8 +934,18 @@ get_header();
 			if ( legacyTick ) legacyTick.click();
 			tickBtn.classList.add('is-just-ticked');
 			setTimeout(() => tickBtn.classList.remove('is-just-ticked'), 600);
-			// Auto-advance to next dua after a brief beat
-			setTimeout(() => navStep(+1), 450);
+			// Wave 119: re-render dots immediately so the dot for the
+			// just-ticked card fills in, even before auto-advance.
+			renderProgressDots();
+			// Auto-advance to next dua after a brief beat (unless this
+			// was the LAST unticked dua — then linger so the user sees
+			// the "Complete" state).
+			const sec = activeSection();
+			const allCards = sec ? Array.from(sec.querySelectorAll('.la-dua')) : [];
+			const allDone  = allCards.length > 0 && allCards.every(c => c.classList.contains('is-ticked'));
+			if ( ! allDone ) {
+				setTimeout(() => navStep(+1), 450);
+			}
 		});
 		ameenBtn?.addEventListener('click', () => {
 			const card = currentCard();
