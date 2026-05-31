@@ -490,6 +490,14 @@ get_header();
 			count++;
 			if ( navigator.vibrate ) navigator.vibrate( 8 );
 			render();
+			// Wave 101c: if we just landed on the target during a
+			// guided-breathing session, end the session cleanly so
+			// the orb stops pulsing + cue stops + auto-count stops.
+			// (Manual tap-counts also benefit — once you reach the
+			// target, further taps no-op above anyway.)
+			if ( playing && tn !== 0 && count >= tn ) {
+				setPlaying( false );
+			}
 		}
 
 		function reset() { count = 0; render(); }

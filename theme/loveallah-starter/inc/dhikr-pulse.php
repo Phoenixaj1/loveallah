@@ -246,6 +246,14 @@ $la_pulse_targets = [
 			if ( tn === 0 || count < tn ) count++;
 			if ( navigator.vibrate ) navigator.vibrate(6);
 			render();
+			// Wave 101c: auto-stop when target reached so the visual
+			// pulse, ripples, and vibrate all end together. The beat
+			// that lands ON the target still fires so the completion
+			// is felt. tn === 0 means infinite — keep going.
+			if ( tn !== 0 && count >= tn ) {
+				setPlaying(false);
+				return;
+			}
 			// re-schedule at the current BPM (it may have eased down)
 			beatT = setTimeout(beat, 60000 / bpm);
 		}
