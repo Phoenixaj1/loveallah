@@ -153,27 +153,29 @@ $la_sol_scenes = [
 	// Ocean is first so a fresh visitor lands on a video-backed scene
 	// (the gradient-only Moonlit option sits in second slot for users
 	// who want pure stillness).
-	[ 'id' => 'ocean', 'label' => 'Ocean',
+	// Wave 102: each scene now has an `emoji` field used by the chip
+	// selector at the top of the screen.
+	[ 'id' => 'ocean', 'label' => 'Ocean', 'emoji' => '🌊',
 	  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #155560 0%, #0c2f38 46%, #06151b 100%)',
 	  'orb'   => '#bfeef0',
 	  'video' => 'NJXzcQJi_A8' ],   // waves only — no music
-	[ 'id' => 'moonlit', 'label' => 'Moonlit',
+	[ 'id' => 'moonlit', 'label' => 'Moonlit', 'emoji' => '🌙',
 	  'bg'    => 'radial-gradient(80% 55% at 50% 26%, #33386a 0%, #1a1d3e 48%, #0a0b1c 100%)',
 	  'orb'   => '#cfd6ff',
 	  'video' => '' ],   // gradient only — pure silence
-	[ 'id' => 'forest', 'label' => 'Forest',
+	[ 'id' => 'forest', 'label' => 'Forest', 'emoji' => '🌿',
 	  'bg'    => 'radial-gradient(85% 58% at 50% 26%, #265141 0%, #143026 46%, #08160f 100%)',
 	  'orb'   => '#cdeed2',
 	  'video' => 'BHACKCNDMW8' ],   // birds at dawn — no music
-	[ 'id' => 'cosmos', 'label' => 'Cosmos',
+	[ 'id' => 'cosmos', 'label' => 'Cosmos', 'emoji' => '✨',
 	  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #3a2a5c 0%, #1e1438 48%, #0a0712 100%)',
 	  'orb'   => '#e6d4ff',
 	  'video' => 'Y_plhk1FUQA' ],   // hubble cosmos — ambient music
-	[ 'id' => 'dawn', 'label' => 'Sahara',
+	[ 'id' => 'dawn', 'label' => 'Sahara', 'emoji' => '🌅',
 	  'bg'    => 'radial-gradient(90% 60% at 50% 30%, #6e4444 0%, #3a2330 46%, #160c18 100%)',
 	  'orb'   => '#ffd9c2',
 	  'video' => 'gFmDx9oj3DU' ],   // sahara at first light — cinematic
-	[ 'id' => 'haram', 'label' => 'Haram',
+	[ 'id' => 'haram', 'label' => 'Haram', 'emoji' => '🕋',
 	  'bg'    => 'radial-gradient(85% 58% at 50% 26%, #3a2e1c 0%, #20180c 46%, #0a0805 100%)',
 	  'orb'   => '#f0d8a8',
 	  'video' => 'bNY8a2BB5Gc' ],   // live tawaf from Makkah
@@ -189,6 +191,21 @@ get_header();
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>">Pulse</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">Names</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
+	</nav>
+
+	<?php // Wave 102: explicit scene chip row below the mode pills.
+	// The swipe-with-dots gesture stays as a power-user alternative
+	// but most users will use the chips — discoverable, one tap. ?>
+	<nav class="sol-scene-chips" data-sol-chips aria-label="Ambient scene">
+		<?php foreach ( $la_sol_scenes as $i => $s ) : ?>
+			<button type="button"
+				class="sol-scene-chip <?php echo $i === 0 ? 'is-active' : ''; ?>"
+				data-sol-scene-chip="<?php echo (int) $i; ?>"
+				aria-label="<?php echo esc_attr( $s['label'] ); ?> scene">
+				<span class="sol-scene-chip-emoji" aria-hidden="true"><?php echo $s['emoji'] ?? '🌙'; ?></span>
+				<span class="sol-scene-chip-label"><?php echo esc_html( $s['label'] ); ?></span>
+			</button>
+		<?php endforeach; ?>
 	</nav>
 
 	<div class="sol-live" data-sol>
@@ -360,6 +377,7 @@ get_header();
 		const resetBtn    = root.querySelector('[data-sol-reset]');
 		const dots        = root.querySelectorAll('[data-sol-dot]');
 		const sceneLabel  = root.querySelector('[data-sol-scene-label]');
+		const sceneChips  = root.querySelectorAll('[data-sol-scene-chip]');  // Wave 102
 		const touch       = root.querySelector('[data-sol-touch]');
 		const sheetScrim  = root.querySelector('[data-sol-sheet-close]');
 		const sheetPanels = root.querySelectorAll('[data-sol-sheet-panel]');
@@ -475,11 +493,12 @@ get_header();
 			playIcon.hidden  =   playing;
 			pauseIcon.hidden = ! playing;
 			orb.classList.toggle('playing', playing);
-			// scene track + dots + label
+			// scene track + dots + label + chip selector (Wave 102)
 			track.style.transition = '';
 			track.style.transform = 'translateX(' + ( -scene * 100 ) + '%)';
 			dots.forEach( d => d.classList.toggle( 'on', parseInt(d.dataset.solDot, 10) === scene ) );
 			sceneLabel.textContent = sc().label;
+			sceneChips.forEach( c => c.classList.toggle( 'is-active', parseInt(c.dataset.solSceneChip, 10) === scene ) );
 			// reset button
 			resetBtn.hidden = ! ( count > 0 );
 		}
@@ -606,6 +625,26 @@ get_header();
 		// restore selections in sheet UIs from persisted state
 		phraseOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.solPickPhrase, 10) === pi ) );
 		targetOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.solPickTarget, 10) === ti ) );
+
+		/* Wave 102: scene chip selector — tap a chip to switch scene.
+		   Calls applyVideo + render so the iframe and dots also sync. */
+		sceneChips.forEach( c => c.addEventListener( 'click', () => {
+			const i = parseInt( c.dataset.solSceneChip, 10 );
+			if ( i === scene ) return;
+			scene = i;
+			localStorage.setItem( 'la_sol_scene', String(scene) );
+			applyVideo();
+			render();
+			// Scroll the chip into the centre of the row for visual
+			// confirmation that the selection took.
+			try { c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (_) {}
+		}) );
+		// On first render, centre the currently-active chip if it's
+		// off-screen (e.g. user previously selected scene #4 of 6).
+		const activeChip = root.querySelector('[data-sol-scene-chip].is-active');
+		if ( activeChip ) {
+			try { activeChip.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (_) {}
+		}
 
 		// Wave 96b: mount the YT layer + sync the mute button to persisted state
 		muteBtn.addEventListener('click', () => setMute( ! isMuted ));

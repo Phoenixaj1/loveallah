@@ -8747,10 +8747,12 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 /* ── Wave 96b: mute toggle, top-left mirroring the reset button.
    Wave 101: pinned to viewport top (not header-relative) for
    consistency across modes; subtler border + softer bg; tap
-   feedback adds opacity dip alongside scale. */
+   feedback adds opacity dip alongside scale.
+   Wave 102: moved further down to make room for the scene chip
+   selector that now sits below the mode pills. */
 .live-mute {
 	position: absolute;
-	top: calc(env(safe-area-inset-top, 0px) + 78px);
+	top: calc(env(safe-area-inset-top, 0px) + 134px);
 	left: 18px;
 	z-index: 6;
 	width: 40px; height: 40px; border-radius: 50%;
@@ -8775,7 +8777,10 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
    the input. Top offset clears the mode-switcher pills + safe area. */
 .sol-stage {
 	position: absolute; left: 0; right: 0;
-	top: calc(var(--la-header-h, 110px) + 70px);  /* below the mode pills */
+	/* Wave 102: top accounts for mode pills (env+14, 47px tall) +
+	   scene chips (12px gap, 36px tall) + 28px breath = ~137px
+	   below safe-area-inset-top. */
+	top: calc(env(safe-area-inset-top, 0px) + 142px);
 	z-index: 2;
 	display: flex; flex-direction: column; align-items: center;
 	pointer-events: none;
@@ -8901,10 +8906,11 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 
 /* ── 3. Tap overlay — receives count taps + horizontal swipe gestures.
    `touch-action: pan-y` lets the browser handle vertical scrolling
-   while we own horizontal drag. */
+   while we own horizontal drag.
+   Wave 102: top adjusted to clear the scene chip row. */
 .sol-touch {
 	position: absolute;
-	top: calc(var(--la-header-h, 110px) + 60px);
+	top: calc(env(safe-area-inset-top, 0px) + 130px);
 	left: 0; right: 0;
 	bottom: calc(var(--la-tabbar-h, 64px) + 168px);
 	z-index: 3;
@@ -8912,12 +8918,16 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	touch-action: pan-y;
 }
 
-/* ── 4. Scene dots + label, sitting just above the bottom bar. */
+/* ── 4. Scene dots + label, sitting just above the bottom bar.
+   Wave 102: hidden by default now that the chip selector at the
+   top is the primary scene indicator. The DOM stays so existing
+   JS that toggles classes on it keeps working — visually invisible. */
 .sol-dots {
 	position: absolute; left: 0; right: 0;
 	bottom: calc(var(--la-tabbar-h, 64px) + 100px);
 	z-index: 4;
-	display: flex; align-items: center; justify-content: center; gap: 7px;
+	display: none;
+	align-items: center; justify-content: center; gap: 7px;
 	pointer-events: none;
 }
 .sdot {
@@ -9000,10 +9010,11 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 
 /* ── 6. Reset — appears once count > 0. Wave 101: viewport-relative
    top (consistent with mute mirror), softer borders + shadow,
-   fade-in entrance. */
+   fade-in entrance.
+   Wave 102: shifted down to clear the new scene chip row. */
 .live-reset {
 	position: absolute;
-	top: calc(env(safe-area-inset-top, 0px) + 78px);
+	top: calc(env(safe-area-inset-top, 0px) + 134px);
 	right: 18px; z-index: 6;
 	width: 40px; height: 40px; border-radius: 50%;
 	display: grid; place-items: center;
@@ -9175,6 +9186,81 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	box-shadow:
 		0 6px 16px -8px color-mix(in oklab, var(--gold) 55%, transparent),
 		inset 0 1px 0 rgba(255,255,255,.12);
+}
+
+/* ── Wave 102: Solitude scene chip selector.
+   Horizontal-scroll row of pill chips below the mode-switcher.
+   Each chip = emoji + label. Tap to switch ambient scene. Active
+   chip uses the same gold accent as the active mode pill. Scrolls
+   horizontally if the row is wider than the viewport; current
+   chip auto-centres on selection. */
+.sol-scene-chips {
+	position: fixed;
+	top: calc(env(safe-area-inset-top, 0px) + 72px);
+	left: 0; right: 0;
+	z-index: 23;
+	display: flex;
+	gap: 8px;
+	padding: 0 18px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	-webkit-overflow-scrolling: touch;
+	scroll-snap-type: x proximity;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	/* Soft mask so chips at the edges feather into the bg rather
+	   than getting clipped harshly. */
+	-webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+	        mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+}
+.sol-scene-chips::-webkit-scrollbar { display: none; }
+
+.sol-scene-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	flex: 0 0 auto;
+	padding: 8px 14px 8px 12px;
+	border-radius: 999px;
+	background: rgba(18,14,22,.5);
+	border: 1px solid rgba(255,255,255,.08);
+	color: rgba(255,255,255,.74);
+	font-family: inherit;
+	font-size: 12.5px;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	white-space: nowrap;
+	cursor: pointer;
+	scroll-snap-align: center;
+	-webkit-backdrop-filter: blur(18px) saturate(1.3);
+	        backdrop-filter: blur(18px) saturate(1.3);
+	box-shadow:
+		0 6px 14px -8px rgba(0,0,0,.6),
+		inset 0 1px 0 rgba(255,255,255,.05);
+	transition: background .22s var(--la-easing, ease),
+	            color      .22s var(--la-easing, ease),
+	            border-color .22s var(--la-easing, ease),
+	            transform   .15s var(--la-easing, ease);
+}
+.sol-scene-chip:active { transform: scale(.96); }
+.sol-scene-chip.is-active {
+	background: linear-gradient(180deg,
+		color-mix(in oklab, var(--gold) 30%, transparent),
+		color-mix(in oklab, var(--gold) 15%, transparent));
+	border-color: color-mix(in oklab, var(--gold) 42%, transparent);
+	color: #fff;
+	font-weight: 700;
+	text-shadow: 0 0 10px color-mix(in oklab, var(--gold) 35%, transparent);
+	box-shadow:
+		0 6px 14px -8px color-mix(in oklab, var(--gold) 55%, transparent),
+		inset 0 1px 0 rgba(255,255,255,.10);
+}
+.sol-scene-chip-emoji {
+	font-size: 14px;
+	line-height: 1;
+}
+.sol-scene-chip-label {
+	line-height: 1;
 }
 
 /* ════════════════════════════════════════════════════════════════════
