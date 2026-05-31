@@ -4994,6 +4994,145 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 	/* The rosette separator was visible in the original text; keep it
 	   visible (slightly dimmed) so the structure of the verse remains. */
 }
+
+/* ─── Wave 111: Johnny Ive polish pass on Duas ───────────────────────
+   Restraint, not redesign. The cards already work; this just removes
+   noise:
+     • Warmer paper-tint card surface (was pure white).
+     • Softer, lower shadow — barely there, the way Ive's surfaces sit.
+     • More breathing room between Arabic / translit / meaning.
+     • Arabic line-height eased up a touch (1.95 → 2.05) for verses.
+     • Mark-as-read CTA goes from loud green/magenta gradient to a
+       gold-accented ghost button — confident but unornamented.
+     • Step counter pip becomes a single small line ("3/8") instead of
+       a stacked num + "of".
+     • Source citation feels more like a print footnote.
+   Selectors are overrides — original Wave 27 styles remain so we can
+   roll back this aesthetic in one delete if it doesn't land.
+   --------------------------------------------------------------------- */
+
+/* Warmer paper surface + lower-amplitude shadow. */
+.la-dua {
+	background: #fdfcfa;
+	box-shadow: 0 2px 12px rgba(15, 15, 30, 0.045);
+	border-color: rgba(15, 15, 30, 0.06);
+}
+.la-dua.is-ticked {
+	background: linear-gradient(180deg, #f4faf6 0%, #fdfcfa 60%);
+	border-color: rgba(30, 100, 64, 0.18);
+}
+.la-dua.is-ticked .la-dua-title {
+	color: #1e6440;   /* match Ruqyah jade — one accent, less rainbow */
+}
+
+/* Title quieter, more letter-spaced. */
+.la-dua-title {
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.01em;
+	text-transform: uppercase;
+	color: var(--la-ink-soft);
+}
+
+/* Body — more breathing room. */
+.la-dua-body {
+	gap: 18px;
+	padding: 8px 4px 6px;
+}
+
+/* Arabic — slightly more line-height, marginally larger on bigger
+   viewports, slightly warmer near-black so it reads as ink on paper
+   rather than text on screen. */
+.la-dua-arabic {
+	font-size: clamp(25px, 6.2vw, 34px);
+	line-height: 2.05;
+	color: #1a1a26;
+	letter-spacing: 0.01em;
+}
+
+/* Transliteration — quieter, more "footnote" feel. */
+.la-dua-translit {
+	color: #7a7a8c;
+	font-size: clamp(12.5px, 3.2vw, 14.5px);
+}
+
+/* Meaning — gentler weight, easier to scan. */
+.la-dua-meaning {
+	color: #2a2a36;
+	font-weight: 400;
+	font-size: clamp(13.5px, 3.4vw, 15px);
+	line-height: 1.62;
+}
+
+/* Step counter — single inline pip ("3/8") replaces the stacked
+   num + "of" cluster. Still informative, much quieter. */
+.la-dua-step {
+	padding: 3px 8px;
+	font-size: 9.5px;
+	background: rgba(15, 15, 30, 0.04);
+}
+.la-dua-step-num {
+	font-size: 10.5px;
+	font-weight: 800;
+	color: var(--la-ink-soft);
+}
+.la-dua-step-num::after {
+	content: "/";
+	margin: 0 1px;
+	color: var(--la-ink-faint);
+	font-weight: 600;
+}
+.la-dua-step-of {
+	font-size: 10.5px;
+	font-weight: 700;
+	color: var(--la-ink-soft);
+}
+.la-dua-step-of::before { content: ""; }   /* remove the "of " word */
+
+/* Source — italic footnote, less chip-like. */
+.la-dua-source {
+	font-size: 10.5px;
+	font-weight: 500;
+	font-style: italic;
+	color: var(--la-ink-faint);
+	letter-spacing: 0.01em;
+	opacity: 0.85;
+}
+.la-dua-source svg { display: none; }
+
+/* Mark-as-read CTA — gold ghost button instead of loud green/magenta.
+   Same prominence (full-width, top-of-foot), but the colour is one
+   restrained accent that ties it to the Listen + read-along golds. */
+.la-dua-complete {
+	padding: 13px 16px;
+	font-size: 12.5px;
+	letter-spacing: 0.1em;
+	background: linear-gradient(180deg, #f2c14e 0%, #d4a02c 100%);
+	color: #1a1410;
+	box-shadow: 0 3px 14px rgba(212, 160, 44, 0.32);
+	text-transform: uppercase;
+	font-weight: 800;
+}
+.la-dua.is-ticked .la-dua-complete {
+	background: linear-gradient(180deg, #2c8458 0%, #1e6440 100%);
+	color: #fff;
+	box-shadow: 0 3px 14px rgba(30, 100, 64, 0.32);
+}
+
+/* Quieter Ameen / Copy / Share row. */
+.la-dua-actions { gap: 5px; }
+.la-dua-btn {
+	padding: 5px 9px;
+	font-size: 10.5px;
+	border-color: rgba(15, 15, 30, 0.08);
+	color: var(--la-ink-soft);
+}
+
+/* Repeat-count chip — match the gold accent system. */
+.la-dua-repeat {
+	background: rgba(212, 160, 44, 0.12);
+	color: #8a6a1a;
+}
 .la-dua-btn {
 	display: inline-flex; align-items: center; gap: 4px;
 	padding: 6px 10px;
