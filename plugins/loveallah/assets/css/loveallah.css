@@ -5458,6 +5458,19 @@ body.page-duas .la-app--duas-sidebar {
 	overflow: hidden;
 	padding: 0;
 	z-index: 50;
+	/* ─── Wave 117: THE BUG. ───────────────────────────────────────
+	   Wave 109's `.la-duas-player` base rule sets opacity:0 +
+	   pointer-events:none + transform:translateY(8px) because the
+	   ORIGINAL player faded in only when `.is-open` was added by
+	   the Listen button. Wave 113 made the player inline + always-
+	   on but never added `.is-open`. So the player has been
+	   rendering opacity:0 (invisible + unclickable) for FOUR waves
+	   and I kept "verifying" it via DOM property checks that missed
+	   the cascade. Override the inherited animation properties so
+	   the inline player is always fully visible + interactive. */
+	opacity: 1 !important;
+	transform: none !important;
+	pointer-events: auto !important;
 }
 
 /* Title row — category icon + dua title + step pip.
