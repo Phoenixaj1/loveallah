@@ -252,19 +252,12 @@ get_header();
 			</button>
 		</div>
 
-		<?php // Wave 104/104e: right-side vertical control rail.
-		// Top: dhikr session play/pause (mirrors the gold bottom-bar
-		// button). Then ambient vid play/pause, mute, count reset.
-		// Reset only renders when count > 0. ?>
+		<?php // Wave 107: simplified right rail — just mute + reset.
+		// Single primary play/pause stays as the gold bottom-bar
+		// button (controls the dhikr session). Ambient video has
+		// no user play/pause; it's atmosphere. Mute is for audio
+		// only. Reset clears count (shown when count > 0). ?>
 		<div class="amb-rail" data-sol-rail>
-			<button type="button" class="amb-rail-btn amb-rail-btn--accent" data-sol-play-rail aria-label="Play or pause guided dhikr" aria-pressed="false">
-				<svg data-sol-rail-play-icon  width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l8 6-8 6V6z"/></svg>
-				<svg data-sol-rail-pause-icon width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-			</button>
-			<button type="button" class="amb-rail-btn" data-sol-vid aria-label="Pause or play ambient video" aria-pressed="true">
-				<svg data-sol-vid-pause width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-				<svg data-sol-vid-play  width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
-			</button>
 			<button type="button" class="amb-rail-btn is-muted" data-sol-mute aria-label="Toggle ambient sound" aria-pressed="false">
 				<svg data-sol-mute-on  width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
 				<svg data-sol-mute-off width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
@@ -356,10 +349,9 @@ get_header();
 		const playBtn     = root.querySelector('[data-sol-play]');
 		const playIcon    = root.querySelector('[data-sol-play-icon]');
 		const pauseIcon   = root.querySelector('[data-sol-pause-icon]');
-		/* Wave 104e: mirror dhikr play/pause on the right rail too. */
-		const playBtnRail = root.querySelector('[data-sol-play-rail]');
-		const railPlayIcn  = root.querySelector('[data-sol-rail-play-icon]');
-		const railPauseIcn = root.querySelector('[data-sol-rail-pause-icon]');
+		/* Wave 107: removed the rail dhikr-play mirror. The gold
+		   bottom-bar button is the SOLE dhikr session control —
+		   prominent, primary, unambiguous. */
 		const resetBtn    = root.querySelector('[data-sol-reset]');
 		const dots        = root.querySelectorAll('[data-sol-dot]');
 		const sceneLabel  = root.querySelector('[data-sol-scene-label]');
@@ -375,24 +367,18 @@ get_header();
 		const sheetBtns   = root.querySelectorAll('[data-sol-sheet]');
 		const phraseOpts  = root.querySelectorAll('[data-sol-pick-phrase]');
 		const targetOpts  = root.querySelectorAll('[data-sol-pick-target]');
-		// Wave 96b — YouTube ambient layer + mute toggle
-		// Wave 103b — explicit play/pause control + YT.Player API
+		// Wave 96b/103b/107 — YT player + mute. The ambient video is
+		// atmosphere only: it autoplays + stays playing in the
+		// background. No user pause for it — that was confusing
+		// alongside the dhikr session play/pause. Mute is the only
+		// concern: toggle the audio without touching playback.
 		const yt          = root.querySelector('[data-sol-yt]');
 		const muteBtn     = root.querySelector('[data-sol-mute]');
 		const muteOn      = root.querySelector('[data-sol-mute-on]');
 		const muteOff     = root.querySelector('[data-sol-mute-off]');
-		const vidBtn      = root.querySelector('[data-sol-vid]');
-		const vidPauseIcn = root.querySelector('[data-sol-vid-pause]');
-		const vidPlayIcn  = root.querySelector('[data-sol-vid-play]');
-		/* Wave 103c: default to UNMUTED preference (user wants nature
-		   sound). The player still has to START muted because of
-		   browser autoplay policy — but the moment the user picks
-		   a scene chip (a real user gesture), we unmute. After that,
-		   the preference is sticky unless the user explicitly hits
-		   the mute button. The localStorage value is '1' = muted,
-		   '0' or missing = unmuted. */
+		/* Wave 103c: default UNMUTED preference. Player starts muted
+		   (browser autoplay policy); auto-unmutes on chip click. */
 		let isMuted = ( localStorage.getItem('la_sol_muted') === '1' );
-		let vidPlaying = true;  // ambient video is "playing" by default
 		let currentVideoId = '';
 		let ytPlayer = null;
 
@@ -441,12 +427,13 @@ get_header();
 			yt.classList.add('is-active');
 			if ( ytPlayer && ytPlayer.loadVideoById ) {
 				/* Wave 103f: startSeconds:30 skips the channel intro
-				   that most ambient/sleep videos have at 0:00. */
+				   that most ambient/sleep videos have at 0:00.
+				   Wave 107: always plays — no pause concept anymore. */
 				try { ytPlayer.loadVideoById({ videoId: v, startSeconds: 30 }); } catch (_) {}
 				setTimeout( () => {
 					try {
 						if ( isMuted ) ytPlayer.mute();  else ytPlayer.unMute();
-						if ( vidPlaying ) ytPlayer.playVideo(); else ytPlayer.pauseVideo();
+						ytPlayer.playVideo();
 					} catch (_) {}
 				}, 80 );
 				return;
@@ -475,7 +462,7 @@ get_header();
 						onReady: (e) => {
 							try {
 								if ( isMuted ) e.target.mute(); else { e.target.unMute(); e.target.setVolume(100); }
-								if ( vidPlaying ) e.target.playVideo(); else e.target.pauseVideo();
+								e.target.playVideo();
 							} catch (_) {}
 						},
 					},
@@ -498,17 +485,8 @@ get_header();
 			}
 		}
 
-		/* Wave 103b: explicit ambient-video play/pause control. */
-		function setVidPlaying(on) {
-			vidPlaying = !! on;
-			vidBtn.classList.toggle('is-paused', ! vidPlaying);
-			vidBtn.setAttribute('aria-pressed', String( vidPlaying ));
-			if ( vidPauseIcn ) vidPauseIcn.hidden = ! vidPlaying;
-			if ( vidPlayIcn  ) vidPlayIcn.hidden  =   vidPlaying;
-			if ( ytPlayer ) {
-				try { vidPlaying ? ytPlayer.playVideo() : ytPlayer.pauseVideo(); } catch (_) {}
-			}
-		}
+		/* Wave 107: setVidPlaying removed. Ambient video always plays
+		   while on the screen — mute is the only audio control. */
 
 		function render() {
 			// orb tint flows from scene
@@ -559,16 +537,10 @@ get_header();
 			// bottom-bar chips
 			phraseShort.textContent = ph().short || ph().arabic;
 			targetDisp.textContent  = ( tn === 0 ) ? '∞' : tn;
-			// play/pause icons + orb breathing animation
+			// play/pause icons + orb breathing animation (Wave 107:
+			// gold bottom button is the ONLY dhikr play/pause)
 			playIcon.hidden  =   playing;
 			pauseIcon.hidden = ! playing;
-			// Wave 104e: mirror state on the rail play button too
-			if ( railPlayIcn  ) railPlayIcn.hidden  =   playing;
-			if ( railPauseIcn ) railPauseIcn.hidden = ! playing;
-			if ( playBtnRail ) {
-				playBtnRail.classList.toggle('is-paused', ! playing);
-				playBtnRail.setAttribute('aria-pressed', String( playing ));
-			}
 			orb.classList.toggle('playing', playing);
 			// scene track + dots + label + chip selector (Wave 102)
 			track.style.transition = '';
@@ -678,7 +650,6 @@ get_header();
 
 		// ── controls ──
 		playBtn.addEventListener('click',  () => setPlaying( ! playing ));
-		playBtnRail?.addEventListener('click', () => setPlaying( ! playing ));
 		resetBtn.addEventListener('click', () => reset());
 		sheetScrim.addEventListener('click', () => closeSheet());
 		sheetBtns.forEach( b => b.addEventListener('click', () => openSheet( b.dataset.solSheet )) );
@@ -736,12 +707,10 @@ get_header();
 			try { activeChip.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (_) {}
 		}
 
-		// Wave 96b/103b: mount the YT layer + sync controls.
+		// Wave 96b/103b/107: mute is the only video-related control.
 		muteBtn.addEventListener('click', () => setMute( ! isMuted ));
-		vidBtn .addEventListener('click', () => setVidPlaying( ! vidPlaying ));
-		setMute( isMuted );          // syncs icon + aria-pressed before player exists
-		setVidPlaying( vidPlaying ); // same — defaults to playing
-		applyVideo();                // mount the current scene's video via YT.Player API
+		setMute( isMuted );   // syncs icon + aria-pressed before player exists
+		applyVideo();         // mount the current scene's video via YT.Player API
 
 		render();
 	})();

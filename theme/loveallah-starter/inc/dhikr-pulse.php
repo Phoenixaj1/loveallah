@@ -95,16 +95,9 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		</div>
 		<div class="sol-scrim" aria-hidden="true"></div>
 
-		<?php // Wave 104/104e: right-side vertical control rail. ?>
+		<?php // Wave 107: simplified rail — just mute + reset.
+		// Heartbeat play/pause stays as the gold bottom-bar button. ?>
 		<div class="amb-rail" data-pul-rail>
-			<button type="button" class="amb-rail-btn amb-rail-btn--accent" data-pul-play-rail aria-label="Play or pause heartbeat" aria-pressed="false">
-				<svg data-pul-rail-play-icon  width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l8 6-8 6V6z"/></svg>
-				<svg data-pul-rail-pause-icon width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-			</button>
-			<button type="button" class="amb-rail-btn" data-pul-vid aria-label="Pause or play ambient video" aria-pressed="true">
-				<svg data-pul-vid-pause width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-				<svg data-pul-vid-play  width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
-			</button>
 			<button type="button" class="amb-rail-btn is-muted" data-pul-mute aria-label="Toggle ambient sound" aria-pressed="false">
 				<svg data-pul-mute-on  width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
 				<svg data-pul-mute-off width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
@@ -230,10 +223,11 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		let count = 0, playing = false;
 		let bpm   = cfg.phrases[pi].from;
 		let beatT = null, slowT = null;
-		/* Wave 103/103b/103c: scene/mute/vid state mirrors Solitude.
-		   Default unmuted preference — auto-unmute on chip click. */
+		/* Wave 103/107: ambient video state. Default unmuted; auto-
+		   unmutes on chip click. Video always plays — no pause
+		   control (Wave 107 simplification — was confusing the user
+		   alongside the heartbeat play/pause). */
 		let isMuted = ( localStorage.getItem('la_pul_muted') === '1' );
-		let vidPlaying = true;
 		let currentVideoId = '';
 		let ytPlayer = null;
 
@@ -251,9 +245,7 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		const muteBtn     = root.querySelector('[data-pul-mute]');
 		const muteOn      = root.querySelector('[data-pul-mute-on]');
 		const muteOff     = root.querySelector('[data-pul-mute-off]');
-		const vidBtn      = root.querySelector('[data-pul-vid]');
-		const vidPauseIcn = root.querySelector('[data-pul-vid-pause]');
-		const vidPlayIcn  = root.querySelector('[data-pul-vid-play]');
+		/* Wave 107: vid play/pause refs removed — no longer in the DOM. */
 
 		/* Wave 103b: same YT.Player API pattern as Solitude. */
 		function loadYT() {
@@ -284,12 +276,12 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			}
 			yt.classList.add('is-active');
 			if ( ytPlayer && ytPlayer.loadVideoById ) {
-				/* Wave 103f: skip channel intros */
+				/* Wave 103f/107: skip intro + always play. */
 				try { ytPlayer.loadVideoById({ videoId: v, startSeconds: 30 }); } catch (_) {}
 				setTimeout( () => {
 					try {
 						if ( isMuted ) ytPlayer.mute(); else ytPlayer.unMute();
-						if ( vidPlaying ) ytPlayer.playVideo(); else ytPlayer.pauseVideo();
+						ytPlayer.playVideo();
 					} catch (_) {}
 				}, 80 );
 				return;
@@ -316,7 +308,7 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 						onReady: (e) => {
 							try {
 								if ( isMuted ) e.target.mute(); else { e.target.unMute(); e.target.setVolume(100); }
-								if ( vidPlaying ) e.target.playVideo(); else e.target.pauseVideo();
+								e.target.playVideo();
 							} catch (_) {}
 						},
 					},
@@ -339,18 +331,7 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 				} catch (_) {}
 			}
 		}
-		function setVidPlaying(on) {
-			vidPlaying = !! on;
-			if ( vidBtn ) {
-				vidBtn.classList.toggle('is-paused', ! vidPlaying);
-				vidBtn.setAttribute('aria-pressed', String( vidPlaying ));
-			}
-			if ( vidPauseIcn ) vidPauseIcn.hidden = ! vidPlaying;
-			if ( vidPlayIcn  ) vidPlayIcn.hidden  =   vidPlaying;
-			if ( ytPlayer ) {
-				try { vidPlaying ? ytPlayer.playVideo() : ytPlayer.pauseVideo(); } catch (_) {}
-			}
-		}
+		/* Wave 107: setVidPlaying removed — video is always playing. */
 		function applyBgGradient() {
 			const s = sc();
 			if ( bgEl && s?.bg ) bgEl.style.background = s.bg;
@@ -369,10 +350,8 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		const playBtn    = root.querySelector('[data-pul-play]');
 		const playIcon   = root.querySelector('[data-pul-play-icon]');
 		const pauseIcon  = root.querySelector('[data-pul-pause-icon]');
-		/* Wave 104e: rail dhikr play/pause mirror. */
-		const playBtnRail = root.querySelector('[data-pul-play-rail]');
-		const railPlayIcn  = root.querySelector('[data-pul-rail-play-icon]');
-		const railPauseIcn = root.querySelector('[data-pul-rail-pause-icon]');
+		/* Wave 107: rail dhikr mirror removed — gold bottom button is
+		   the ONLY heartbeat play/pause control. */
 		const resetBtn   = root.querySelector('[data-pul-reset]');
 		const sheetScrim = root.querySelector('[data-pul-sheet-close]');
 		const sheetBtns  = root.querySelectorAll('[data-pul-sheet]');
@@ -394,13 +373,6 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			progress.style.width = ( prog * 100 ) + '%';
 			playIcon.hidden  =   playing;
 			pauseIcon.hidden = ! playing;
-			// Wave 104e: rail mirror
-			if ( railPlayIcn  ) railPlayIcn.hidden  =   playing;
-			if ( railPauseIcn ) railPauseIcn.hidden = ! playing;
-			if ( playBtnRail ) {
-				playBtnRail.classList.toggle('is-paused', ! playing);
-				playBtnRail.setAttribute('aria-pressed', String( playing ));
-			}
 			resetBtn.hidden  = ! ( count > 0 );
 		}
 
@@ -480,7 +452,6 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		}
 
 		playBtn.addEventListener('click', () => setPlaying( ! playing ));
-		playBtnRail?.addEventListener('click', () => setPlaying( ! playing ));
 		resetBtn.addEventListener('click', () => { count = 0; bpm = ph().from; render(); });
 		sheetScrim.addEventListener('click', closeSheet);
 		sheetBtns.forEach( b => b.addEventListener('click', () => openSheet( b.dataset.pulSheet )) );
@@ -521,9 +492,8 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			if ( ! isMuted ) setMute( false );
 			try { c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (_) {}
 		}) );
-		// Mute + video play/pause toggles
+		// Wave 107: just the mute toggle now.
 		muteBtn?.addEventListener( 'click', () => setMute( ! isMuted ) );
-		vidBtn ?.addEventListener( 'click', () => setVidPlaying( ! vidPlaying ) );
 
 		// Initial chip sync to persisted scene, then mount video + bg
 		sceneChips.forEach( c => c.classList.toggle( 'is-active', parseInt(c.dataset.pulSceneChip, 10) === scene ) );
@@ -532,7 +502,6 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			try { activeChip.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (_) {}
 		}
 		setMute( isMuted );
-		setVidPlaying( vidPlaying );
 		applyBgGradient();
 		applyVideo();
 
