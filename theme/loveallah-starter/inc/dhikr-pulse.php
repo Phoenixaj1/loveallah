@@ -23,19 +23,23 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+// Wave 101b: starting BPM lowered 80 → 74 per user — 80 felt rushed,
+// 74 is closer to the resting heart-rate of a relaxed adult and lets
+// the descent toward stillness feel gentler. Kalimah and salawat
+// stay at their lower curves (longer phrases need slower cadence).
 $la_pulse_phrases = [
 	[ 'key' => 'subhanallah',
 	  'ar' => 'سُبْحَانَ ٱللَّٰه',
 	  'tr' => 'Subḥān Allāh',
-	  'from' => 80, 'to' => 40 ],
+	  'from' => 74, 'to' => 40 ],
 	[ 'key' => 'alhamdulillah',
 	  'ar' => 'ٱلْحَمْدُ لِلَّٰه',
 	  'tr' => 'Alḥamdulillāh',
-	  'from' => 80, 'to' => 40 ],
+	  'from' => 74, 'to' => 40 ],
 	[ 'key' => 'allahuakbar',
 	  'ar' => 'ٱللَّٰهُ أَكْبَر',
 	  'tr' => 'Allāhu Akbar',
-	  'from' => 80, 'to' => 40 ],
+	  'from' => 74, 'to' => 40 ],
 	[ 'key' => 'kalimah',
 	  'ar' => 'لَا إِلٰهَ إِلَّا ٱللَّٰه',
 	  'tr' => 'Lā ilāha illa-llāh',
@@ -71,7 +75,10 @@ $la_pulse_targets = [
 			<div class="pul-tr" data-pul-tr><?php echo esc_html( $la_pulse_phrases[0]['tr'] ); ?></div>
 		</div>
 
-		<?php // Centre — pulsing core + count readout ?>
+		<?php // Wave 101b: centre column stacks pulse → count → BPM in a
+		// single flex track so they can't overlap (was: pul-readout
+		// absolute-positioned at bottom, count centered — collision
+		// on shorter screens). One column, predictable rhythm. ?>
 		<div class="pul-live-core">
 			<div class="pulse-core-wrap" data-pul-wrap>
 				<div class="pulse-core" data-pul-core></div>
@@ -80,20 +87,18 @@ $la_pulse_targets = [
 				<span class="sol-count" data-pul-count>0</span>
 				<span class="sol-target" data-pul-target>/ 33</span>
 			</div>
-		</div>
-
-		<?php // BPM readout + progress bar ?>
-		<div class="pul-readout">
-			<div class="pul-bpm">
-				<b data-pul-bpm><?php echo (int) $la_pulse_phrases[0]['from']; ?></b>
-				<small>BPM</small>
-			</div>
-			<div class="pul-progress" aria-hidden="true">
-				<div class="pul-progress-fill" data-pul-progress style="width: 0%"></div>
-			</div>
-			<div class="pul-scale">
-				<span>resting</span>
-				<span>stillness</span>
+			<div class="pul-readout">
+				<div class="pul-bpm">
+					<b data-pul-bpm><?php echo (int) $la_pulse_phrases[0]['from']; ?></b>
+					<small>BPM</small>
+				</div>
+				<div class="pul-progress" aria-hidden="true">
+					<div class="pul-progress-fill" data-pul-progress style="width: 0%"></div>
+				</div>
+				<div class="pul-scale">
+					<span>resting</span>
+					<span>stillness</span>
+				</div>
 			</div>
 		</div>
 
