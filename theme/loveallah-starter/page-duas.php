@@ -372,9 +372,24 @@ get_header();
 		const speedOpts = player.querySelectorAll('[data-speed]');
 
 		let queue = [];        // ayah keys still to play (after current)
+		let allKeys = [];      // full ordered list for this dua (for line-map)
+		let cursor = 0;        // index into allKeys of the currently-playing ayah
 		let currentKey = null;
 		let playing = false;
 		let speed = parseFloat( localStorage.getItem('la_duas_speed') || '1' ) || 1;
+
+		/* Wave 110: read-along line state.
+		   activeCard       = the .la-dua DOM node we've wrapped lines on
+		   originalArHTML   = its arabic innerHTML before we replaced it
+		   lineNodes        = the array of <span class="la-dua-arabic-line">
+		   keyToLine        = parallel to allKeys; key index → line index
+		   The wrap/restore pattern means we never permanently mutate the
+		   page — switching dua or closing the player puts the original
+		   text right back. */
+		let activeCard       = null;
+		let originalArHTML   = null;
+		let lineNodes        = [];
+		let keyToLine        = [];
 
 		const urlFor = (key) => `https://everyayah.com/data/Alafasy_128kbps/${key}.mp3`;
 		const ayahLabel = (key) => {
@@ -382,6 +397,75 @@ get_header();
 			const a = parseInt(key.substring(3), 10);
 			return `${s}:${a}`;
 		};
+
+		/* Escape user-visible text for safe innerHTML insertion. */
+		function escHTML(s) {
+			return String(s).replace(/[&<>"']/g, c => ({
+				'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+			}[c]));
+		}
+
+		/* Split the arabic text into per-ayah lines using ۞ as separator
+		   (matches the convention we use across the seed). Wrap each in
+		   a span we can later highlight. If there's no ۞, the whole text
+		   becomes one line — still highlights as a whole on playback. */
+		function prepareReadAlong(card, keys) {
+			if ( activeCard === card ) {
+				// Already wrapped — just rebuild the key→line map
+				keyToLine = buildKeyToLineMap(keys, lineNodes.length);
+				return;
+			}
+			restoreReadAlong();   // unwrap any previous card
+			if ( ! card ) return;
+			const ar = card.querySelector('.la-dua-arabic');
+			if ( ! ar ) return;
+			originalArHTML = ar.innerHTML;
+			const text = ar.textContent.trim();
+			const parts = text.split('۞').map(s => s.trim()).filter(Boolean);
+			let html;
+			if ( parts.length < 2 ) {
+				html = `<span class="la-dua-arabic-line">${escHTML(text)}</span>`;
+			} else {
+				html = parts.map(p => `<span class="la-dua-arabic-line">${escHTML(p)}</span>`)
+					.join(' <span class="la-dua-arabic-sep" aria-hidden="true">۞</span> ');
+			}
+			ar.innerHTML = html;
+			lineNodes = Array.from( ar.querySelectorAll('.la-dua-arabic-line') );
+			activeCard = card;
+			keyToLine = buildKeyToLineMap(keys, lineNodes.length);
+		}
+		function restoreReadAlong() {
+			if ( ! activeCard ) return;
+			const ar = activeCard.querySelector('.la-dua-arabic');
+			if ( ar && originalArHTML !== null ) ar.innerHTML = originalArHTML;
+			activeCard     = null;
+			originalArHTML = null;
+			lineNodes      = [];
+			keyToLine      = [];
+		}
+		/* If keys.length === lineCount it's a 1:1 mapping (full surah,
+		   one ayah per visible line). Otherwise group by surah prefix
+		   (the 3 Quls combined is 15 keys → 3 lines, one per surah). */
+		function buildKeyToLineMap(keys, lineCount) {
+			if ( keys.length === lineCount ) {
+				return keys.map((_, i) => i);
+			}
+			const surahs = [];
+			return keys.map(k => {
+				const s = k.substring(0, 3);
+				let idx = surahs.indexOf(s);
+				if ( idx === -1 ) { surahs.push(s); idx = surahs.length - 1; }
+				return idx;
+			});
+		}
+		function setActiveLine(lineIdx) {
+			lineNodes.forEach( (l, i) => l.classList.toggle('is-active', i === lineIdx) );
+			// Scroll the active line into view inside the card if it's offscreen
+			const node = lineNodes[lineIdx];
+			if ( node && node.scrollIntoView ) {
+				try { node.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch(_) {}
+			}
+		}
 
 		/* Wave 107b lesson: SVG `.hidden = bool` doesn't reflect to the
 		   attribute. Use setAttribute / removeAttribute explicitly. */
@@ -406,6 +490,11 @@ get_header();
 			ayahEl.textContent = ayahLabel(key);
 			audio.src = urlFor(key);
 			audio.playbackRate = speed;
+			// Wave 110: highlight the line this key belongs to before
+			// playback starts, so the eye is already on the verse when
+			// the recitation hits speak.
+			const lineIdx = keyToLine[cursor];
+			if ( typeof lineIdx === 'number' ) setActiveLine(lineIdx);
 			audio.play().then(() => {
 				playing = true;
 				renderPlayingIcons();
@@ -415,9 +504,14 @@ get_header();
 				renderPlayingIcons();
 			});
 		}
-		function startQueue(title, keys) {
+		function startQueue(title, keys, card) {
 			titleEl.textContent = title || '';
-			queue = keys.slice(1);
+			allKeys = keys.slice();
+			queue   = keys.slice(1);
+			cursor  = 0;
+			// Wave 110: wrap the card's arabic in per-line spans BEFORE
+			// the first key fires, so setActiveLine has nodes to toggle.
+			prepareReadAlong(card, keys);
 			player.hidden = false;
 			player.classList.add('is-open');
 			applySpeed(speed);
@@ -427,23 +521,32 @@ get_header();
 			try { audio.pause(); } catch(_){}
 			audio.removeAttribute('src');
 			audio.load();
-			queue = [];
-			currentKey = null;
-			playing = false;
+			queue       = [];
+			allKeys     = [];
+			cursor      = 0;
+			currentKey  = null;
+			playing     = false;
 			renderPlayingIcons();
 			progress.style.width = '0%';
 			player.classList.remove('is-open');
 			player.hidden = true;
+			restoreReadAlong();   // Wave 110: unwrap arabic spans
 		}
 
 		// Audio events
 		audio.addEventListener('ended', () => {
 			if ( queue.length ) {
+				cursor++;                     // Wave 110: advance the line cursor
 				playKey( queue.shift() );
 			} else {
 				playing = false;
 				renderPlayingIcons();
 				progress.style.width = '100%';
+				// Hold the last-line highlight visible for a beat — visual
+				// confirmation of completion — then fade it.
+				setTimeout( () => {
+					lineNodes.forEach( l => l.classList.remove('is-active') );
+				}, 1400 );
 			}
 		});
 		audio.addEventListener('timeupdate', () => {
@@ -469,7 +572,8 @@ get_header();
 			const title = btn.dataset.title || 'Recitation';
 			const keys  = ( btn.dataset.audioKeys || '' ).split(',').filter(Boolean);
 			if ( ! keys.length ) return;
-			startQueue(title, keys);
+			const card  = btn.closest('.la-dua');   // Wave 110: pass the card so we can wrap its arabic
+			startQueue(title, keys, card);
 		});
 
 		// Initialise persistent speed pill state

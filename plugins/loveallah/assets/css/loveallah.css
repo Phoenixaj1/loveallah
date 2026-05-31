@@ -4958,6 +4958,42 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 	height: calc(100vh - var(--la-tabbar-h) - 220px - 80px);
 	height: calc(100dvh - var(--la-tabbar-h) - 220px - 80px);
 }
+
+/* ─── Wave 110: per-ayah line wrapper + active-line highlight ───────
+   When a dua starts read-along, its Arabic gets split on ۞ and each
+   ayah is wrapped in a <span class="la-dua-arabic-line">. The active
+   line picks up a warm gold glow + a soft underline so the user's eye
+   stays anchored to the verse being spoken. Faded lines step back so
+   the active one is unambiguous.
+   ----------------------------------------------------------------------- */
+.la-dua-arabic-line {
+	display: inline;
+	transition: color .35s var(--la-easing),
+	            text-shadow .35s var(--la-easing),
+	            opacity .35s var(--la-easing);
+}
+.la-dua-arabic-line.is-active {
+	color: #8a6a1a;
+	/* Warm gold halo around the active ayah — mirrors the gold accent
+	   on the play button so the user sees one "now reading" identity. */
+	text-shadow:
+		0 0 28px rgba(212, 175, 55, 0.45),
+		0 0 10px rgba(212, 175, 55, 0.30);
+}
+/* When ANY line is active, soften the inactive ones (lets the active
+   one read as the focal point without making the rest invisible). */
+.la-dua-arabic:has(.la-dua-arabic-line.is-active) .la-dua-arabic-line:not(.is-active) {
+	opacity: 0.42;
+}
+.la-dua-arabic-sep {
+	display: inline-block;
+	margin: 0 4px;
+	color: rgba(212, 175, 55, 0.55);
+	font-size: 0.82em;
+	vertical-align: middle;
+	/* The rosette separator was visible in the original text; keep it
+	   visible (slightly dimmed) so the structure of the verse remains. */
+}
 .la-dua-btn {
 	display: inline-flex; align-items: center; gap: 4px;
 	padding: 6px 10px;
