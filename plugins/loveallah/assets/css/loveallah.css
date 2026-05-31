@@ -5331,6 +5331,252 @@ body.page-duas .la-app--duas-sidebar {
 .la-dua-foot {
 	border-top: 1px solid rgba(120, 86, 30, 0.10);
 }
+
+/* ─── Wave 113: one card per view + inline player ──────────────────
+   User feedback: cards should fit on one screen, navigate with
+   prev/next button (or swipe L/R), no scroll-snap (it was hiding
+   content), and the player floats at the bottom of the pane — not
+   over the rail. Mark-as-read becomes a small tick in the player;
+   Listen / Copy / Share dropped from cards entirely.
+   --------------------------------------------------------------------- */
+
+/* Pane is now the scroll context for the active card AND the anchor
+   for the absolutely-positioned player. */
+.la-duas-pane {
+	position: relative;
+	height: calc(100vh - var(--la-tabbar-h, 64px) - env(safe-area-inset-top, 0px));
+	height: calc(100dvh - var(--la-tabbar-h, 64px) - env(safe-area-inset-top, 0px));
+	padding: 14px 16px 0;        /* bottom padding handled by .la-duas-lists margin */
+	overflow: hidden;            /* the list inside scrolls; the pane itself doesn't */
+	display: flex; flex-direction: column;
+}
+
+/* Lists wrapper takes all available space minus the inline player at
+   the bottom (~150px). The active list scrolls vertically inside this. */
+.la-duas-lists {
+	flex: 1;
+	min-height: 0;
+	padding-bottom: 160px;       /* clear the player */
+	overflow: hidden;
+}
+
+/* No more scroll-snap, no min-height per card. Only the .is-current
+   card in the active list is visible. */
+.la-duas-list.is-active {
+	height: 100%;
+	overflow: hidden;
+	scroll-snap-type: none;
+	animation: none;
+	margin: 0;
+	padding: 0;
+}
+.la-duas-list.is-active::-webkit-scrollbar { display: none; }
+.la-duas-list .la-dua { display: none; }
+.la-duas-list .la-dua.la-dua--knowledge {
+	/* Knowledge card behaves like a regular dua now — only shown when
+	   it's the current step. */
+	display: none;
+}
+.la-duas-list.is-active .la-dua.is-current,
+.la-duas-list.is-active .la-dua--knowledge.is-current {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	margin: 0;
+	scroll-snap-align: none;
+	overflow-y: auto;            /* scroll WITHIN the card for long content */
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: none;
+	padding: 24px 18px;
+}
+.la-duas-list.is-active .la-dua.is-current::-webkit-scrollbar { display: none; }
+
+/* Card itself — sit cleanly with its breathing-room padding handled
+   above. Remove the snap-related min-heights from Wave 27/111. */
+.la-dua {
+	min-height: auto;
+	scroll-snap-align: none;
+	scroll-snap-stop: normal;
+	margin-bottom: 0;
+}
+
+/* ─── Inline player (bottom of pane) ──────────────────────────────── */
+.la-duas-player.la-duas-player--inline {
+	position: absolute;
+	left: 14px; right: 14px;
+	bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+	background: linear-gradient(180deg, #1a1410 0%, #0e0a06 100%);
+	border: 1px solid rgba(212, 175, 55, 0.18);
+	border-radius: 18px;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+	color: #fff;
+	overflow: hidden;
+	padding: 0;
+	z-index: 5;
+}
+
+/* Title row — category icon + dua title + step pip */
+.la-duas-player-title-row {
+	display: flex; align-items: center;
+	gap: 12px;
+	padding: 12px 14px 6px;
+}
+.la-duas-player-cat-icon {
+	width: 32px; height: 32px;
+	flex: 0 0 32px;
+	display: grid; place-items: center;
+	font-size: 18px;
+	background: rgba(212, 175, 55, 0.14);
+	border-radius: 10px;
+	border: 1px solid rgba(212, 175, 55, 0.25);
+}
+.la-duas-player-cat-text {
+	flex: 1; min-width: 0;
+}
+.la-duas-player-dua-title {
+	display: block;
+	font-size: 13.5px;
+	font-weight: 800;
+	letter-spacing: -0.01em;
+	color: #fff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.la-duas-player-cat-sub {
+	display: block;
+	font-size: 10.5px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.55);
+	letter-spacing: 0.02em;
+	margin-top: 2px;
+}
+.la-duas-player-cat-sub .dot {
+	margin: 0 4px;
+	opacity: 0.6;
+}
+.la-duas-player-step {
+	flex: 0 0 auto;
+	padding: 4px 10px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.06);
+	font-size: 11px;
+	font-weight: 800;
+	color: rgba(255, 255, 255, 0.82);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.02em;
+}
+.la-duas-player-step .slash {
+	margin: 0 2px;
+	color: rgba(255, 255, 255, 0.4);
+}
+
+/* Controls row — prev | play | next | speed | tick | ameen */
+.la-duas-player-controls-row {
+	display: flex; align-items: center;
+	gap: 6px;
+	padding: 6px 10px 12px;
+}
+.la-duas-player-btn {
+	width: 38px; height: 38px;
+	border-radius: 50%;
+	display: grid; place-items: center;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	color: rgba(255, 255, 255, 0.9);
+	cursor: pointer;
+	font-family: inherit;
+	transition: transform .15s var(--la-spring, cubic-bezier(.34,1.56,.64,1)),
+	            background .15s ease;
+	-webkit-tap-highlight-color: transparent;
+	position: relative;
+}
+.la-duas-player-btn:hover  { background: rgba(255, 255, 255, 0.10); }
+.la-duas-player-btn:active { transform: scale(.9); }
+.la-duas-player-btn svg[hidden] { display: none !important; }
+
+.la-duas-player-btn--nav { width: 34px; height: 34px; }
+.la-duas-player-btn--play {
+	width: 52px; height: 52px;
+	background: linear-gradient(180deg, #f2c14e 0%, #d4a02c 100%);
+	border: 1.5px solid rgba(212, 160, 44, 0.55);
+	color: #1a1410;
+	box-shadow: 0 6px 18px rgba(212, 160, 44, 0.35);
+}
+.la-duas-player-btn--play:hover {
+	background: linear-gradient(180deg, #f6c95a 0%, #d4a02c 100%);
+}
+.la-duas-player-btn--speed {
+	width: auto; padding: 0 12px; height: 32px;
+	border-radius: 999px;
+	font-size: 11px; font-weight: 800;
+	letter-spacing: 0.02em;
+	margin-left: 4px;
+}
+
+.la-duas-player-btn--tick {
+	margin-left: auto;
+	color: rgba(255, 255, 255, 0.78);
+}
+.la-duas-player-btn--tick.is-just-ticked {
+	background: linear-gradient(180deg, #2c8458 0%, #1e6440 100%);
+	border-color: rgba(30, 100, 64, 0.55);
+	color: #fff;
+	animation: la-duas-tick-pop .55s var(--la-spring, cubic-bezier(.34,1.56,.64,1));
+}
+@keyframes la-duas-tick-pop {
+	0%   { transform: scale(1); }
+	40%  { transform: scale(1.18); }
+	100% { transform: scale(1); }
+}
+.la-duas-player-btn--ameen {
+	width: auto; padding: 0 12px; height: 38px;
+	border-radius: 999px;
+	gap: 6px;
+	display: inline-flex; align-items: center;
+	color: rgba(255, 255, 255, 0.78);
+}
+.la-duas-player-btn--ameen.is-active {
+	background: rgba(237, 28, 108, 0.18);
+	border-color: rgba(237, 28, 108, 0.45);
+	color: #ff7aa3;
+}
+.la-duas-player-ameen-count {
+	font-size: 10.5px;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.85;
+}
+
+/* Progress strip at the very bottom of the player */
+.la-duas-player-progress {
+	height: 3px;
+	background: rgba(255, 255, 255, 0.06);
+}
+.la-duas-player-progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, var(--gold, #d4af37), color-mix(in oklab, var(--gold, #d4af37) 70%, #fff));
+	transition: width .15s linear;
+}
+
+/* Hide the legacy floating player when it's the inline variant */
+.la-duas-player:not(.la-duas-player--inline) {
+	display: none;
+}
+
+/* Hide the legacy pane head (Wave 113 moved its info into the player) */
+.la-duas-pane-head,
+.la-duas-progress {
+	display: none !important;
+}
+
+/* Wider screens — give the inline player a little more breathing room */
+@media (min-width: 640px) {
+	.la-duas-player-title-row { padding: 14px 18px 8px; }
+	.la-duas-player-controls-row { padding: 8px 14px 14px; gap: 8px; }
+	.la-duas-player-btn--play { width: 56px; height: 56px; }
+}
 .la-dua-btn {
 	display: inline-flex; align-items: center; gap: 4px;
 	padding: 6px 10px;

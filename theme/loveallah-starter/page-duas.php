@@ -114,31 +114,13 @@ get_header();
 		<?php $i++; endforeach; ?>
 	</aside>
 
-	<!-- Right pane: header + scrollable dua cards for the active category -->
+	<?php /* Wave 113: pane head dropped — user said "title at the top is way
+	     too big". The category context (icon + name + sub-label) moved
+	     down into the inline player at the bottom of the pane. The
+	     progress strip is hidden too — its info ("3 of 8 read today")
+	     now lives inline next to the player title as a small pip. */ ?>
+	<!-- Right pane: one card visible at a time + inline player at bottom -->
 	<div class="la-duas-pane">
-
-		<!-- Active category header — updates via JS -->
-		<header class="la-duas-pane-head">
-			<div class="la-duas-pane-icon" data-cat-icon><?php echo $active_cats[ $first_cat ]['emoji']; ?></div>
-			<div class="la-duas-pane-meta">
-				<h1 class="la-duas-pane-title" data-cat-title><?php echo esc_html( $active_cats[ $first_cat ]['label'] ); ?></h1>
-				<p class="la-duas-pane-sub" data-cat-sub><?php echo esc_html( $active_cats[ $first_cat ]['sub'] ); ?></p>
-			</div>
-		</header>
-
-		<!-- Per-category progress bar — resets daily. JS reads localStorage
-		     keyed by date so taps survive page reloads but new day = fresh. -->
-		<div class="la-duas-progress" aria-label="Today's progress in this category">
-			<div class="la-duas-progress-track">
-				<div class="la-duas-progress-fill" data-cat-progress-bar style="width:0%"></div>
-			</div>
-			<div class="la-duas-progress-meta">
-				<span class="la-duas-progress-text" data-cat-progress-text>0 of 0 read today</span>
-				<button type="button" class="la-duas-progress-reset" data-action="reset-day" title="Reset today's ticks" aria-label="Reset today's ticks">
-					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
-				</button>
-			</div>
-		</div>
 
 		<!-- Card lists — one section per category, only active is visible -->
 		<div class="la-duas-lists">
@@ -214,13 +196,32 @@ get_header();
 					<?php $dua_idx = 0; $cat_total = count( $by_cat[ $key ] ); foreach ( $by_cat[ $key ] as $d ) :
 						$is_amened = isset( $my_ameen[ (int) $d->id ] );
 						$dua_idx++;
+						// Wave 113: only the first card in each category is rendered
+						// as "current"; JS swaps which one is current as the user
+						// taps prev/next or swipes.
+						$is_current = ( $dua_idx === 1 );
+						// Wave 113: also stash audio keys on the article so the
+						// player can pick them up when this becomes the current
+						// card. Empty if no Qur'anic audio — JS will fall back to
+						// TTS for those.
+						$audio_keys_attr = ! empty( $la_dua_audio[ $d->slug ] )
+							? esc_attr( implode( ',', $la_dua_audio[ $d->slug ] ) )
+							: '';
 					?>
-						<article class="la-dua" data-dua-id="<?php echo (int) $d->id; ?>" data-cat="<?php echo esc_attr( $key ); ?>" data-idx="<?php echo $dua_idx; ?>" data-total="<?php echo $cat_total; ?>">
-							<!-- Step counter — 'Dua 3 of 8' so the user knows where they are -->
-							<div class="la-dua-step">
-								<span class="la-dua-step-num"><?php echo $dua_idx; ?></span>
-								<span class="la-dua-step-of">of <?php echo $cat_total; ?></span>
-							</div>
+						<article class="la-dua <?php echo $is_current ? 'is-current' : ''; ?>"
+							data-dua-id="<?php echo (int) $d->id; ?>"
+							data-dua-slug="<?php echo esc_attr( $d->slug ); ?>"
+							data-cat="<?php echo esc_attr( $key ); ?>"
+							data-idx="<?php echo $dua_idx; ?>"
+							data-total="<?php echo $cat_total; ?>"
+							data-title="<?php echo esc_attr( $d->title ); ?>"
+							data-translit="<?php echo esc_attr( $d->transliteration ?? '' ); ?>"
+							data-audio-keys="<?php echo $audio_keys_attr; ?>"
+							data-ameen-count="<?php echo (int) $d->ameen_count; ?>"
+							data-is-amened="<?php echo $is_amened ? '1' : '0'; ?>">
+							<?php // Wave 113: step pip removed from card — moves to the
+							// bottom player's title row as "3 / 8" alongside the
+							// category context. ?>
 
 							<?php /* Wave 112: header now carries the gold source pill
 							     right under the title (Claude-Design pattern). Source
@@ -286,57 +287,31 @@ get_header();
 								<?php endif; ?>
 							</div>
 
-							<!-- Footer — small Ameen/Copy/Share + LARGE 'Mark as read' CTA -->
-							<footer class="la-dua-foot">
-								<div class="la-dua-actions">
-									<?php // Wave 109: Listen button — only on duas that have a
-									// Qur'anic audio chain in $la_dua_audio. Tapping mounts the
-									// floating player above the tab nav and starts playing. ?>
-									<?php if ( ! empty( $la_dua_audio[ $d->slug ] ) ) :
-										$audio_keys_attr = esc_attr( implode( ',', $la_dua_audio[ $d->slug ] ) );
-									?>
-										<button type="button"
-											class="la-dua-btn la-dua-btn--listen"
-											data-action="listen"
-											data-id="<?php echo (int) $d->id; ?>"
-											data-title="<?php echo esc_attr( $d->title ); ?>"
-											data-audio-keys="<?php echo $audio_keys_attr; ?>"
-											aria-label="Listen — Mishary Al-Afasy">
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-											<span>Listen</span>
-										</button>
-									<?php endif; ?>
-									<button type="button"
-										class="la-dua-btn <?php echo $is_amened ? 'is-active' : ''; ?>"
-										data-action="ameen"
-										data-id="<?php echo (int) $d->id; ?>"
-										aria-pressed="<?php echo $is_amened ? 'true' : 'false'; ?>"
-										aria-label="Ameen">
-										<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c-3-2-5-4-5-7 0-3 1.5-4 3-4s2 1 2 1 1-1 2.5-1 2.5 1 2.5 4-2 5-5 7z"/></svg>
-										<span>Ameen</span>
-										<span class="la-dua-btn-count" data-ameen-count><?php echo (int) $d->ameen_count; ?></span>
-									</button>
-									<button type="button" class="la-dua-btn" data-action="save" data-id="<?php echo (int) $d->id; ?>" aria-label="Copy">
-										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-										<span>Copy</span>
-									</button>
-									<button type="button" class="la-dua-btn" data-action="share" data-id="<?php echo (int) $d->id; ?>" aria-label="Share">
-										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
-										<span>Share</span>
-									</button>
-								</div>
-
-								<!-- Prominent 'Mark as read today' CTA. Tap → tick + auto-advance to next card. -->
-								<button type="button" class="la-dua-complete"
+							<?php // Wave 113: card foot removed — Copy and Share dropped
+							// per user, Listen + Ameen + Mark-as-read all moved into
+							// the inline player at the bottom of the pane. The card
+							// is now purely a reading surface: source pill, title,
+							// interlinear lines, collapsible meaning. That's it.
+							//
+							// Hidden legacy buttons live below — the existing
+							// loveallah.js Ameen / tick-day persistence handler
+							// stays in charge. The player JS synthesizes clicks on
+							// these so we don't have to re-implement the API calls. ?>
+							<div class="la-dua-hidden-actions" hidden aria-hidden="true">
+								<button type="button"
+									class="la-dua-btn <?php echo $is_amened ? 'is-active' : ''; ?>"
+									data-action="ameen"
+									data-id="<?php echo (int) $d->id; ?>"
+									aria-pressed="<?php echo $is_amened ? 'true' : 'false'; ?>"
+									tabindex="-1">
+									<span class="la-dua-btn-count" data-ameen-count><?php echo (int) $d->ameen_count; ?></span>
+								</button>
+								<button type="button"
 									data-action="tick-day"
 									data-id="<?php echo (int) $d->id; ?>"
 									data-cat="<?php echo esc_attr( $key ); ?>"
-									aria-label="Mark as read today">
-									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
-									<span class="la-dua-complete-label">Mark as read today</span>
-									<span class="la-dua-complete-done">Read · next →</span>
-								</button>
-							</footer>
+									tabindex="-1"></button>
+							</div>
 						</article>
 					<?php endforeach; ?>
 
@@ -345,77 +320,116 @@ get_header();
 			<?php endforeach; ?>
 		</div>
 
-	</div>
+		<?php /* Wave 113: inline player — lives INSIDE the pane so it
+		     sits over the card area only, not over the left rail.
+		     Always present (per user: "should have play button on all
+		     of the duas"). Title row carries the category context that
+		     used to live in the pane-head (icon · name · sub) plus the
+		     step pip (3 / 8). Controls row: prev · big gold play · next ·
+		     speed · tick (mark-read) · ameen. Listen / Copy / Share
+		     dropped from card footers; the player is the single action
+		     surface. */ ?>
+		<div class="la-duas-player la-duas-player--inline" data-duas-player>
+			<div class="la-duas-player-title-row">
+				<span class="la-duas-player-cat-icon" data-cat-icon><?php echo $active_cats[ $first_cat ]['emoji']; ?></span>
+				<div class="la-duas-player-cat-text">
+					<span class="la-duas-player-dua-title" data-duas-player-title><?php echo esc_html( $by_cat[ $first_cat ][0]->title ?? '' ); ?></span>
+					<span class="la-duas-player-cat-sub">
+						<span data-cat-title><?php echo esc_html( $active_cats[ $first_cat ]['label'] ); ?></span>
+						<span class="dot">·</span>
+						<span data-cat-sub><?php echo esc_html( $active_cats[ $first_cat ]['sub'] ); ?></span>
+					</span>
+				</div>
+				<span class="la-duas-player-step">
+					<span data-current-idx>1</span><span class="slash">/</span><span data-current-total><?php echo count( $by_cat[ $first_cat ] ); ?></span>
+				</span>
+			</div>
+
+			<div class="la-duas-player-controls-row">
+				<button type="button" class="la-duas-player-btn la-duas-player-btn--nav" data-duas-prev aria-label="Previous dua">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+				</button>
+				<button type="button" class="la-duas-player-btn la-duas-player-btn--play" data-duas-player-toggle aria-label="Play or pause">
+					<svg data-duas-player-play-icon width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="margin-left:2px"><path d="M9 6l8 6-8 6V6z"/></svg>
+					<svg data-duas-player-pause-icon width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" hidden><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+				</button>
+				<button type="button" class="la-duas-player-btn la-duas-player-btn--nav" data-duas-next aria-label="Next dua">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+				</button>
+				<button type="button" class="la-duas-player-btn la-duas-player-btn--speed" data-duas-player-speed-cycle aria-label="Playback speed">1×</button>
+				<button type="button" class="la-duas-player-btn la-duas-player-btn--tick" data-duas-mark-read aria-label="Mark as read today">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+				</button>
+				<button type="button" class="la-duas-player-btn la-duas-player-btn--ameen" data-duas-ameen aria-label="Ameen">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 22c-3-2-5-4-5-7 0-3 1.5-4 3-4s2 1 2 1 1-1 2.5-1 2.5 1 2.5 4-2 5-5 7z"/></svg>
+					<span class="la-duas-player-ameen-count" data-duas-player-ameen-count>0</span>
+				</button>
+			</div>
+
+			<div class="la-duas-player-progress" aria-hidden="true">
+				<div class="la-duas-player-progress-fill" data-duas-player-progress style="width:0%"></div>
+			</div>
+			<audio data-duas-player-audio preload="none"></audio>
+		</div>
+
+	</div><?php // close .la-duas-pane ?>
 
 	<script id="la-duas-cats" type="application/json">
 		<?php echo wp_json_encode( $active_cats ); ?>
 	</script>
-
-	<?php /* Wave 109: Floating audio player — dark glass pill that
-	     sits above the bottom tab nav. Mounts hidden, becomes visible
-	     when any Listen button is tapped. Uses HTML5 <audio> with
-	     everyayah.com Alafasy MP3s; multi-ayah duas chain via onended.
-	     Speed control 0.75× / 1× / 1.25× via audio.playbackRate. */ ?>
-	<div class="la-duas-player" data-duas-player hidden>
-		<div class="la-duas-player-inner">
-			<div class="la-duas-player-meta">
-				<svg class="la-duas-player-glyph" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-				<div class="la-duas-player-text">
-					<div class="la-duas-player-title" data-duas-player-title>—</div>
-					<div class="la-duas-player-by">Mishary Al-Afasy · <span data-duas-player-ayah>—</span></div>
-				</div>
-			</div>
-			<div class="la-duas-player-controls">
-				<button type="button" class="la-duas-player-btn la-duas-player-btn--primary" data-duas-player-toggle aria-label="Play or pause">
-					<svg data-duas-player-play-icon width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
-					<svg data-duas-player-pause-icon width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-				</button>
-				<div class="la-duas-player-speed" data-duas-player-speed role="group" aria-label="Playback speed">
-					<button type="button" class="la-duas-speed-opt" data-speed="0.75">0.75×</button>
-					<button type="button" class="la-duas-speed-opt is-active" data-speed="1">1×</button>
-					<button type="button" class="la-duas-speed-opt" data-speed="1.25">1.25×</button>
-				</div>
-				<button type="button" class="la-duas-player-btn" data-duas-player-close aria-label="Close player">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
-				</button>
-			</div>
-		</div>
-		<div class="la-duas-player-progress" aria-hidden="true">
-			<div class="la-duas-player-progress-fill" data-duas-player-progress style="width:0%"></div>
-		</div>
-		<audio data-duas-player-audio preload="none"></audio>
-	</div>
+	<script id="la-duas-audio" type="application/json">
+		<?php echo wp_json_encode( $la_dua_audio ); ?>
+	</script>
 
 	<script>
-	/* Wave 109: floating audio player for the Duas page.
-	   Read-along uses everyayah.com Alafasy MP3s. Multi-ayah duas chain
-	   via the HTMLAudioElement's onended event so the recitation flows
-	   ayah-by-ayah without gaps. We track playback so the gold play
-	   icon swaps to pause + the thin progress bar at the bottom fills.
+	/* Wave 113: Duas player + card-stepping model.
 
-	   The user explicitly mentioned this is autism-friendly — reading
-	   alone gets boring. Hearing it spoken alongside the text keeps
-	   attention on the verse. (Wave 110 will add line-by-line highlight.) */
+	   Major restructure per user feedback:
+	     - One card visible at a time per category (no scroll-snap).
+	     - Navigate with prev/next arrows in the player OR swipe L/R on
+	       the card area.
+	     - Player is INLINE inside the pane (not over the rail).
+	     - The Listen/Copy/Share/Mark-as-read buttons are gone from the
+	       card foot — all live in the player now.
+	     - Play works on ALL duas: Qur'anic ones stream Alafasy from
+	       everyayah.com; non-Qur'anic ones use the browser's Speech
+	       Synthesis API reading the transliteration. The play button
+	       is therefore always meaningful — never a dead button.
+
+	   Read-along (Wave 110): when a Qur'anic dua is playing, the current
+	   ayah lights up gold. In TTS mode there's no per-line timing so we
+	   highlight the whole first line. */
 	(function() {
-		const player    = document.querySelector('[data-duas-player]');
+		const player      = document.querySelector('[data-duas-player]');
 		if ( ! player ) return;
-		const audio     = player.querySelector('[data-duas-player-audio]');
-		const titleEl   = player.querySelector('[data-duas-player-title]');
-		const ayahEl    = player.querySelector('[data-duas-player-ayah]');
-		const playBtn   = player.querySelector('[data-duas-player-toggle]');
-		const playIcon  = player.querySelector('[data-duas-player-play-icon]');
-		const pauseIcon = player.querySelector('[data-duas-player-pause-icon]');
-		const closeBtn  = player.querySelector('[data-duas-player-close]');
-		const speedRow  = player.querySelector('[data-duas-player-speed]');
-		const progress  = player.querySelector('[data-duas-player-progress]');
-		const speedOpts = player.querySelectorAll('[data-speed]');
+		const cats        = JSON.parse( document.getElementById('la-duas-cats').textContent );
+		const audioMap    = JSON.parse( document.getElementById('la-duas-audio').textContent );
+		const audio       = player.querySelector('[data-duas-player-audio]');
+		const titleEl     = player.querySelector('[data-duas-player-title]');
+		const catIconEl   = player.querySelector('[data-cat-icon]');
+		const catTitleEl  = player.querySelector('[data-cat-title]');
+		const catSubEl    = player.querySelector('[data-cat-sub]');
+		const idxEl       = player.querySelector('[data-current-idx]');
+		const totalEl     = player.querySelector('[data-current-total]');
+		const ameenCountEl= player.querySelector('[data-duas-player-ameen-count]');
+		const playBtn     = player.querySelector('[data-duas-player-toggle]');
+		const playIcon    = player.querySelector('[data-duas-player-play-icon]');
+		const pauseIcon   = player.querySelector('[data-duas-player-pause-icon]');
+		const prevBtn     = player.querySelector('[data-duas-prev]');
+		const nextBtn     = player.querySelector('[data-duas-next]');
+		const speedBtn    = player.querySelector('[data-duas-player-speed-cycle]');
+		const tickBtn     = player.querySelector('[data-duas-mark-read]');
+		const ameenBtn    = player.querySelector('[data-duas-ameen]');
+		const progress    = player.querySelector('[data-duas-player-progress]');
 
 		let queue = [];        // ayah keys still to play (after current)
-		let allKeys = [];      // full ordered list for this dua (for line-map)
+		let allKeys = [];      // full ordered list for the active dua
 		let cursor = 0;        // index into allKeys of the currently-playing ayah
 		let currentKey = null;
 		let playing = false;
+		let mode    = null;    // 'audio' (everyayah MP3) | 'tts' (browser TTS)
 		let speed = parseFloat( localStorage.getItem('la_duas_speed') || '1' ) || 1;
+		const speedCycle = [ 0.75, 1, 1.25 ];
 
 		/* Wave 110: read-along line state.
 		   activeCard       = the .la-dua DOM node we've wrapped lines on
@@ -542,67 +556,111 @@ get_header();
 			speed = v;
 			audio.playbackRate = v;
 			localStorage.setItem('la_duas_speed', String(v));
-			speedOpts.forEach( o => o.classList.toggle( 'is-active', parseFloat(o.dataset.speed) === v ) );
+			if ( speedBtn ) speedBtn.textContent = v + '×';
 		}
+		function cycleSpeed() {
+			const i = speedCycle.indexOf(speed);
+			applySpeed( speedCycle[ ( i + 1 ) % speedCycle.length ] );
+		}
+
+		/* ── Audio-mode (Qur'anic) playback ────────────────────────────
+		   Same Wave 109/110 pipeline: walk through allKeys, swap src on
+		   each ayah, highlight the line that ayah belongs to. */
 		function playKey(key) {
 			currentKey = key;
-			ayahEl.textContent = ayahLabel(key);
 			audio.src = urlFor(key);
 			audio.playbackRate = speed;
-			// Wave 110: highlight the line this key belongs to before
-			// playback starts, so the eye is already on the verse when
-			// the recitation hits speak.
 			const lineIdx = keyToLine[cursor];
 			if ( typeof lineIdx === 'number' ) setActiveLine(lineIdx);
 			audio.play().then(() => {
-				playing = true;
-				renderPlayingIcons();
-			}).catch( e => {
-				// Likely autoplay policy or network — leave paused, user can tap again
-				playing = false;
-				renderPlayingIcons();
+				playing = true; renderPlayingIcons();
+			}).catch(() => {
+				playing = false; renderPlayingIcons();
 			});
 		}
-		function startQueue(title, keys, card) {
-			titleEl.textContent = title || '';
-			allKeys = keys.slice();
-			queue   = keys.slice(1);
-			cursor  = 0;
-			// Wave 110: wrap the card's arabic in per-line spans BEFORE
-			// the first key fires, so setActiveLine has nodes to toggle.
-			prepareReadAlong(card, keys);
-			player.hidden = false;
-			player.classList.add('is-open');
-			applySpeed(speed);
-			playKey(keys[0]);
+
+		/* ── TTS-mode (non-Qur'anic) playback ──────────────────────────
+		   Browser SpeechSynthesis reads the transliteration. Works on
+		   modern Chrome / Safari / Firefox. Quality varies by device
+		   but every dua now has SOMETHING to listen to — which is the
+		   whole point per user feedback. */
+		let ttsUtter = null;
+		function ttsSpeak(text) {
+			if ( ! ( 'speechSynthesis' in window ) || ! text ) {
+				playing = false; renderPlayingIcons();
+				return;
+			}
+			try { speechSynthesis.cancel(); } catch(_){}
+			ttsUtter = new SpeechSynthesisUtterance(text);
+			ttsUtter.rate = speed * 0.9;   // Speech rate floor matches our 0.75 sane
+			ttsUtter.pitch = 1;
+			ttsUtter.lang = 'en-US';        // English voice on transliteration — most universal
+			ttsUtter.onstart = () => { playing = true; renderPlayingIcons(); };
+			ttsUtter.onend   = () => { playing = false; renderPlayingIcons(); progress.style.width = '100%'; };
+			ttsUtter.onerror = () => { playing = false; renderPlayingIcons(); };
+			speechSynthesis.speak(ttsUtter);
 		}
-		function stopAll() {
+		function ttsStop() {
+			if ( 'speechSynthesis' in window ) {
+				try { speechSynthesis.cancel(); } catch(_){}
+			}
+			ttsUtter = null;
+		}
+
+		/* ── Unified play-current ─────────────────────────────────────
+		   Reads the active card, decides audio vs TTS based on whether
+		   the slug has an audio-key chain, and starts playback. */
+		function playCurrentCard() {
+			const card = currentCard();
+			if ( ! card ) return;
+			stopPlayback(false);
+			const slug = card.dataset.duaSlug || '';
+			const keys = ( card.dataset.audioKeys || '' ).split(',').filter(Boolean);
+			progress.style.width = '0%';
+			if ( keys.length ) {
+				// Audio mode — chain ayahs via .ended
+				mode    = 'audio';
+				allKeys = keys.slice();
+				queue   = keys.slice(1);
+				cursor  = 0;
+				prepareReadAlong(card, keys);
+				if ( lineNodes.length === 1 ) {
+					// Single-line dua: highlight the whole thing
+					setActiveLine(0);
+				}
+				playKey(keys[0]);
+			} else {
+				// TTS mode — read the transliteration
+				mode = 'tts';
+				const translit = card.dataset.translit || card.querySelectorAll('.la-dua-line-tr').length
+					? Array.from(card.querySelectorAll('.la-dua-line-tr')).map(n => n.textContent).join(' ')
+					: card.dataset.translit;
+				prepareReadAlong(card, []);
+				if ( lineNodes.length ) setActiveLine(0);
+				ttsSpeak(translit || card.dataset.title || '');
+			}
+		}
+		function stopPlayback(restore = true) {
 			try { audio.pause(); } catch(_){}
 			audio.removeAttribute('src');
 			audio.load();
-			queue       = [];
-			allKeys     = [];
-			cursor      = 0;
-			currentKey  = null;
-			playing     = false;
+			ttsStop();
+			queue = []; allKeys = []; cursor = 0; currentKey = null;
+			playing = false; mode = null;
 			renderPlayingIcons();
 			progress.style.width = '0%';
-			player.classList.remove('is-open');
-			player.hidden = true;
-			restoreReadAlong();   // Wave 110: unwrap arabic spans
+			if ( restore ) restoreReadAlong();
 		}
 
 		// Audio events
 		audio.addEventListener('ended', () => {
 			if ( queue.length ) {
-				cursor++;                     // Wave 110: advance the line cursor
+				cursor++;
 				playKey( queue.shift() );
 			} else {
 				playing = false;
 				renderPlayingIcons();
 				progress.style.width = '100%';
-				// Hold the last-line highlight visible for a beat — visual
-				// confirmation of completion — then fade it.
 				setTimeout( () => {
 					lineNodes.forEach( l => l.classList.remove('is-active') );
 				}, 1400 );
@@ -612,32 +670,151 @@ get_header();
 			if ( ! audio.duration ) return;
 			progress.style.width = ( ( audio.currentTime / audio.duration ) * 100 ) + '%';
 		});
-		audio.addEventListener('pause', () => { playing = false; renderPlayingIcons(); });
-		audio.addEventListener('play',  () => { playing = true;  renderPlayingIcons(); });
+		audio.addEventListener('pause', () => {
+			if ( mode === 'audio' ) { playing = false; renderPlayingIcons(); }
+		});
+		audio.addEventListener('play', () => {
+			if ( mode === 'audio' ) { playing = true; renderPlayingIcons(); }
+		});
 
-		// UI wiring
+		/* ─────────────────────────────────────────────────────────────
+		   CARD STEPPING — one card visible per category. The active
+		   card has .is-current; the rest are display:none via CSS.
+		   Prev/next + swipe move cursor within the current category.
+		   ───────────────────────────────────────────────────────────── */
+		function activeSection() {
+			return document.querySelector('.la-duas-list.is-active');
+		}
+		function currentCards() {
+			const sec = activeSection();
+			return sec ? Array.from( sec.querySelectorAll('.la-dua') ) : [];
+		}
+		function currentCard() {
+			return activeSection()?.querySelector('.la-dua.is-current') || currentCards()[0] || null;
+		}
+		function showCardAt(idx) {
+			const cards = currentCards();
+			if ( ! cards.length ) return;
+			const safe = Math.max( 0, Math.min( cards.length - 1, idx ) );
+			cards.forEach( (c, i) => c.classList.toggle('is-current', i === safe) );
+			cards[safe]?.scrollIntoView?.({ block: 'start', behavior: 'instant' });
+			renderPlayerForCurrent();
+		}
+		function navStep(delta) {
+			const cards = currentCards();
+			if ( ! cards.length ) return;
+			const cur = cards.findIndex( c => c.classList.contains('is-current') );
+			const next = Math.max( 0, Math.min( cards.length - 1, ( cur < 0 ? 0 : cur ) + delta ) );
+			if ( next === cur ) return;
+			// If currently playing, stop — user is moving on
+			if ( playing ) stopPlayback();
+			showCardAt(next);
+		}
+		function renderPlayerForCurrent() {
+			const card = currentCard();
+			const sec  = activeSection();
+			if ( ! card || ! sec ) return;
+			const catKey = sec.dataset.catSection;
+			const cat    = cats[catKey] || {};
+			titleEl.textContent      = card.dataset.title || '';
+			if ( catIconEl  ) catIconEl.textContent  = cat.emoji || '';
+			if ( catTitleEl ) catTitleEl.textContent = cat.label || '';
+			if ( catSubEl   ) catSubEl.textContent   = cat.sub || '';
+			const idx = Array.from( sec.querySelectorAll('.la-dua') ).indexOf(card) + 1;
+			const tot = sec.querySelectorAll('.la-dua').length;
+			if ( idxEl   ) idxEl.textContent   = String(idx);
+			if ( totalEl ) totalEl.textContent = String(tot);
+			if ( ameenCountEl ) ameenCountEl.textContent = card.dataset.ameenCount || '0';
+			if ( ameenBtn ) ameenBtn.classList.toggle( 'is-active', card.dataset.isAmened === '1' );
+		}
+
+		// Player UI wiring
 		playBtn.addEventListener('click', () => {
-			if ( ! currentKey ) return;
-			if ( playing ) audio.pause(); else audio.play();
+			if ( playing ) {
+				if ( mode === 'audio' ) audio.pause();
+				else if ( mode === 'tts' ) ttsStop(), (playing = false), renderPlayingIcons();
+			} else {
+				playCurrentCard();
+			}
 		});
-		closeBtn.addEventListener('click', stopAll);
-		speedOpts.forEach( o => o.addEventListener('click', () => applySpeed( parseFloat( o.dataset.speed ) )) );
-
-		// Delegated Listen-button handler — survives category swaps
-		document.addEventListener('click', (e) => {
-			const btn = e.target.closest('[data-action="listen"]');
-			if ( ! btn ) return;
-			e.preventDefault();
-			const title = btn.dataset.title || 'Recitation';
-			const keys  = ( btn.dataset.audioKeys || '' ).split(',').filter(Boolean);
-			if ( ! keys.length ) return;
-			const card  = btn.closest('.la-dua');   // Wave 110: pass the card so we can wrap its arabic
-			startQueue(title, keys, card);
+		prevBtn?.addEventListener('click', () => navStep(-1));
+		nextBtn?.addEventListener('click', () => navStep(+1));
+		speedBtn?.addEventListener('click', cycleSpeed);
+		tickBtn?.addEventListener('click', () => {
+			const card = currentCard();
+			if ( ! card ) return;
+			// Synthesize click on the hidden legacy tick button — the
+			// existing loveallah.js handler does the localStorage write
+			// + progress repaint + .is-ticked class swap.
+			const legacyTick = card.querySelector('[data-action="tick-day"]');
+			if ( legacyTick ) legacyTick.click();
+			tickBtn.classList.add('is-just-ticked');
+			setTimeout(() => tickBtn.classList.remove('is-just-ticked'), 600);
+			// Auto-advance to next dua after a brief beat
+			setTimeout(() => navStep(+1), 450);
+		});
+		ameenBtn?.addEventListener('click', () => {
+			const card = currentCard();
+			if ( ! card ) return;
+			// Synthesize click on hidden legacy ameen button — existing
+			// loveallah.js handler hits ${LA.apiRoot}duas/{id}/ameen and
+			// updates the count. We then re-sync the player display from
+			// the legacy button's data + count element.
+			const legacyAmeen = card.querySelector('[data-action="ameen"]');
+			if ( legacyAmeen ) {
+				legacyAmeen.click();
+				// Let the legacy handler's async fetch run, then read state
+				setTimeout(() => {
+					const wasActive = legacyAmeen.classList.contains('is-active');
+					card.dataset.isAmened = wasActive ? '1' : '0';
+					const countEl = legacyAmeen.querySelector('[data-ameen-count]');
+					if ( countEl ) {
+						card.dataset.ameenCount = countEl.textContent;
+						if ( ameenCountEl ) ameenCountEl.textContent = countEl.textContent;
+					}
+					ameenBtn.classList.toggle('is-active', wasActive);
+				}, 50);
+			}
 		});
 
-		// Initialise persistent speed pill state
+		// Swipe gestures on the card area — left swipe = next, right = prev
+		(function attachSwipe() {
+			const area = document.querySelector('.la-duas-lists');
+			if ( ! area ) return;
+			let sx = 0, sy = 0, active = false;
+			area.addEventListener('pointerdown', (e) => {
+				sx = e.clientX; sy = e.clientY; active = true;
+			});
+			area.addEventListener('pointerup', (e) => {
+				if ( ! active ) return;
+				active = false;
+				const dx = e.clientX - sx, dy = e.clientY - sy;
+				// Horizontal-dominant gesture only — leave vertical to native scroll
+				if ( Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6 ) {
+					navStep( dx < 0 ? +1 : -1 );
+				}
+			});
+			area.addEventListener('pointercancel', () => { active = false; });
+		})();
+
+		// Re-render player meta when category changes — observe the
+		// existing rail-button click that swaps .is-active sections.
+		document.querySelectorAll('[data-cat]').forEach( railBtn => {
+			railBtn.addEventListener('click', () => {
+				setTimeout(() => {
+					// Reset card cursor to first in the newly-active category
+					if ( playing ) stopPlayback();
+					const cards = currentCards();
+					cards.forEach( (c, i) => c.classList.toggle('is-current', i === 0) );
+					renderPlayerForCurrent();
+				}, 0);
+			});
+		});
+
+		// Initial paint
 		applySpeed(speed);
 		renderPlayingIcons();
+		renderPlayerForCurrent();
 	})();
 	</script>
 
