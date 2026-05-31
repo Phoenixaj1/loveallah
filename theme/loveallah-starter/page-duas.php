@@ -991,12 +991,17 @@ get_header();
 			area.addEventListener('pointercancel', () => { active = false; });
 		})();
 
-		// Re-render player meta when category changes — observe the
-		// existing rail-button click that swaps .is-active sections.
-		document.querySelectorAll('[data-cat]').forEach( railBtn => {
+		/* Wave 119b: scope this strictly to .la-duas-rail-btn elements,
+		   NOT every [data-cat]. The hidden legacy [data-action="tick-
+		   day"] buttons ALSO carry data-cat for the legacy handler's
+		   localStorage keying — so a generic [data-cat] selector was
+		   matching them and resetting the current card to idx 0 on
+		   EVERY tick click. That's why the second tick "rewound" to
+		   dua 1 instead of advancing. Scoping to rail buttons fixes
+		   the cascade. */
+		document.querySelectorAll('.la-duas-rail-btn[data-cat]').forEach( railBtn => {
 			railBtn.addEventListener('click', () => {
 				setTimeout(() => {
-					// Reset card cursor to first in the newly-active category
 					if ( playing ) stopPlayback();
 					const cards = currentCards();
 					cards.forEach( (c, i) => c.classList.toggle('is-current', i === 0) );
