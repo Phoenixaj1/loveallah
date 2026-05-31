@@ -9226,8 +9226,6 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 .pulse-core {
 	width: 96px; height: 96px; border-radius: 50%;
 	z-index: 2;
-	transition: transform   .6s cubic-bezier(.4, 0, .25, 1),
-	            box-shadow  .6s cubic-bezier(.4, 0, .25, 1);
 	background: radial-gradient(56% 56% at 38% 32%,
 		rgba(255,255,255,.96) 0%,
 		color-mix(in oklab, var(--gold) 70%, #fff) 30%,
@@ -9238,12 +9236,58 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 		0 0 34px -2px color-mix(in oklab, var(--gold) 60%, transparent),
 		inset 0 1px 0 rgba(255,255,255,.55);
 }
+
+/* Wave 101e: lub-dub heartbeat pattern.
+   Real hearts don't pulse once per beat — they contract twice:
+   a strong primary (ventricular systole) followed by a softer
+   secondary (atrial contribution). The whole sequence completes
+   in ~600ms regardless of BPM, leaving the long pause between
+   beats — which is what makes a slow heart feel calm. The
+   glow swells alongside the contractions so the light itself
+   breathes. */
 .pulse-core.beat {
-	transform: scale(1.14);
-	box-shadow:
-		0 0 120px -4px color-mix(in oklab, var(--gold) 70%, transparent),
-		0 0 50px  -2px color-mix(in oklab, var(--gold) 85%, transparent),
-		inset 0 1px 0 rgba(255,255,255,.7);
+	animation: la-pulse-heartbeat .6s cubic-bezier(.4, 0, .25, 1) both;
+}
+@keyframes la-pulse-heartbeat {
+	0% {
+		transform: scale(1);
+		box-shadow:
+			0 0 80px -4px color-mix(in oklab, var(--gold) 50%, transparent),
+			0 0 34px -2px color-mix(in oklab, var(--gold) 60%, transparent),
+			inset 0 1px 0 rgba(255,255,255,.55);
+	}
+	18% {
+		/* LUB — primary contraction, the big one */
+		transform: scale(1.12);
+		box-shadow:
+			0 0 130px -4px color-mix(in oklab, var(--gold) 72%, transparent),
+			0 0 56px  -2px color-mix(in oklab, var(--gold) 82%, transparent),
+			inset 0 1px 0 rgba(255,255,255,.72);
+	}
+	38% {
+		/* brief release between contractions */
+		transform: scale(1.01);
+		box-shadow:
+			0 0 90px -4px color-mix(in oklab, var(--gold) 55%, transparent),
+			0 0 38px -2px color-mix(in oklab, var(--gold) 65%, transparent),
+			inset 0 1px 0 rgba(255,255,255,.58);
+	}
+	55% {
+		/* DUB — softer secondary contraction */
+		transform: scale(1.07);
+		box-shadow:
+			0 0 110px -4px color-mix(in oklab, var(--gold) 65%, transparent),
+			0 0 48px  -2px color-mix(in oklab, var(--gold) 75%, transparent),
+			inset 0 1px 0 rgba(255,255,255,.66);
+	}
+	100% {
+		/* settle back to rest — the longest part of any cardiac cycle */
+		transform: scale(1);
+		box-shadow:
+			0 0 80px -4px color-mix(in oklab, var(--gold) 50%, transparent),
+			0 0 34px -2px color-mix(in oklab, var(--gold) 60%, transparent),
+			inset 0 1px 0 rgba(255,255,255,.55);
+	}
 }
 /* Wave 101d: ripple expands slowly and fades softly — feels like
    a candle's halo widening, not a startled wave. */

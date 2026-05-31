@@ -240,13 +240,15 @@ $la_pulse_targets = [
 		}
 
 		function beat() {
-			/* Wave 101d: class-toggle for the core's beat. CSS
-			   handles the soft .6s scale + glow swell. Hold the
-			   peak briefly (220ms) before releasing — feels like
-			   a settled heart, not a startled one. */
+			/* Wave 101e: retrigger the lub-dub keyframe animation on
+			   each beat. Remove → reflow → add forces the CSS
+			   animation to restart at frame 0; otherwise re-adding
+			   the same class to an element that already has it
+			   wouldn't re-fire the animation. */
 			if ( core ) {
+				core.classList.remove('beat');
+				void core.offsetWidth;
 				core.classList.add('beat');
-				setTimeout(() => { if ( core ) core.classList.remove('beat'); }, 220);
 			}
 			ripple();
 			const tn = tg().n;
