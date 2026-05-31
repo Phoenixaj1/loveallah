@@ -8831,29 +8831,35 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	display: grid; place-items: center;
 }
 .sol-ring { position: absolute; inset: 0; }
-/* Wave 101: 3-layer orb — ambient halo (huge, soft, takes the
-   scene's tint) + color wash (the orb body itself) + bright inner
-   highlight (top-left, sells the sphericality). Plus a faint
-   outer ring for definition. This is the "sacred presence" feel. */
+/* Wave 101/103d: SOLID orb — no transparency at the edges. The
+   previous Wave 101 gradient faded to transparent at 88% which
+   meant when a scene video played behind the orb, you could see
+   the video THROUGH the orb's edge — translucent bubble, not a
+   real presence. Restored the original density: the gradient is
+   opaque the whole way out, ending at the scene's --orbtint
+   colour at the edge. Sphericality comes from the highlight pole
+   (top-left bright spot) plus a top-edge inset highlight and a
+   bottom inset shadow. Outer halo stays in box-shadow. */
 .sol-orb {
 	width: 196px; height: 196px; border-radius: 50%;
 	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
 	background:
-		radial-gradient(46% 46% at 38% 32%,
-			rgba(255,255,255,.92) 0%,
-			rgba(255,255,255,.55) 22%,
-			color-mix(in oklab, var(--orbtint, #fff) 75%, #fff) 50%,
-			color-mix(in oklab, var(--orbtint, #fff) 78%, transparent) 78%,
-			transparent 88%);
+		radial-gradient(circle at 35% 30%,
+			rgba(255, 255, 255, 0.96) 0%,
+			color-mix(in oklab, var(--orbtint, #fff) 35%, #fff) 30%,
+			color-mix(in oklab, var(--orbtint, #fff) 70%, #fff) 65%,
+			var(--orbtint, #fff) 100%);
 	box-shadow:
 		/* ambient halo — far, soft, scene-tinted */
-		0 0 140px -10px color-mix(in oklab, var(--orbtint, #fff) 45%, transparent),
+		0 0 140px -10px color-mix(in oklab, var(--orbtint, #fff) 50%, transparent),
 		/* mid glow — closer ring of light */
-		0 0 60px -6px color-mix(in oklab, var(--orbtint, #fff) 60%, transparent),
-		/* inner highlight — perceptual depth */
-		inset 0 0 38px rgba(255,255,255,.32),
-		/* hairline — defines the orb edge without harshness */
-		inset 0 0 0 .5px rgba(255,255,255,.18);
+		0 0 60px -6px color-mix(in oklab, var(--orbtint, #fff) 65%, transparent),
+		/* top-edge highlight — sells the spherical curvature */
+		inset 0 2px 0 rgba(255, 255, 255, 0.5),
+		/* bottom inset shadow — gives the orb weight */
+		inset 0 -8px 32px color-mix(in oklab, var(--orbtint, #fff) 70%, rgba(0,0,0,.25)),
+		/* hairline edge ring — defines the orb against any backdrop */
+		inset 0 0 0 .5px rgba(255, 255, 255, 0.22);
 }
 /* Wave 100c: bigger expansion range + per-keyframe easing so the
    orb visibly grows the moment "Inhale" starts (not slow-start
