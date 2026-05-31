@@ -9650,7 +9650,21 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	touch-action: none;
 }
 
-/* Completion card — replaces the stage at end of sequence. */
+/* Wave 106c: hard [hidden] overrides. Same cascade bug as the
+   rail icons in Wave 104c — author display:flex on these
+   elements was beating the user-agent [hidden]{display:none},
+   so setting hidden=true via JS did nothing. The completion
+   card was rendering OVER step 1 content from the start. */
+.pray-stage[hidden],
+.pray-touch[hidden],
+.pray-complete[hidden] {
+	display: none !important;
+}
+
+/* Completion card — replaces the stage at end of sequence.
+   Opaque jade background so even if the [hidden] override
+   ever fails again, the step content underneath can't bleed
+   through. */
 .pray-complete {
 	position: absolute;
 	inset: 0;
@@ -9660,6 +9674,10 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	padding: 60px 32px;
 	z-index: 5;
 	text-align: center;
+	background:
+		radial-gradient(120% 80% at 50% 30%, rgba(20,48,34,.96), rgba(6,16,12,.99));
+	-webkit-backdrop-filter: blur(12px);
+	        backdrop-filter: blur(12px);
 	animation: la-pray-complete-in .8s cubic-bezier(.16, 1, .3, 1);
 }
 @keyframes la-pray-complete-in {
