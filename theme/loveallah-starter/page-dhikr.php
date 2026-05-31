@@ -32,7 +32,7 @@ $la_mode = sanitize_key( $_GET['mode'] ?? '' );
 $la_route_partial = '';
 if ( $la_mode === 'hub' ) {
 	$la_route_partial = 'dhikr-hub.php';
-} elseif ( in_array( $la_mode, [ 'witness', 'pulse', 'names' ], true ) ) {
+} elseif ( in_array( $la_mode, [ 'witness', 'pulse', 'names', 'pray' ], true ) ) {
 	$la_route_partial = 'dhikr-' . $la_mode . '.php';
 }
 if ( $la_route_partial ) {
@@ -155,6 +155,7 @@ get_header();
 	<nav class="la-dhikr-modes" aria-label="Dhikr modes">
 		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" aria-current="page">Breathe</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>">Focus</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pray' ) ); ?>">Pray</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">Names</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
 	</nav>

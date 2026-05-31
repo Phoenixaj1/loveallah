@@ -43,6 +43,7 @@ $la_names_data = array_values( array_map( function( $n ) {
 	<nav class="la-dhikr-modes" aria-label="Dhikr modes">
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>">Breathe</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>">Focus</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pray' ) ); ?>">Pray</a>
 		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>" aria-current="page">Names</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
 	</nav>

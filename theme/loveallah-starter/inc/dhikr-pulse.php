@@ -66,6 +66,7 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 	<nav class="la-dhikr-modes" aria-label="Dhikr modes">
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>">Breathe</a>
 		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>" aria-current="page">Focus</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pray' ) ); ?>">Pray</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">Names</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
 	</nav>
