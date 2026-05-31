@@ -56,6 +56,9 @@ $la_pulse_targets = [
 	[ 'n' => 300, 'tag' => 'Long sitting' ],
 	[ 'n' => 0,   'tag' => 'Until still' ],
 ];
+
+// Wave 103: shared ambient scene library — same 6 as Solitude.
+require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 ?>
 <main class="la-app la-app--pulse la-dhikr-live mode-pulse" data-dhikr-mode="pulse">
 
@@ -67,7 +70,32 @@ $la_pulse_targets = [
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
 	</nav>
 
+	<?php // Wave 103: scene chip selector — same as Solitude. ?>
+	<nav class="sol-scene-chips" data-pul-chips aria-label="Ambient scene">
+		<?php foreach ( $la_dhikr_scenes as $i => $s ) : ?>
+			<button type="button"
+				class="sol-scene-chip <?php echo $i === 0 ? 'is-active' : ''; ?>"
+				data-pul-scene-chip="<?php echo (int) $i; ?>"
+				aria-label="<?php echo esc_attr( $s['label'] ); ?> scene">
+				<span class="sol-scene-chip-emoji" aria-hidden="true"><?php echo $s['emoji'] ?? '🌙'; ?></span>
+				<span class="sol-scene-chip-label"><?php echo esc_html( $s['label'] ); ?></span>
+			</button>
+		<?php endforeach; ?>
+	</nav>
+
 	<div class="pul-live" data-pul>
+
+		<?php // Wave 103: ambient backdrop layers. CSS gradient base
+		// (instant, always visible), YouTube iframe layer above the
+		// gradient. Mute button top-left, like Solitude. ?>
+		<div class="pul-bg-gradient" data-pul-bg style="background: <?php echo esc_attr( $la_dhikr_scenes[0]['bg'] ); ?>;" aria-hidden="true"></div>
+		<div class="sol-yt" data-pul-yt aria-hidden="true"></div>
+		<div class="sol-scrim" aria-hidden="true"></div>
+
+		<button type="button" class="live-mute is-muted" data-pul-mute aria-label="Toggle ambient sound" aria-pressed="false">
+			<svg data-pul-mute-on  width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+			<svg data-pul-mute-off width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+		</button>
 
 		<?php // Top — Arabic phrase + transliteration ?>
 		<div class="pul-phrase">
@@ -159,7 +187,11 @@ $la_pulse_targets = [
 	</div>
 
 	<script id="la-pul-config" type="application/json">
-		<?php echo wp_json_encode( [ 'phrases' => $la_pulse_phrases, 'targets' => $la_pulse_targets ] ); ?>
+		<?php echo wp_json_encode( [
+			'phrases' => $la_pulse_phrases,
+			'targets' => $la_pulse_targets,
+			'scenes'  => $la_dhikr_scenes,
+		] ); ?>
 	</script>
 
 	<script>
@@ -176,14 +208,75 @@ $la_pulse_targets = [
 
 		let pi = parseInt( localStorage.getItem('la_pul_pi') || '0', 10 );
 		let ti = parseInt( localStorage.getItem('la_pul_ti') || '0', 10 );
-		if ( pi < 0 || pi >= cfg.phrases.length ) pi = 0;
-		if ( ti < 0 || ti >= cfg.targets.length ) ti = 0;
+		let scene = parseInt( localStorage.getItem('la_pul_scene') || '0', 10 );
+		if ( pi    < 0 || pi    >= cfg.phrases.length ) pi    = 0;
+		if ( ti    < 0 || ti    >= cfg.targets.length ) ti    = 0;
+		if ( scene < 0 || scene >= ( cfg.scenes || [] ).length ) scene = 0;
 		let count = 0, playing = false;
 		let bpm   = cfg.phrases[pi].from;
 		let beatT = null, slowT = null;
+		/* Wave 103: scene/mute state mirrors Solitude. */
+		let isMuted = ( localStorage.getItem('la_pul_muted') !== '0' );
+		let currentVideoId = '';
 
 		const ph = () => cfg.phrases[pi];
 		const tg = () => cfg.targets[ti];
+		const sc = () => ( cfg.scenes || [] )[scene] || null;
+
+		// Wave 103: chip + YT layer + mute refs (chip nav is OUTSIDE
+		// .pul-live, so query at document/chipsNav level — same scope
+		// bug we hit in Wave 102b).
+		const chipsNav   = document.querySelector('[data-pul-chips]');
+		const sceneChips = chipsNav ? chipsNav.querySelectorAll('[data-pul-scene-chip]') : [];
+		const bgEl       = root.querySelector('[data-pul-bg]');
+		const yt         = root.querySelector('[data-pul-yt]');
+		const muteBtn    = root.querySelector('[data-pul-mute]');
+		const muteOn     = root.querySelector('[data-pul-mute-on]');
+		const muteOff    = root.querySelector('[data-pul-mute-off]');
+
+		/* Wave 103: swap the YT iframe to the current scene's video.
+		   Same pattern as Solitude. Idempotent. */
+		function applyVideo() {
+			if ( ! yt ) return;
+			const s = sc();
+			const v = s?.video || '';
+			if ( v === currentVideoId ) return;
+			currentVideoId = v;
+			yt.innerHTML = '';
+			if ( ! v ) { yt.classList.remove('is-active'); return; }
+			const mp = isMuted ? '1' : '0';
+			const url = 'https://www.youtube-nocookie.com/embed/' + v
+				+ '?autoplay=1&mute=' + mp + '&loop=1&playlist=' + v
+				+ '&controls=0&modestbranding=1&playsinline=1&rel=0'
+				+ '&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1';
+			const f = document.createElement('iframe');
+			f.src = url;
+			f.allow = 'autoplay; encrypted-media';
+			f.setAttribute('frameborder', '0');
+			f.setAttribute('aria-hidden', 'true');
+			yt.appendChild(f);
+			yt.classList.add('is-active');
+		}
+		function postYt(func) {
+			const f = yt?.querySelector('iframe');
+			if ( ! f || ! f.contentWindow ) return;
+			try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*'); } catch (_) {}
+		}
+		function setMute(on) {
+			isMuted = !! on;
+			localStorage.setItem('la_pul_muted', isMuted ? '1' : '0');
+			if ( muteBtn ) {
+				muteBtn.classList.toggle('is-muted', isMuted);
+				muteBtn.setAttribute('aria-pressed', String( ! isMuted ));
+			}
+			if ( muteOn )  muteOn.hidden  =   isMuted;
+			if ( muteOff ) muteOff.hidden = ! isMuted;
+			postYt( isMuted ? 'mute' : 'unMute' );
+		}
+		function applyBgGradient() {
+			const s = sc();
+			if ( bgEl && s?.bg ) bgEl.style.background = s.bg;
+		}
 
 		const arEl       = root.querySelector('[data-pul-ar]');
 		const trEl       = root.querySelector('[data-pul-tr]');
@@ -320,6 +413,30 @@ $la_pulse_targets = [
 
 		phraseOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.pulPickPhrase, 10) === pi ) );
 		targetOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.pulPickTarget, 10) === ti ) );
+
+		/* Wave 103: scene chip clicks — swap bg + iframe to picked scene. */
+		sceneChips.forEach( c => c.addEventListener( 'click', () => {
+			const i = parseInt( c.dataset.pulSceneChip, 10 );
+			if ( i === scene ) return;
+			scene = i;
+			localStorage.setItem( 'la_pul_scene', String(scene) );
+			sceneChips.forEach( o => o.classList.toggle( 'is-active', parseInt(o.dataset.pulSceneChip, 10) === scene ) );
+			applyBgGradient();
+			applyVideo();
+			try { c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (_) {}
+		}) );
+		// Mute toggle
+		muteBtn?.addEventListener( 'click', () => setMute( ! isMuted ) );
+
+		// Initial chip sync to persisted scene, then mount video + bg
+		sceneChips.forEach( c => c.classList.toggle( 'is-active', parseInt(c.dataset.pulSceneChip, 10) === scene ) );
+		const activeChip = chipsNav?.querySelector('[data-pul-scene-chip].is-active');
+		if ( activeChip ) {
+			try { activeChip.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (_) {}
+		}
+		setMute( isMuted );
+		applyBgGradient();
+		applyVideo();
 
 		render();
 	})();

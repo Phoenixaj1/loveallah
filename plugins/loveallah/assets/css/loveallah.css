@@ -9265,32 +9265,51 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 
 /* ════════════════════════════════════════════════════════════════════
    WAVE 97 — PulseLive (heart-rate beat that settles toward stillness).
+   Wave 103: removed the static indigo wash so the per-scene gradient
+   from .pul-bg-gradient takes over (Ocean / Cosmos / etc.). Fallback
+   black so there's never a flash of unstyled.
    ════════════════════════════════════════════════════════════════════ */
 .la-dhikr-live.mode-pulse {
-	background:
-		radial-gradient(135% 80% at 50% -8%, rgba(58,74,150,.30) 0%, transparent 50%),
-		radial-gradient(120% 80% at 50% 112%, rgba(40,52,104,.26) 0%, transparent 52%),
-		radial-gradient(140% 100% at 50% 0%, #0e1022 0%, #08090f 58%, #06070c 100%);
+	background: #06070c;
 }
 
 .pul-live {
 	position: absolute; inset: 0; overflow: hidden;
 	color: var(--ink);
 }
+
+/* Wave 103: Pulse now gets the same ambient backdrop stack as
+   Solitude — gradient base + optional YT iframe layer above it.
+   Sits BELOW everything else in .pul-live (z 0). The scrim above
+   tones edges so the heartbeat core still pops against any video. */
+.pul-bg-gradient {
+	position: absolute; inset: 0;
+	z-index: 0;
+	transition: background .6s ease;
+}
+.pul-live .sol-yt {
+	z-index: 0;  /* override .sol-yt's default; sits over the gradient */
+}
+.pul-live .sol-scrim {
+	z-index: 1;
+}
 .pul-live .pul-phrase {
 	position: absolute;
-	top: calc(env(safe-area-inset-top, 0px) + 92px);
+	/* Wave 103: pushed down to clear the new scene chip row (pills
+	   at env+14, chips at env+72, then a 42px breath before phrase). */
+	top: calc(env(safe-area-inset-top, 0px) + 134px);
 	left: 0; right: 0; text-align: center; z-index: 2;
 }
 .pul-ar { font-size: 34px; color: #fff; line-height: 1.4; }
 .pul-tr { font-size: 14px; color: var(--muted); margin-top: 8px; font-weight: 600; }
 
-/* Wave 101b: single flex column for pulse → count → BPM so they
-   stack with predictable rhythm instead of jockeying for vertical
-   space via independent absolute positioning. */
+/* Wave 101b/103: single flex column for pulse → count → BPM. Top
+   pushed down further in Wave 103 to clear the new scene chip row
+   (pills at env+14, chips at env+72, phrase at env+134, then 60px
+   breath before the centre stack). */
 .pul-live-core {
 	position: absolute;
-	top: calc(env(safe-area-inset-top, 0px) + 168px);
+	top: calc(env(safe-area-inset-top, 0px) + 210px);
 	bottom: calc(var(--la-tabbar-h, 64px) + 110px);
 	left: 0; right: 0;
 	display: flex; flex-direction: column;

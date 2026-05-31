@@ -141,45 +141,11 @@ $la_sol_targets = [
 	[ 'n' => 0,   'tag' => 'Until still' ],
 ];
 
-// Ambient scenes — full-bleed CSS gradients (instant, always visible)
-// + an optional YouTube ambient video that fades in once the scene
-// settles after a swipe. The gradient gives an instant identity; the
-// video deepens it. Picking a scene with no video keeps the gradient
-// only (silent option).
-//
-// Video IDs are the same ones we curated for the older Wave 95 scene
-// library — verified to be ambient loops that allow embedding.
-$la_sol_scenes = [
-	// Ocean is first so a fresh visitor lands on a video-backed scene
-	// (the gradient-only Moonlit option sits in second slot for users
-	// who want pure stillness).
-	// Wave 102: each scene now has an `emoji` field used by the chip
-	// selector at the top of the screen.
-	[ 'id' => 'ocean', 'label' => 'Ocean', 'emoji' => '🌊',
-	  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #155560 0%, #0c2f38 46%, #06151b 100%)',
-	  'orb'   => '#bfeef0',
-	  'video' => 'NJXzcQJi_A8' ],   // waves only — no music
-	[ 'id' => 'moonlit', 'label' => 'Moonlit', 'emoji' => '🌙',
-	  'bg'    => 'radial-gradient(80% 55% at 50% 26%, #33386a 0%, #1a1d3e 48%, #0a0b1c 100%)',
-	  'orb'   => '#cfd6ff',
-	  'video' => '' ],   // gradient only — pure silence
-	[ 'id' => 'forest', 'label' => 'Forest', 'emoji' => '🌿',
-	  'bg'    => 'radial-gradient(85% 58% at 50% 26%, #265141 0%, #143026 46%, #08160f 100%)',
-	  'orb'   => '#cdeed2',
-	  'video' => 'BHACKCNDMW8' ],   // birds at dawn — no music
-	[ 'id' => 'cosmos', 'label' => 'Cosmos', 'emoji' => '✨',
-	  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #3a2a5c 0%, #1e1438 48%, #0a0712 100%)',
-	  'orb'   => '#e6d4ff',
-	  'video' => 'Y_plhk1FUQA' ],   // hubble cosmos — ambient music
-	[ 'id' => 'dawn', 'label' => 'Sahara', 'emoji' => '🌅',
-	  'bg'    => 'radial-gradient(90% 60% at 50% 30%, #6e4444 0%, #3a2330 46%, #160c18 100%)',
-	  'orb'   => '#ffd9c2',
-	  'video' => 'gFmDx9oj3DU' ],   // sahara at first light — cinematic
-	[ 'id' => 'haram', 'label' => 'Haram', 'emoji' => '🕋',
-	  'bg'    => 'radial-gradient(85% 58% at 50% 26%, #3a2e1c 0%, #20180c 46%, #0a0805 100%)',
-	  'orb'   => '#f0d8a8',
-	  'video' => 'bNY8a2BB5Gc' ],   // live tawaf from Makkah
-];
+// Wave 103: scene library extracted to a shared partial so Pulse
+// + Names can use the same 6 ambient backdrops without duplicating
+// the YouTube IDs / gradient gradients.
+require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
+$la_sol_scenes = $la_dhikr_scenes;
 
 get_header();
 ?>
