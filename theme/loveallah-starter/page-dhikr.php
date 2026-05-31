@@ -126,28 +126,39 @@ $la_sol_targets = [
 	[ 'n' => 0,   'tag' => 'Until still' ],
 ];
 
-// Ambient scenes — full-bleed CSS gradients with a soft orb tint that
-// flows through to the breath orb. Six scenes total (Claude Design's
-// palette). Each is a `radial-gradient(ellipse, glow → mid → dark)`.
+// Ambient scenes — full-bleed CSS gradients (instant, always visible)
+// + an optional YouTube ambient video that fades in once the scene
+// settles after a swipe. The gradient gives an instant identity; the
+// video deepens it. Picking a scene with no video keeps the gradient
+// only (silent option).
+//
+// Video IDs are the same ones we curated for the older Wave 95 scene
+// library — verified to be ambient loops that allow embedding.
 $la_sol_scenes = [
 	[ 'id' => 'moonlit', 'label' => 'Moonlit',
-	  'bg'  => 'radial-gradient(80% 55% at 50% 26%, #33386a 0%, #1a1d3e 48%, #0a0b1c 100%)',
-	  'orb' => '#cfd6ff' ],
+	  'bg'    => 'radial-gradient(80% 55% at 50% 26%, #33386a 0%, #1a1d3e 48%, #0a0b1c 100%)',
+	  'orb'   => '#cfd6ff',
+	  'video' => '' ],   // gradient only — pure silence
 	[ 'id' => 'ocean', 'label' => 'Ocean',
-	  'bg'  => 'radial-gradient(85% 58% at 50% 24%, #155560 0%, #0c2f38 46%, #06151b 100%)',
-	  'orb' => '#bfeef0' ],
-	[ 'id' => 'garden', 'label' => 'Garden',
-	  'bg'  => 'radial-gradient(85% 58% at 50% 26%, #265141 0%, #143026 46%, #08160f 100%)',
-	  'orb' => '#cdeed2' ],
-	[ 'id' => 'dawn', 'label' => 'Dawn',
-	  'bg'  => 'radial-gradient(90% 60% at 50% 30%, #6e4444 0%, #3a2330 46%, #160c18 100%)',
-	  'orb' => '#ffd9c2' ],
+	  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #155560 0%, #0c2f38 46%, #06151b 100%)',
+	  'orb'   => '#bfeef0',
+	  'video' => 'NJXzcQJi_A8' ],   // waves only — no music
+	[ 'id' => 'forest', 'label' => 'Forest',
+	  'bg'    => 'radial-gradient(85% 58% at 50% 26%, #265141 0%, #143026 46%, #08160f 100%)',
+	  'orb'   => '#cdeed2',
+	  'video' => 'BHACKCNDMW8' ],   // birds at dawn — no music
 	[ 'id' => 'cosmos', 'label' => 'Cosmos',
-	  'bg'  => 'radial-gradient(85% 58% at 50% 24%, #3a2a5c 0%, #1e1438 48%, #0a0712 100%)',
-	  'orb' => '#e6d4ff' ],
-	[ 'id' => 'rain', 'label' => 'Rain',
-	  'bg'  => 'radial-gradient(88% 58% at 50% 24%, #2f4150 0%, #1a2530 46%, #0a1016 100%)',
-	  'orb' => '#cfe0ec' ],
+	  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #3a2a5c 0%, #1e1438 48%, #0a0712 100%)',
+	  'orb'   => '#e6d4ff',
+	  'video' => 'Y_plhk1FUQA' ],   // hubble cosmos — ambient music
+	[ 'id' => 'dawn', 'label' => 'Sahara',
+	  'bg'    => 'radial-gradient(90% 60% at 50% 30%, #6e4444 0%, #3a2330 46%, #160c18 100%)',
+	  'orb'   => '#ffd9c2',
+	  'video' => 'gFmDx9oj3DU' ],   // sahara at first light — cinematic
+	[ 'id' => 'haram', 'label' => 'Haram',
+	  'bg'    => 'radial-gradient(85% 58% at 50% 26%, #3a2e1c 0%, #20180c 46%, #0a0805 100%)',
+	  'orb'   => '#f0d8a8',
+	  'video' => 'bNY8a2BB5Gc' ],   // live tawaf from Makkah
 ];
 
 get_header();
@@ -172,6 +183,12 @@ get_header();
 				</div>
 			<?php endforeach; ?>
 		</div>
+
+		<?php // Wave 96b: YouTube ambient video layer. One iframe, JS swaps
+		// src when the scene settles. Sits above the gradients, fades in
+		// when a video is present. ?>
+		<div class="sol-yt" data-sol-yt aria-hidden="true"></div>
+
 		<div class="sol-scrim" aria-hidden="true"></div>
 
 		<?php // 2. Stage — orb (with progress ring) + counter + translit ?>
@@ -227,6 +244,14 @@ get_header();
 		<?php // 6. Reset button — only when count > 0 ?>
 		<button type="button" class="live-reset" data-sol-reset aria-label="Reset count" hidden>
 			<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+		</button>
+
+		<?php // Wave 96b: mute toggle — top-left mirror of reset. The scene
+		// video is muted by default (otherwise YouTube autoplay blocks),
+		// tap to unmute (counts as a user gesture). ?>
+		<button type="button" class="live-mute is-muted" data-sol-mute aria-label="Toggle ambient sound" aria-pressed="false">
+			<svg data-sol-mute-on  width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+			<svg data-sol-mute-off width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
 		</button>
 
 		<?php // 7. Bottom sheets — phrase + target pickers ?>
@@ -319,12 +344,61 @@ get_header();
 		const sheetBtns   = root.querySelectorAll('[data-sol-sheet]');
 		const phraseOpts  = root.querySelectorAll('[data-sol-pick-phrase]');
 		const targetOpts  = root.querySelectorAll('[data-sol-pick-target]');
+		// Wave 96b — YouTube ambient layer + mute toggle
+		const yt          = root.querySelector('[data-sol-yt]');
+		const muteBtn     = root.querySelector('[data-sol-mute]');
+		const muteOn      = root.querySelector('[data-sol-mute-on]');
+		const muteOff     = root.querySelector('[data-sol-mute-off]');
+		// Start muted by default — YouTube blocks autoplay-with-sound.
+		let isMuted = ( localStorage.getItem('la_sol_muted') !== '0' );
+		let currentVideoId = '';
 
 		const RING_C = 2 * Math.PI * 118;  // ring circumference
 
 		const ph = () => cfg.phrases[pi];
 		const tg = () => cfg.targets[ti];
 		const sc = () => cfg.scenes[scene];
+
+		/* Wave 96b: swap the YT iframe to the current scene's video.
+		   If no video, fade the layer out. Idempotent — does nothing
+		   if the video hasn't changed (so we don't re-mount on every
+		   render() call). */
+		function applyVideo() {
+			const v = sc().video || '';
+			if ( v === currentVideoId ) return;
+			currentVideoId = v;
+			yt.innerHTML = '';
+			if ( ! v ) { yt.classList.remove('is-active'); return; }
+			const mp = isMuted ? '1' : '0';
+			const url = 'https://www.youtube-nocookie.com/embed/' + v
+				+ '?autoplay=1&mute=' + mp + '&loop=1&playlist=' + v
+				+ '&controls=0&modestbranding=1&playsinline=1&rel=0'
+				+ '&iv_load_policy=3&cc_load_policy=0&disablekb=1&fs=0&enablejsapi=1';
+			const f = document.createElement('iframe');
+			f.src = url;
+			f.allow = 'autoplay; encrypted-media';
+			f.setAttribute('frameborder', '0');
+			f.setAttribute('aria-hidden', 'true');
+			yt.appendChild(f);
+			yt.classList.add('is-active');
+		}
+
+		/* Wave 96b: postMessage mute control. The YT IFrame API responds
+		   to `{event:'command', func:'mute'/'unMute'}` on its window. */
+		function postYt(func) {
+			const f = yt.querySelector('iframe');
+			if ( ! f || ! f.contentWindow ) return;
+			try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*'); } catch (_) {}
+		}
+		function setMute(on) {
+			isMuted = !! on;
+			localStorage.setItem('la_sol_muted', isMuted ? '1' : '0');
+			muteBtn.classList.toggle('is-muted', isMuted);
+			muteBtn.setAttribute('aria-pressed', String( ! isMuted ));
+			if ( muteOn )  muteOn.hidden  =   isMuted;
+			if ( muteOff ) muteOff.hidden = ! isMuted;
+			postYt(isMuted ? 'mute' : 'unMute');
+		}
 
 		function render() {
 			// orb tint flows from scene
@@ -426,6 +500,7 @@ get_header();
 				if      ( dx < -40 && scene < cfg.scenes.length - 1 ) scene++;
 				else if ( dx >  40 && scene > 0 )                     scene--;
 				localStorage.setItem('la_sol_scene', String(scene));
+				applyVideo();   // settle on new scene → load its video
 			} else {
 				doCount();
 			}
@@ -460,6 +535,11 @@ get_header();
 		// restore selections in sheet UIs from persisted state
 		phraseOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.solPickPhrase, 10) === pi ) );
 		targetOpts.forEach( o => o.classList.toggle( 'sel', parseInt(o.dataset.solPickTarget, 10) === ti ) );
+
+		// Wave 96b: mount the YT layer + sync the mute button to persisted state
+		muteBtn.addEventListener('click', () => setMute( ! isMuted ));
+		setMute( isMuted );   // syncs icon + aria-pressed without postMessage (no iframe yet)
+		applyVideo();         // mount the current scene's video
 
 		render();
 	})();

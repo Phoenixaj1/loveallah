@@ -8686,6 +8686,54 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	background: linear-gradient(180deg, rgba(8,6,12,.5) 0%, rgba(8,6,12,0) 22% 64%, rgba(8,6,12,.66) 100%);
 }
 
+/* ── Wave 96b: YouTube ambient video layer.
+   Sits ABOVE the static CSS gradients but BELOW the scrim/orb.
+   One iframe per app — JS swaps src when the scene changes (cheap)
+   instead of pre-mounting 6 iframes (would melt bandwidth). When a
+   scene has no video, the layer goes empty and the gradient shows
+   through. The iframe uses YouTube's standard cover-crop technique:
+   make it taller than wide via aspect ratio so the video fills
+   vertically and the sides crop. */
+.sol-yt {
+	position: absolute;
+	inset: 0;
+	z-index: 0;  /* same layer as scene-track; will sit above when present */
+	overflow: hidden;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity .8s ease;
+}
+.sol-yt.is-active { opacity: 1; }
+.sol-yt iframe {
+	position: absolute;
+	top: 50%; left: 50%;
+	/* 16:9 ratio sized to cover whichever dimension is bigger */
+	width: max(177.78vh, 100%);
+	height: max(56.25vw, 100%);
+	transform: translate(-50%, -50%);
+	border: 0;
+	pointer-events: none;
+}
+
+/* ── Wave 96b: mute toggle, lives top-left mirroring the reset
+   button on the right. Small glass pill with speaker icon. */
+.live-mute {
+	position: absolute;
+	top: calc(var(--la-header-h, 110px) + 10px);
+	left: 16px;
+	z-index: 6;
+	width: 38px; height: 38px; border-radius: 50%;
+	display: grid; place-items: center;
+	cursor: pointer; border: 1px solid var(--hair);
+	color: var(--muted);
+	background: rgba(20,16,24,.5);
+	-webkit-backdrop-filter: blur(12px);
+	        backdrop-filter: blur(12px);
+	transition: transform .12s, color .2s;
+}
+.live-mute:active { transform: scale(.9); }
+.live-mute.is-muted { color: var(--gold); }
+
 /* ── 2. Stage — centre column with orb + counter + translit.
    `pointer-events: none` so the tap overlay above (sol-touch) gets
    the input. Top offset clears the mode-switcher pills + safe area. */
@@ -8925,10 +8973,16 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 
 /* ── Mode pills (Wave 95b) restyle for the new dark/gold palette so
    the active pill matches the rest of the Solitude system. Only
-   applies inside .la-dhikr-live so other dhikr modes are untouched. */
+   applies inside .la-dhikr-live so other dhikr modes are untouched.
+   Wave 96b: explicit left+transform centring (the inherited
+   width:fit-content + margin:auto only works for flow-positioned
+   elements; once we switch to position:fixed we need both). */
 .la-dhikr-live .la-dhikr-modes {
 	position: fixed;
 	top: calc(var(--la-header-h, 110px) - 36px);
+	left: 50%;
+	transform: translateX(-50%);
+	margin: 0;
 	background: rgba(18,14,20,.5);
 	border-color: var(--hair);
 	box-shadow: 0 12px 30px -16px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.05);
