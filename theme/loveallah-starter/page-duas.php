@@ -34,9 +34,14 @@ if ( $identity && $duas ) {
 }
 
 // Categories — ordered by daily relevance. Each: emoji, short label, long label.
+// Wave 108: added Ruqyah — protective Qur'an + supplications against
+// sihr (magic), ayn (evil eye), hasad (envy), and jinn interference.
+// The category renders a knowledge intro card on top so the user
+// learns the prophetic method, not just the words.
 $cats = [
 	'morning'    => [ 'emoji' => '🌅', 'label' => 'Morning',    'sub' => 'After Fajr' ],
 	'evening'    => [ 'emoji' => '🌙', 'label' => 'Evening',    'sub' => 'After Maghrib' ],
+	'ruqyah'     => [ 'emoji' => '🛡️', 'label' => 'Ruqyah',     'sub' => 'Quranic protection' ],
 	'worry'      => [ 'emoji' => '💗', 'label' => 'Anxiety',    'sub' => 'When the heart is heavy' ],
 	'general'    => [ 'emoji' => '⭐', 'label' => 'Daily',      'sub' => 'For every day' ],
 	'waking'     => [ 'emoji' => '☀️', 'label' => 'Waking',     'sub' => 'On opening your eyes' ],
@@ -105,6 +110,72 @@ get_header();
 		<div class="la-duas-lists">
 			<?php foreach ( $active_cats as $key => $meta ) : ?>
 				<section class="la-duas-list <?php echo $key === $first_cat ? 'is-active' : ''; ?>" data-cat-section="<?php echo esc_attr( $key ); ?>">
+
+					<?php // Wave 108: Ruqyah knowledge intro. Renders ONCE at the top
+					// of the ruqyah section. Frames the prophetic protection — what
+					// it addresses (sihr, ayn, hasad, jinn, heart hardness), the
+					// method (cup, recite, blow, wipe), the timing (morning/evening/
+					// sleep, on signs of harm), and the sincerity that it's Allah
+					// who cures. The words are the means; the cure is His.
+					if ( $key === 'ruqyah' ) : ?>
+						<article class="la-dua la-dua--knowledge la-ruqyah-intro">
+							<header class="la-ruqyah-intro-head">
+								<div class="la-ruqyah-intro-eyebrow">The Prophet's Protection</div>
+								<h2 class="la-ruqyah-intro-title">Ruqyah — for what cannot be seen</h2>
+								<p class="la-ruqyah-intro-lead">Authentic Quranic recitation and prophetic supplication, used to seek Allah's protection and removal of spiritual harm. The cure is from Him alone. The words are the means.</p>
+							</header>
+
+							<div class="la-ruqyah-intro-pillars">
+								<div class="la-ruqyah-pillar">
+									<div class="la-ruqyah-pillar-glyph">①</div>
+									<h3>What it addresses</h3>
+									<ul class="la-ruqyah-pillar-list">
+										<li><b>Sihr</b> — magic, witchcraft</li>
+										<li><b>Ayn</b> — the evil eye, harm from envious glance</li>
+										<li><b>Hasad</b> — envy from the heart of the envier</li>
+										<li><b>Jinn</b> — interference, waswasah, oppression</li>
+										<li><b>Qaswah</b> — hardness of heart, restlessness without cause</li>
+									</ul>
+								</div>
+
+								<div class="la-ruqyah-pillar">
+									<div class="la-ruqyah-pillar-glyph">②</div>
+									<h3>The prophetic method</h3>
+									<ol class="la-ruqyah-pillar-list">
+										<li>Make intention (niyyah) for protection and cure</li>
+										<li>Cup your hands together</li>
+										<li>Recite the surahs &amp; supplications below into them</li>
+										<li>Blow gently into the hands</li>
+										<li>Wipe over the body — head &amp; face first, then as much as you can reach</li>
+										<li>Repeat the wipe three times</li>
+									</ol>
+									<p class="la-ruqyah-pillar-cite">Bukhari 5017 · Aisha (RA) describing the Prophet ﷺ before sleep</p>
+								</div>
+
+								<div class="la-ruqyah-pillar">
+									<div class="la-ruqyah-pillar-glyph">③</div>
+									<h3>When</h3>
+									<ul class="la-ruqyah-pillar-list">
+										<li>Morning &amp; evening (after Fajr, after Maghrib)</li>
+										<li>Before sleep</li>
+										<li>When you sense affliction — heaviness, fatigue without cause, recurring bad dreams, sudden distress</li>
+										<li>Over food, water, or olive oil for the sick</li>
+									</ul>
+								</div>
+
+								<div class="la-ruqyah-pillar">
+									<div class="la-ruqyah-pillar-glyph">④</div>
+									<h3>Sincerity</h3>
+									<p class="la-ruqyah-pillar-prose">"It is He who guides me through every step, and when I am ill, it is He who cures me." <span class="la-ruqyah-pillar-ref">(Quran 26:78–80)</span></p>
+									<p class="la-ruqyah-pillar-prose">Do not fear; trust. The recitation itself softens and steadies the heart. Cure follows trust, not effort.</p>
+								</div>
+							</div>
+
+							<footer class="la-ruqyah-intro-foot">
+								<div class="la-ruqyah-intro-tag">Below: the surahs &amp; duas the Prophet ﷺ used &mdash; in order. Recite each with the method above.</div>
+							</footer>
+						</article>
+					<?php endif; ?>
 
 					<?php $dua_idx = 0; $cat_total = count( $by_cat[ $key ] ); foreach ( $by_cat[ $key ] as $d ) :
 						$is_amened = isset( $my_ameen[ (int) $d->id ] );

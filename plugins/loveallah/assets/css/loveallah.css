@@ -4654,6 +4654,159 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 }
 .la-dua.is-ticked .la-dua-complete-label { display: none; }
 .la-dua.is-ticked .la-dua-complete-done { display: inline; }
+
+/* ─── Wave 108: Ruqyah knowledge intro card ─────────────────────────
+   First card in the Ruqyah category. Frames the prophetic protection
+   (what it addresses · how · when · sincerity) BEFORE the user starts
+   reciting. Cards that follow are normal duas — this one is "knowledge"
+   so we drop the step counter, the Mark-as-read CTA, the Ameen row.
+   Visual identity: same white card frame (consistency with the rest of
+   the list), but a deeper jade accent (the colour of protection in our
+   palette), generous breathing space, and a 2-column pillars grid that
+   collapses to single column on mobile.
+   --------------------------------------------------------------------- */
+.la-dua.la-dua--knowledge {
+	background: linear-gradient(180deg, #f8fbf8 0%, #f1f6f1 100%);
+	border-color: rgba(30, 100, 64, 0.18);
+	box-shadow: 0 6px 26px rgba(20, 60, 40, 0.08);
+	min-height: auto;        /* knowledge isn't a snap-screen — let it size to content */
+	padding: 28px 22px 22px;
+}
+.la-dua.la-dua--knowledge .la-dua-step,
+.la-dua.la-dua--knowledge .la-dua-head,
+.la-dua.la-dua--knowledge .la-dua-body,
+.la-dua.la-dua--knowledge .la-dua-foot {
+	display: none;
+}
+
+.la-ruqyah-intro-head {
+	text-align: center;
+	padding-bottom: 20px;
+	border-bottom: 1px solid rgba(30, 100, 64, 0.10);
+	margin-bottom: 22px;
+}
+.la-ruqyah-intro-eyebrow {
+	font-size: 10.5px;
+	font-weight: 800;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #1e6440;
+	margin-bottom: 10px;
+	opacity: .85;
+}
+.la-ruqyah-intro-title {
+	margin: 0 0 12px;
+	font-size: 22px;
+	font-weight: 800;
+	line-height: 1.25;
+	color: var(--la-ink);
+	letter-spacing: -0.01em;
+}
+.la-ruqyah-intro-lead {
+	margin: 0 auto;
+	max-width: 340px;
+	font-size: 13.5px;
+	line-height: 1.6;
+	color: var(--la-ink-soft);
+	font-style: italic;
+}
+
+/* Pillars — four sections (addresses, method, when, sincerity). On
+   mobile (narrow screens) they stack as a single column for legibility;
+   the larger viewport CSS below can switch to 2 columns. */
+.la-ruqyah-intro-pillars {
+	display: flex;
+	flex-direction: column;
+	gap: 22px;
+}
+.la-ruqyah-pillar {
+	position: relative;
+	background: #fff;
+	border: 1px solid rgba(30, 100, 64, 0.12);
+	border-radius: 14px;
+	padding: 18px 16px 16px 48px;
+}
+.la-ruqyah-pillar-glyph {
+	position: absolute;
+	top: 16px; left: 14px;
+	width: 26px; height: 26px;
+	display: grid; place-items: center;
+	font-size: 14px; font-weight: 800;
+	color: #fff;
+	background: linear-gradient(180deg, #2c8458 0%, #1e6440 100%);
+	border-radius: 8px;
+	box-shadow: 0 2px 6px rgba(30, 100, 64, 0.25);
+	letter-spacing: 0;
+}
+.la-ruqyah-pillar h3 {
+	margin: 0 0 10px;
+	font-size: 13px;
+	font-weight: 800;
+	color: var(--la-ink);
+	letter-spacing: 0.01em;
+}
+.la-ruqyah-pillar-list {
+	margin: 0;
+	padding-left: 16px;
+	font-size: 12.5px;
+	line-height: 1.65;
+	color: var(--la-ink-soft);
+}
+.la-ruqyah-pillar-list li {
+	margin-bottom: 6px;
+}
+.la-ruqyah-pillar-list li b {
+	color: #1e6440;
+	font-weight: 800;
+}
+.la-ruqyah-pillar-prose {
+	margin: 0 0 8px;
+	font-size: 12.5px;
+	line-height: 1.65;
+	color: var(--la-ink-soft);
+}
+.la-ruqyah-pillar-prose:last-child {
+	margin-bottom: 0;
+}
+.la-ruqyah-pillar-ref {
+	font-size: 11px;
+	color: var(--la-ink-faint);
+	font-style: italic;
+	margin-left: 4px;
+}
+.la-ruqyah-pillar-cite {
+	margin: 10px 0 0;
+	font-size: 10.5px;
+	color: var(--la-ink-faint);
+	font-style: italic;
+	letter-spacing: 0.02em;
+}
+
+.la-ruqyah-intro-foot {
+	margin-top: 22px;
+	padding-top: 18px;
+	border-top: 1px solid rgba(30, 100, 64, 0.10);
+	text-align: center;
+}
+.la-ruqyah-intro-tag {
+	font-size: 11.5px;
+	font-weight: 600;
+	color: var(--la-ink-soft);
+	letter-spacing: 0.01em;
+	line-height: 1.55;
+	max-width: 320px;
+	margin: 0 auto;
+}
+
+/* Wider screens — pillars in 2 columns (still readable). */
+@media (min-width: 640px) {
+	.la-ruqyah-intro-pillars {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 18px;
+	}
+	.la-ruqyah-intro-title { font-size: 26px; }
+}
 .la-dua-btn {
 	display: inline-flex; align-items: center; gap: 4px;
 	padding: 6px 10px;
