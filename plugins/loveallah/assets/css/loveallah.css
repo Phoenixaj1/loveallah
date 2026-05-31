@@ -8761,10 +8761,26 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 		0 0 90px -8px color-mix(in oklab, var(--orbtint, #fff) 55%, transparent),
 		inset 0 0 50px rgba(255,255,255,.35);
 }
-.sol-orb.playing { animation: la-sol-breathe 7s ease-in-out infinite; }
+/* Wave 100: animation-duration driven by JS via --breath-s so the
+   peak/trough align with the cue toggle (inhale half = scaling up,
+   exhale half = scaling down). Peak now at 50% (was 45%) so the
+   two halves are symmetric. */
+.sol-orb.playing {
+	animation: la-sol-breathe var(--breath-s, 7s) ease-in-out infinite;
+}
 @keyframes la-sol-breathe {
 	0%, 100% { transform: scale(.84); }
-	45%      { transform: scale(1.08); }
+	50%      { transform: scale(1.08); }
+}
+
+/* Wave 100: transliteration line on the orb. Small, gold-ish on the
+   light orb, low contrast so it doesn't fight the Arabic. */
+.sol-orb-translit {
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: .3px;
+	color: rgba(40,30,15,.62);
+	margin-top: -2px;
 }
 .sol-cue {
 	font-size: 10px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;

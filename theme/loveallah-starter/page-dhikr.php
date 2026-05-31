@@ -53,66 +53,81 @@ if ( $la_route_partial ) {
 // `breath_s` = full cycle in seconds. We default to 7s (matches Claude
 // Design's cueT cadence of 3500ms per half — Inhale/Exhale). Longer
 // phrases get a slower cadence so each half has time to speak.
+// Each phrase now carries BOTH Arabic and transliteration halves so
+// non-Arabic readers can also follow the breath-paced split. Inhale
+// half is shown during the inhale cue; exhale half during the exhale.
 $la_sol_phrases = [
 	[
-		'key'           => 'kalimah',
-		'arabic'        => 'لَا إِلٰهَ إِلَّا ٱللَّٰه',
-		'short'         => 'لَا إِلٰهَ',
-		'translit'      => 'Lā ilāha illa-llāh',
-		'meaning'       => 'There is no god but Allah',
-		'arabic_inhale' => 'لَا إِلٰهَ',
-		'arabic_exhale' => 'إِلَّا ٱللَّٰه',
-		'breath_s'      => 10,
+		'key'             => 'kalimah',
+		'arabic'          => 'لَا إِلٰهَ إِلَّا ٱللَّٰه',
+		'short'           => 'لَا إِلٰهَ',
+		'translit'        => 'Lā ilāha illa-llāh',
+		'meaning'         => 'There is no god but Allah',
+		'arabic_inhale'   => 'لَا إِلٰهَ',
+		'arabic_exhale'   => 'إِلَّا ٱللَّٰه',
+		'translit_inhale' => 'Lā ilāha',
+		'translit_exhale' => 'illa-llāh',
+		'breath_s'        => 10,
 	],
 	[
-		'key'           => 'allah',
-		'arabic'        => 'يَا ٱللَّٰه',
-		'short'         => 'يَا ٱللَّٰه',
-		'translit'      => 'Yā Allāh',
-		'meaning'       => 'O Allah — calling on the Divine Name',
-		'arabic_inhale' => 'يَا',
-		'arabic_exhale' => 'ٱللَّٰه',
-		'breath_s'      => 10,
+		'key'             => 'allah',
+		'arabic'          => 'يَا ٱللَّٰه',
+		'short'           => 'يَا ٱللَّٰه',
+		'translit'        => 'Yā Allāh',
+		'meaning'         => 'O Allah — calling on the Divine Name',
+		'arabic_inhale'   => 'يَا',
+		'arabic_exhale'   => 'ٱللَّٰه',
+		'translit_inhale' => 'Yā',
+		'translit_exhale' => 'Allāh',
+		'breath_s'        => 10,
 	],
 	[
-		'key'           => 'subhanallah',
-		'arabic'        => 'سُبْحَانَ ٱللَّٰه',
-		'short'         => 'سُبْحَانَ',
-		'translit'      => 'Subḥān Allāh',
-		'meaning'       => 'Glory be to Allah',
-		'arabic_inhale' => 'سُبْحَانَ',
-		'arabic_exhale' => 'ٱللَّٰه',
-		'breath_s'      => 7,
+		'key'             => 'subhanallah',
+		'arabic'          => 'سُبْحَانَ ٱللَّٰه',
+		'short'           => 'سُبْحَانَ',
+		'translit'        => 'Subḥān Allāh',
+		'meaning'         => 'Glory be to Allah',
+		'arabic_inhale'   => 'سُبْحَانَ',
+		'arabic_exhale'   => 'ٱللَّٰه',
+		'translit_inhale' => 'Subḥān',
+		'translit_exhale' => 'Allāh',
+		'breath_s'        => 7,
 	],
 	[
-		'key'           => 'alhamdulillah',
-		'arabic'        => 'ٱلْحَمْدُ لِلَّٰه',
-		'short'         => 'ٱلْحَمْدُ',
-		'translit'      => 'Alḥamdu lillāh',
-		'meaning'       => 'All praise is for Allah',
-		'arabic_inhale' => 'ٱلْحَمْدُ',
-		'arabic_exhale' => 'لِلَّٰه',
-		'breath_s'      => 7,
+		'key'             => 'alhamdulillah',
+		'arabic'          => 'ٱلْحَمْدُ لِلَّٰه',
+		'short'           => 'ٱلْحَمْدُ',
+		'translit'        => 'Alḥamdu lillāh',
+		'meaning'         => 'All praise is for Allah',
+		'arabic_inhale'   => 'ٱلْحَمْدُ',
+		'arabic_exhale'   => 'لِلَّٰه',
+		'translit_inhale' => 'Alḥamdu',
+		'translit_exhale' => 'lillāh',
+		'breath_s'        => 7,
 	],
 	[
-		'key'           => 'allahuakbar',
-		'arabic'        => 'ٱللَّٰهُ أَكْبَر',
-		'short'         => 'أَكْبَر',
-		'translit'      => 'Allāhu Akbar',
-		'meaning'       => 'Allah is the Greatest',
-		'arabic_inhale' => 'ٱللَّٰهُ',
-		'arabic_exhale' => 'أَكْبَر',
-		'breath_s'      => 7,
+		'key'             => 'allahuakbar',
+		'arabic'          => 'ٱللَّٰهُ أَكْبَر',
+		'short'           => 'أَكْبَر',
+		'translit'        => 'Allāhu Akbar',
+		'meaning'         => 'Allah is the Greatest',
+		'arabic_inhale'   => 'ٱللَّٰهُ',
+		'arabic_exhale'   => 'أَكْبَر',
+		'translit_inhale' => 'Allāhu',
+		'translit_exhale' => 'Akbar',
+		'breath_s'        => 7,
 	],
 	[
-		'key'           => 'astaghfirullah',
-		'arabic'        => 'أَسْتَغْفِرُ ٱللَّٰه',
-		'short'         => 'أَسْتَغْفِرُ',
-		'translit'      => 'Astaghfirullāh',
-		'meaning'       => 'I seek forgiveness of Allah',
-		'arabic_inhale' => 'أَسْتَغْفِرُ',
-		'arabic_exhale' => 'ٱللَّٰه',
-		'breath_s'      => 8,
+		'key'             => 'astaghfirullah',
+		'arabic'          => 'أَسْتَغْفِرُ ٱللَّٰه',
+		'short'           => 'أَسْتَغْفِرُ',
+		'translit'        => 'Astaghfirullāh',
+		'meaning'         => 'I seek forgiveness of Allah',
+		'arabic_inhale'   => 'أَسْتَغْفِرُ',
+		'arabic_exhale'   => 'ٱللَّٰه',
+		'translit_inhale' => 'Astaghfiru',
+		'translit_exhale' => 'Allāh',
+		'breath_s'        => 8,
 	],
 ];
 
@@ -208,6 +223,9 @@ get_header();
 				<div class="sol-orb" data-sol-orb style="--orbtint: <?php echo esc_attr( $la_sol_scenes[0]['orb'] ); ?>;">
 					<span class="sol-cue" data-sol-cue hidden>Inhale</span>
 					<span class="sol-ar ar" data-sol-orb-ar dir="rtl" lang="ar"><?php echo esc_html( $la_sol_phrases[0]['arabic'] ); ?></span>
+					<?php // Wave 96c: transliteration under the Arabic so
+					// non-Arabic readers can also follow the breath split. ?>
+					<span class="sol-orb-translit" data-sol-orb-translit hidden></span>
 				</div>
 			</div>
 			<div class="sol-readout">
@@ -328,6 +346,7 @@ get_header();
 		const track       = root.querySelector('[data-sol-track]');
 		const orb         = root.querySelector('[data-sol-orb]');
 		const orbAr       = root.querySelector('[data-sol-orb-ar]');
+		const orbTr       = root.querySelector('[data-sol-orb-translit]');  // Wave 96c
 		const cueEl       = root.querySelector('[data-sol-cue]');
 		const countEl     = root.querySelector('[data-sol-count]');
 		const targetEl    = root.querySelector('[data-sol-target]');
@@ -406,13 +425,31 @@ get_header();
 		function render() {
 			// orb tint flows from scene
 			orb.style.setProperty('--orbtint', sc().orb);
+			// Wave 100: drive the orb's breathing CSS animation off the
+			// current phrase's breath_s, so the visual peak (scale up)
+			// lines up exactly with the inhale half and the trough
+			// (scale down) lines up with the exhale half. Without this,
+			// the animation was hardcoded to 7s and drifted against
+			// any phrase with a different cadence (kalimah = 10s).
+			orb.style.setProperty('--breath-s', ( ph().breath_s || 7 ) + 's');
 			// breath-split halves while playing; full phrase when stopped
 			if ( playing && ( ph().arabic_inhale || ph().arabic_exhale ) ) {
-				orbAr.textContent = ( cue === 'Inhale' )
+				const isInhale = ( cue === 'Inhale' );
+				orbAr.textContent = isInhale
 					? ( ph().arabic_inhale || ph().arabic )
 					: ( ph().arabic_exhale || ph().arabic );
+				// Wave 100: also flip the transliteration half so
+				// non-Arabic readers can follow along audibly.
+				if ( orbTr ) {
+					const trHalf = isInhale
+						? ( ph().translit_inhale || '' )
+						: ( ph().translit_exhale || '' );
+					orbTr.textContent = trHalf;
+					orbTr.hidden = ! trHalf;
+				}
 			} else {
 				orbAr.textContent = ph().arabic;
+				if ( orbTr ) orbTr.hidden = true;
 			}
 			// inhale/exhale cue label
 			cueEl.hidden = ! playing;
