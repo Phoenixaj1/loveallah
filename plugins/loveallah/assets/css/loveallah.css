@@ -9565,14 +9565,22 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	z-index: 2;
 	display: flex; flex-direction: column;
 	align-items: center; justify-content: center;
-	/* extra right padding so the right-rail (60-70px wide cluster)
-	   never collides with translit / meaning text */
-	padding: 16px 84px 16px 28px;
+	/* Wave 107c: padding was asymmetric (84px right, 28px left) to
+	   "clear" the rail. That pushed the visual centre 28px LEFT of
+	   the viewport centre and the whole screen read as off-balance.
+	   The rail is actually narrow (52px) and absolutely positioned
+	   at right:12px, so it doesn't affect layout flow — just narrow
+	   the content max-widths below (Wave 107c) so the widest line
+	   still leaves a comfortable gap to the rail's left edge. */
+	padding: 16px 28px;
 	text-align: center;
 	pointer-events: none;
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
 }
+/* Wave 107c: max-widths trimmed slightly so each line stays clear
+   of the right-rail (rail left edge ≈ viewport_w - 64). On a 390
+   viewport, half-width ≤ ~125px keeps an 8px gap to the rail. */
 .pray-eyebrow {
 	font-size: 10.5px;
 	font-weight: 700;
@@ -9580,14 +9588,14 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	text-transform: uppercase;
 	color: color-mix(in oklab, var(--gold) 75%, transparent);
 	margin-bottom: 14px;
-	max-width: 280px;
+	max-width: 240px;
 }
 .pray-arabic {
 	font-size: clamp(22px, 6.5vw, 34px);
 	line-height: 1.5;
 	color: #fff;
 	letter-spacing: .3px;
-	max-width: min(320px, 90vw);
+	max-width: min(280px, 84vw);
 	text-shadow: 0 2px 28px rgba(0,0,0,.45);
 }
 .pray-translit {
@@ -9596,7 +9604,7 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	color: rgba(255,255,255,.86);
 	margin-top: 14px;
 	letter-spacing: .2px;
-	max-width: min(300px, 88vw);
+	max-width: min(260px, 80vw);
 	line-height: 1.45;
 }
 .pray-meaning {
@@ -9605,7 +9613,7 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	font-weight: 500;
 	color: var(--muted);
 	margin-top: 10px;
-	max-width: min(280px, 86vw);
+	max-width: min(240px, 76vw);
 	line-height: 1.5;
 }
 .pray-counter {
