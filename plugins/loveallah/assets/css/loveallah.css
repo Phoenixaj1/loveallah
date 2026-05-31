@@ -5439,6 +5439,119 @@ body.page-duas .la-app--duas-sidebar {
 }
 .la-duas-top-header.is-complete .la-duas-top-dots .dot { opacity: 0.7; }
 
+/* ─── Wave 123: per-line meaning + in-card footer ──────────────────
+   The "feeling" of reading: each Arabic clause sits with its
+   transliteration AND English meaning. No collapsible — meaning
+   stays right there with the words. After the last line a footer
+   shows progress + step + Next, so the user finishes reading and
+   the navigation is already in place under their thumb.
+   ----------------------------------------------------------------------- */
+
+/* Per-line meaning fragment — smaller, italic, gentle grey */
+.la-dua-line-mn {
+	font-size: clamp(12.5px, 3vw, 14px);
+	font-style: italic;
+	color: #5a5a6e;
+	line-height: 1.55;
+	margin: 4px 0 2px;
+	max-width: 380px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+/* Each line block gets a touch more breathing room when meaning
+   is included per line. */
+.la-dua-line:has(.la-dua-line-mn) {
+	padding-bottom: 6px;
+	border-bottom: 1px dashed rgba(120, 86, 30, 0.12);
+}
+.la-dua-line:has(.la-dua-line-mn):last-child {
+	border-bottom: none;
+}
+
+/* Full meaning block (always visible — replaces the collapsible
+   from Wave 112). Used when per-line meaning couldn't be split. */
+.la-dua-meaning-block {
+	margin: 18px auto 0;
+	padding: 14px 16px 2px;
+	border-top: 1px solid rgba(120, 86, 30, 0.12);
+	font-size: clamp(13px, 3.2vw, 14.5px);
+	line-height: 1.6;
+	color: #3a3a48;
+	font-style: italic;
+	max-width: 380px;
+	text-align: left;
+}
+
+/* In-card footer — progress bar on top, step + Next below.
+   Sits after the last line in normal flow so the user finishes
+   reading and the controls are right there. */
+.la-dua-card-foot {
+	margin-top: 24px;
+	padding-top: 14px;
+	border-top: 1px solid rgba(120, 86, 30, 0.18);
+}
+.la-dua-card-progress {
+	height: 4px;
+	background: rgba(120, 86, 30, 0.08);
+	border-radius: 999px;
+	overflow: hidden;
+	margin-bottom: 14px;
+}
+.la-dua-card-progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #d4a02c, #f2c14e);
+	transition: width .15s linear;
+}
+.la-dua-card-nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+.la-dua-card-step {
+	font-size: 12.5px;
+	font-weight: 700;
+	color: #7a7a8c;
+	letter-spacing: 0.03em;
+	font-variant-numeric: tabular-nums;
+}
+.la-dua-card-step .word { font-weight: 500; opacity: 0.7; margin: 0 2px; }
+.la-dua-card-step b {
+	font-size: 15px;
+	font-weight: 900;
+	color: #1a1a26;
+	margin: 0 2px;
+}
+.la-dua-card-next {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 22px;
+	background: linear-gradient(180deg, #f2c14e 0%, #d4a02c 100%);
+	border: 1.5px solid rgba(212, 160, 44, 0.55);
+	border-radius: 999px;
+	color: #1a1410;
+	font-family: inherit;
+	font-size: 14px;
+	font-weight: 800;
+	letter-spacing: 0.04em;
+	cursor: pointer;
+	box-shadow: 0 4px 14px rgba(212, 160, 44, 0.30);
+	-webkit-tap-highlight-color: transparent;
+	transition: transform .15s var(--la-spring, cubic-bezier(.34,1.56,.64,1));
+}
+.la-dua-card-next:hover {
+	background: linear-gradient(180deg, #f6c95a 0%, #d4a02c 100%);
+}
+.la-dua-card-next:active {
+	transform: scale(0.96);
+}
+
+/* Hide the old collapsible meaning toggle entirely (Wave 112 markup
+   is gone now, but be defensive in case any cached card slips in). */
+.la-dua-meaning-toggle { display: none !important; }
+
 /* Lists wrapper — bounded by parent. Card scrolls INSIDE the list. */
 .la-duas-lists {
 	flex: 1;

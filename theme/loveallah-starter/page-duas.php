@@ -330,23 +330,42 @@ get_header();
 								<?php endif; ?>
 							</header>
 
-							<?php /* Wave 112: interlinear render — each ayah/clause gets
-							     its Arabic on top, transliteration directly below it,
-							     so the user's eye doesn't have to scan an entire wall
-							     of Arabic then re-scan a wall of translit. We split:
-							        Arabic   on " ۞ "
-							        Translit on " / "
-							     If counts match and there are 2+ pieces, render
-							     interlinear. Otherwise fall back to the original
-							     two-blob layout (no data is lost — this just keeps
-							     older duas without per-line separators readable). */ ?>
+							<?php /* Wave 123: per-line stacking — each Arabic clause sits
+							     directly with its transliteration AND its meaning. Splits:
+							        Arabic   → on " ۞ " first, then Arabic comma ،
+							        Translit → on " / " first, then Latin comma ,
+							        Meaning  → on sentence boundaries (.!؟)
+							     If all three split to the same count ≥ 2, render true
+							     per-line (each line gets ar + tr + mn together).
+							     If only ar+tr match, render those per-line and show the
+							     full meaning ONCE underneath (always visible — no
+							     collapsible, the user wants the "feeling" of meaning
+							     right there with the words).
+							     If nothing splits, single-blob fallback. */ ?>
 							<?php
-							$ar_lines = array_values( array_filter( array_map( 'trim', explode( '۞', $d->arabic ?? '' ) ) ) );
-							$tr_lines = array_values( array_filter( array_map( 'trim', explode( '/',  $d->transliteration ?? '' ) ) ) );
-							$can_interlinear = ( count( $ar_lines ) >= 2 && count( $ar_lines ) === count( $tr_lines ) );
+							$split_by = function( $text, $primary, $secondary ) {
+								if ( ! $text ) return [];
+								// Try primary separator first; if it produces >1, use that.
+								$primary_parts = array_values( array_filter( array_map( 'trim',
+									preg_split( '/\s*' . preg_quote( $primary, '/' ) . '\s*/u', $text ) ) ) );
+								if ( count( $primary_parts ) >= 2 ) return $primary_parts;
+								// Else split by secondary (comma etc.)
+								return array_values( array_filter( array_map( 'trim',
+									preg_split( '/\s*' . preg_quote( $secondary, '/' ) . '\s*/u', $text ) ) ) );
+							};
+							$ar_lines = $split_by( $d->arabic ?? '',          '۞', '،' );
+							$tr_lines = $split_by( $d->transliteration ?? '', '/',  ',' );
+							// Meaning: split on sentence-ending punctuation (period only —
+							// commas are too noisy for English prose).
+							$mn_raw   = $d->meaning ?? '';
+							$mn_lines = array_values( array_filter( array_map( 'trim',
+								preg_split( '/(?<=[\.\!\?])\s+/', $mn_raw ) ) ) );
+
+							$lines_match = ( count( $ar_lines ) >= 2 && count( $ar_lines ) === count( $tr_lines ) );
+							$mn_per_line = ( $lines_match && count( $mn_lines ) === count( $ar_lines ) );
 							?>
 							<div class="la-dua-body">
-								<?php if ( $can_interlinear ) : ?>
+								<?php if ( $lines_match ) : ?>
 									<div class="la-dua-lines">
 										<?php for ( $li = 0; $li < count( $ar_lines ); $li++ ) : ?>
 											<div class="la-dua-line">
@@ -354,30 +373,47 @@ get_header();
 												<?php if ( ! empty( $tr_lines[ $li ] ) ) : ?>
 													<div class="la-dua-line-tr"><?php echo esc_html( $tr_lines[ $li ] ); ?></div>
 												<?php endif; ?>
+												<?php if ( $mn_per_line && ! empty( $mn_lines[ $li ] ) ) : ?>
+													<div class="la-dua-line-mn"><?php echo esc_html( $mn_lines[ $li ] ); ?></div>
+												<?php endif; ?>
 											</div>
 										<?php endfor; ?>
 									</div>
+									<?php if ( ! $mn_per_line && ! empty( $mn_raw ) ) : ?>
+										<p class="la-dua-meaning-block"><?php echo esc_html( $mn_raw ); ?></p>
+									<?php endif; ?>
 								<?php else : ?>
 									<div class="la-dua-arabic ar" dir="rtl" lang="ar"><?php echo esc_html( $d->arabic ); ?></div>
 									<?php if ( ! empty( $d->transliteration ) ) : ?>
 										<div class="la-dua-translit"><?php echo esc_html( $d->transliteration ); ?></div>
 									<?php endif; ?>
-								<?php endif; ?>
-
-								<?php /* Wave 112: Meaning is now collapsible — the dua
-								     itself (Arabic + translit) is the recitation surface;
-								     the English meaning is one tap away when you want it.
-								     Stops the meaning paragraph from dominating the card. */ ?>
-								<?php if ( ! empty( $d->meaning ) ) : ?>
-									<details class="la-dua-meaning-toggle">
-										<summary class="la-dua-meaning-summary">
-											<span>MEANING</span>
-											<svg class="la-dua-meaning-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-										</summary>
-										<p class="la-dua-meaning"><?php echo esc_html( $d->meaning ); ?></p>
-									</details>
+									<?php if ( ! empty( $mn_raw ) ) : ?>
+										<p class="la-dua-meaning-block"><?php echo esc_html( $mn_raw ); ?></p>
+									<?php endif; ?>
 								<?php endif; ?>
 							</div>
+
+							<?php /* Wave 123: in-card footer — under the last line so the
+							     user finishes reading and finds the navigation right
+							     there. Progress bar fills with audio (or session reading
+							     time); step text + big Next button on the right. */ ?>
+							<footer class="la-dua-card-foot">
+								<div class="la-dua-card-progress" aria-hidden="true">
+									<div class="la-dua-card-progress-fill" data-dua-card-progress-fill style="width:0%"></div>
+								</div>
+								<div class="la-dua-card-nav">
+									<span class="la-dua-card-step">
+										<span class="word">Dua</span>
+										<b><?php echo $dua_idx; ?></b>
+										<span class="word">of</span>
+										<b><?php echo $cat_total; ?></b>
+									</span>
+									<button type="button" class="la-dua-card-next" data-dua-card-next aria-label="Next dua">
+										<span>Next</span>
+										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+									</button>
+								</div>
+							</footer>
 
 							<?php // Wave 113: card foot removed — Copy and Share dropped
 							// per user, Listen + Ameen + Mark-as-read all moved into
@@ -946,6 +982,37 @@ get_header();
 		});
 		prevBtn?.addEventListener('click', () => navStep(-1));
 		nextBtn?.addEventListener('click', () => navStep(+1));
+
+		/* Wave 123: in-card Next buttons. There's one per card; we
+		   delegate so it survives whatever happens to the DOM. */
+		document.addEventListener('click', (e) => {
+			const btn = e.target.closest('[data-dua-card-next]');
+			if ( btn ) {
+				e.preventDefault();
+				navStep(+1);
+			}
+		});
+
+		/* Wave 123: mirror the player's progress bar into the
+		   currently-visible card's in-card progress fill, so the
+		   completion bar under the transliteration animates in sync
+		   with audio playback (or the reading-time timer). */
+		function syncCardProgress(pct) {
+			const card = currentCard();
+			if ( ! card ) return;
+			const fill = card.querySelector('[data-dua-card-progress-fill]');
+			if ( fill ) fill.style.width = pct;
+		}
+		// Hook the player progress changes via a MutationObserver on
+		// the player's progress fill — keeps the in-card bar in lock-step
+		// without us needing to rewrite every progress-write site.
+		(function() {
+			if ( ! progress ) return;
+			const mo = new MutationObserver(() => {
+				syncCardProgress( progress.style.width || '0%' );
+			});
+			mo.observe(progress, { attributes: true, attributeFilter: ['style'] });
+		})();
 		speedBtn?.addEventListener('click', cycleSpeed);
 		tickBtn?.addEventListener('click', () => {
 			const card = currentCard();
