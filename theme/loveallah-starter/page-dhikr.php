@@ -388,6 +388,19 @@ get_header();
 		const tg = () => cfg.targets[ti];
 		const sc = () => cfg.scenes[scene];
 
+		/* Wave 107b: SVGElement does NOT inherit HTMLElement's
+		   reflecting `hidden` IDL attribute. Setting `svg.hidden =
+		   true` only stores an expando property — the [hidden] CSS
+		   rule never matches because the attribute is never added.
+		   Symptom: gold play button toggled state correctly but the
+		   SVG play/pause + mute icons never swapped. Fix: explicitly
+		   toggle the attribute for SVG icons. */
+		function setHidden(el, v) {
+			if ( ! el ) return;
+			if ( v ) el.setAttribute('hidden', '');
+			else     el.removeAttribute('hidden');
+		}
+
 		/* Wave 103b: lazy-load the YT IFrame Player API once. Returns
 		   a promise that resolves to window.YT. Same pattern as
 		   Witness. The API is global so multiple players coexist. */
@@ -475,8 +488,9 @@ get_header();
 			localStorage.setItem('la_sol_muted', isMuted ? '1' : '0');
 			muteBtn.classList.toggle('is-muted', isMuted);
 			muteBtn.setAttribute('aria-pressed', String( ! isMuted ));
-			if ( muteOn )  muteOn.hidden  =   isMuted;
-			if ( muteOff ) muteOff.hidden = ! isMuted;
+			// Wave 107b: setHidden() for SVG icons (see helper above).
+			setHidden( muteOn,    isMuted );
+			setHidden( muteOff, ! isMuted );
 			if ( ytPlayer ) {
 				try {
 					if ( isMuted ) ytPlayer.mute();
@@ -538,9 +552,10 @@ get_header();
 			phraseShort.textContent = ph().short || ph().arabic;
 			targetDisp.textContent  = ( tn === 0 ) ? '∞' : tn;
 			// play/pause icons + orb breathing animation (Wave 107:
-			// gold bottom button is the ONLY dhikr play/pause)
-			playIcon.hidden  =   playing;
-			pauseIcon.hidden = ! playing;
+			// gold bottom button is the ONLY dhikr play/pause).
+			// Wave 107b: SVG icons need setHidden() — see helper above.
+			setHidden( playIcon,    playing );
+			setHidden( pauseIcon, ! playing );
 			orb.classList.toggle('playing', playing);
 			// scene track + dots + label + chip selector (Wave 102)
 			track.style.transition = '';

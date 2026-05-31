@@ -235,6 +235,21 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		const tg = () => cfg.targets[ti];
 		const sc = () => ( cfg.scenes || [] )[scene] || null;
 
+		/* Wave 107b: SVGElement does NOT inherit HTMLElement's
+		   reflecting `hidden` IDL attribute. Setting `svg.hidden =
+		   true` only stores an expando property — the [hidden] CSS
+		   rule never matches because the attribute is never added.
+		   Symptom: Wave 107 cleaned up the controls, but the gold
+		   play button toggled `playing` correctly while the SVG
+		   icons never swapped (verified live: .hidden=true while
+		   hasAttribute('hidden')=false). Fix: explicitly toggle the
+		   attribute for SVG icons. */
+		function setHidden(el, v) {
+			if ( ! el ) return;
+			if ( v ) el.setAttribute('hidden', '');
+			else     el.removeAttribute('hidden');
+		}
+
 		// Wave 103: chip + YT layer + mute refs (chip nav is OUTSIDE
 		// .pul-live, so query at document/chipsNav level — same scope
 		// bug we hit in Wave 102b).
@@ -322,8 +337,9 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 				muteBtn.classList.toggle('is-muted', isMuted);
 				muteBtn.setAttribute('aria-pressed', String( ! isMuted ));
 			}
-			if ( muteOn )  muteOn.hidden  =   isMuted;
-			if ( muteOff ) muteOff.hidden = ! isMuted;
+			// Wave 107b: setHidden() for SVG icons (see helper above).
+			setHidden( muteOn,    isMuted );
+			setHidden( muteOff, ! isMuted );
 			if ( ytPlayer ) {
 				try {
 					if ( isMuted ) ytPlayer.mute();
@@ -371,9 +387,11 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			const range = ph().from - ph().to;
 			const prog = range > 0 ? Math.max( 0, Math.min( 1, ( ph().from - bpm ) / range ) ) : 0;
 			progress.style.width = ( prog * 100 ) + '%';
-			playIcon.hidden  =   playing;
-			pauseIcon.hidden = ! playing;
-			resetBtn.hidden  = ! ( count > 0 );
+			// Wave 107b: SVG icons need the attribute-toggle helper;
+			// resetBtn is a <button> so .hidden reflects correctly.
+			setHidden( playIcon,    playing );
+			setHidden( pauseIcon, ! playing );
+			resetBtn.hidden = ! ( count > 0 );
 		}
 
 		/* Wave 101d: gentler ripple — slower expansion, longer

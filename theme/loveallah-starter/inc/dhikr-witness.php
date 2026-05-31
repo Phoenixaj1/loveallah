@@ -187,14 +187,27 @@ if ( empty( $la_wit_videos ) ) {
 		const sheet      = root.querySelector('[data-wit-sheet]');
 		const picks      = root.querySelectorAll('[data-wit-pick]');
 
+		/* Wave 107b: SVGElement does NOT inherit HTMLElement's
+		   reflecting `hidden` IDL attribute — setting `svg.hidden =
+		   true` just stores an expando. The [hidden] CSS rule never
+		   matches because the attribute is never added. Symptom: the
+		   mute / volume SVG icons in the bottom control row never
+		   actually swapped on click. Fix: toggle the attribute. */
+		function setHidden(el, v) {
+			if ( ! el ) return;
+			if ( v ) el.setAttribute('hidden', '');
+			else     el.removeAttribute('hidden');
+		}
+
 		function render() {
 			pips.forEach( (p, i) => p.classList.toggle('on', i === idx) );
 			capTitle.textContent = VIDS[idx].title;
 			capBy.textContent    = VIDS[idx].by + ' · ' + VIDS[idx].tag;
 			muteBtn.classList.toggle('on', ! muted);
 			muteBtn.setAttribute('aria-pressed', String( ! muted ));
-			if ( muteIcon ) muteIcon.hidden = ! muted;
-			if ( volIcon  ) volIcon.hidden  =   muted;
+			// Wave 107b: SVG icons — use setHidden() helper.
+			setHidden( muteIcon, ! muted );
+			setHidden( volIcon,    muted );
 			muteLabel.textContent = muted ? 'Sound' : 'On';
 			soundhint.hidden = ( ! muted );
 			playbtn.hidden = playing;
