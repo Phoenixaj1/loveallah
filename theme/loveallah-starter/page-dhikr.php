@@ -153,8 +153,8 @@ get_header();
 
 	<?php // Wave 95b mode-switcher pills (unchanged) ?>
 	<nav class="la-dhikr-modes" aria-label="Dhikr modes">
-		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" aria-current="page">Solitude</a>
-		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>">Pulse</a>
+		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" aria-current="page">Breathe</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>">Focus</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">Names</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
 	</nav>
@@ -251,12 +251,15 @@ get_header();
 			</button>
 		</div>
 
-		<?php // Wave 104: right-side vertical control rail — mirrors the
-		// feed's .la-snap-actions style. Three buttons stacked in one
-		// glass pill: ambient video play/pause, mute, count reset
-		// (reset only when count > 0). Replaces the previous scattered
-		// top-left / top-right buttons. ?>
+		<?php // Wave 104/104e: right-side vertical control rail.
+		// Top: dhikr session play/pause (mirrors the gold bottom-bar
+		// button). Then ambient vid play/pause, mute, count reset.
+		// Reset only renders when count > 0. ?>
 		<div class="amb-rail" data-sol-rail>
+			<button type="button" class="amb-rail-btn amb-rail-btn--accent" data-sol-play-rail aria-label="Play or pause guided dhikr" aria-pressed="false">
+				<svg data-sol-rail-play-icon  width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l8 6-8 6V6z"/></svg>
+				<svg data-sol-rail-pause-icon width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+			</button>
 			<button type="button" class="amb-rail-btn" data-sol-vid aria-label="Pause or play ambient video" aria-pressed="true">
 				<svg data-sol-vid-pause width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
 				<svg data-sol-vid-play  width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
@@ -352,6 +355,10 @@ get_header();
 		const playBtn     = root.querySelector('[data-sol-play]');
 		const playIcon    = root.querySelector('[data-sol-play-icon]');
 		const pauseIcon   = root.querySelector('[data-sol-pause-icon]');
+		/* Wave 104e: mirror dhikr play/pause on the right rail too. */
+		const playBtnRail = root.querySelector('[data-sol-play-rail]');
+		const railPlayIcn  = root.querySelector('[data-sol-rail-play-icon]');
+		const railPauseIcn = root.querySelector('[data-sol-rail-pause-icon]');
 		const resetBtn    = root.querySelector('[data-sol-reset]');
 		const dots        = root.querySelectorAll('[data-sol-dot]');
 		const sceneLabel  = root.querySelector('[data-sol-scene-label]');
@@ -554,6 +561,13 @@ get_header();
 			// play/pause icons + orb breathing animation
 			playIcon.hidden  =   playing;
 			pauseIcon.hidden = ! playing;
+			// Wave 104e: mirror state on the rail play button too
+			if ( railPlayIcn  ) railPlayIcn.hidden  =   playing;
+			if ( railPauseIcn ) railPauseIcn.hidden = ! playing;
+			if ( playBtnRail ) {
+				playBtnRail.classList.toggle('is-paused', ! playing);
+				playBtnRail.setAttribute('aria-pressed', String( playing ));
+			}
 			orb.classList.toggle('playing', playing);
 			// scene track + dots + label + chip selector (Wave 102)
 			track.style.transition = '';
@@ -663,6 +677,7 @@ get_header();
 
 		// ── controls ──
 		playBtn.addEventListener('click',  () => setPlaying( ! playing ));
+		playBtnRail?.addEventListener('click', () => setPlaying( ! playing ));
 		resetBtn.addEventListener('click', () => reset());
 		sheetScrim.addEventListener('click', () => closeSheet());
 		sheetBtns.forEach( b => b.addEventListener('click', () => openSheet( b.dataset.solSheet )) );

@@ -8835,12 +8835,24 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	display: none !important;
 }
 
-/* Wave 104c: hard-override the hidden attribute on icons inside
-   the rail. Grid containers blockify children, so the user-agent
-   `[hidden] { display: none }` was losing the cascade race and
-   both play+pause / muted+volume SVGs were rendering at once. */
-.amb-rail-btn svg[hidden] {
+/* Wave 104c/104e: hard-override the hidden attribute on icons
+   inside ANY grid-display button. Grid containers blockify
+   children, so the user-agent `[hidden] { display: none }` was
+   losing the cascade race and both icons rendered at once. */
+.amb-rail-btn svg[hidden],
+.live-play    svg[hidden] {
 	display: none !important;
+}
+
+/* Wave 104e: dhikr-session button on the rail. Subtle gold tint
+   so it reads as the "primary" rail action (it controls the
+   guided breathing/heartbeat, the mode's core action). The
+   ambient vid / mute / reset buttons stay neutral. */
+.amb-rail-btn--accent {
+	color: var(--gold);
+}
+.amb-rail-btn--accent.is-paused {
+	color: rgba(255,255,255,.85);
 }
 
 /* ── 2. Stage — centre column with orb + counter + translit.

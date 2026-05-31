@@ -64,8 +64,8 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 
 	<?php // Wave 95b mode-switcher pills (matches Solitude) ?>
 	<nav class="la-dhikr-modes" aria-label="Dhikr modes">
-		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>">Solitude</a>
-		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>" aria-current="page">Pulse</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>">Breathe</a>
+		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>" aria-current="page">Focus</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">Names</a>
 		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
 	</nav>
@@ -94,8 +94,12 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		</div>
 		<div class="sol-scrim" aria-hidden="true"></div>
 
-		<?php // Wave 104: right-side vertical control rail. ?>
+		<?php // Wave 104/104e: right-side vertical control rail. ?>
 		<div class="amb-rail" data-pul-rail>
+			<button type="button" class="amb-rail-btn amb-rail-btn--accent" data-pul-play-rail aria-label="Play or pause heartbeat" aria-pressed="false">
+				<svg data-pul-rail-play-icon  width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l8 6-8 6V6z"/></svg>
+				<svg data-pul-rail-pause-icon width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+			</button>
 			<button type="button" class="amb-rail-btn" data-pul-vid aria-label="Pause or play ambient video" aria-pressed="true">
 				<svg data-pul-vid-pause width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
 				<svg data-pul-vid-play  width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
@@ -364,6 +368,10 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		const playBtn    = root.querySelector('[data-pul-play]');
 		const playIcon   = root.querySelector('[data-pul-play-icon]');
 		const pauseIcon  = root.querySelector('[data-pul-pause-icon]');
+		/* Wave 104e: rail dhikr play/pause mirror. */
+		const playBtnRail = root.querySelector('[data-pul-play-rail]');
+		const railPlayIcn  = root.querySelector('[data-pul-rail-play-icon]');
+		const railPauseIcn = root.querySelector('[data-pul-rail-pause-icon]');
 		const resetBtn   = root.querySelector('[data-pul-reset]');
 		const sheetScrim = root.querySelector('[data-pul-sheet-close]');
 		const sheetBtns  = root.querySelectorAll('[data-pul-sheet]');
@@ -385,6 +393,13 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 			progress.style.width = ( prog * 100 ) + '%';
 			playIcon.hidden  =   playing;
 			pauseIcon.hidden = ! playing;
+			// Wave 104e: rail mirror
+			if ( railPlayIcn  ) railPlayIcn.hidden  =   playing;
+			if ( railPauseIcn ) railPauseIcn.hidden = ! playing;
+			if ( playBtnRail ) {
+				playBtnRail.classList.toggle('is-paused', ! playing);
+				playBtnRail.setAttribute('aria-pressed', String( playing ));
+			}
 			resetBtn.hidden  = ! ( count > 0 );
 		}
 
@@ -464,6 +479,7 @@ require_once get_template_directory() . '/inc/dhikr-live-scenes.php';
 		}
 
 		playBtn.addEventListener('click', () => setPlaying( ! playing ));
+		playBtnRail?.addEventListener('click', () => setPlaying( ! playing ));
 		resetBtn.addEventListener('click', () => { count = 0; bpm = ph().from; render(); });
 		sheetScrim.addEventListener('click', closeSheet);
 		sheetBtns.forEach( b => b.addEventListener('click', () => openSheet( b.dataset.pulSheet )) );
