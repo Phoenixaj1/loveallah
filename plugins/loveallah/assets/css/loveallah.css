@@ -8788,30 +8788,52 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 .live-mute:active { transform: scale(.92); opacity: .82; }
 .live-mute.is-muted { color: var(--gold); }
 
-/* Wave 103b: ambient-video play/pause control sitting next to mute.
-   Same glass-pill aesthetic; explicit user control over the YT
-   backdrop now that taps on the screen no longer reach the iframe. */
-.live-vid {
+/* Wave 104: ambient-controls right rail — feed-style. Single
+   glass pill on the right edge containing video play/pause,
+   mute toggle, and reset (reset hidden until count > 0).
+   Replaces the previous Wave 103b top-left/right scattered
+   buttons (.live-mute, .live-vid, .live-reset). */
+.amb-rail {
 	position: absolute;
-	top: calc(env(safe-area-inset-top, 0px) + 134px);
-	left: 70px;   /* 18 + 40 (mute) + 12 gap */
+	right: 12px;
+	bottom: calc(var(--la-tabbar-h, 64px) + 140px);
 	z-index: 6;
-	width: 40px; height: 40px; border-radius: 50%;
-	display: grid; place-items: center;
-	cursor: pointer; border: 1px solid rgba(255,255,255,.08);
-	color: var(--muted);
-	background: rgba(18,14,22,.46);
+	display: flex; flex-direction: column; align-items: center;
+	gap: 4px;
+	padding: 6px 4px;
+	background: rgba(18, 14, 22, 0.5);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 28px;
 	-webkit-backdrop-filter: blur(18px) saturate(1.3);
 	        backdrop-filter: blur(18px) saturate(1.3);
 	box-shadow:
-		0 8px 22px -12px rgba(0,0,0,.7),
-		inset 0 1px 0 rgba(255,255,255,.06);
-	transition: transform .18s var(--la-easing, ease),
-	            color .2s var(--la-easing, ease),
-	            opacity .18s var(--la-easing, ease);
+		0 10px 26px -14px rgba(0, 0, 0, 0.7),
+		inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
-.live-vid:active { transform: scale(.92); opacity: .82; }
-.live-vid.is-paused { color: var(--gold); }
+.amb-rail-btn {
+	width: 44px; height: 44px;
+	border-radius: 50%;
+	display: grid; place-items: center;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	color: rgba(255, 255, 255, 0.85);
+	transition: transform .15s var(--la-spring, cubic-bezier(.34,1.56,.64,1)),
+	            color .2s var(--la-easing, ease),
+	            background .15s ease;
+}
+.amb-rail-btn:hover  { background: rgba(255, 255, 255, 0.06); }
+.amb-rail-btn:active { transform: scale(.88); }
+/* State tints for the gold-accent "off-default" states. */
+.amb-rail-btn.is-muted  { color: var(--gold); }
+.amb-rail-btn.is-paused { color: var(--gold); }
+
+/* Wave 104: the old standalone-positioned buttons are no longer
+   rendered — neutralise their CSS so any future stray instance
+   doesn't fly off the page. */
+.live-mute, .live-vid, .live-reset {
+	display: none !important;
+}
 
 /* ── 2. Stage — centre column with orb + counter + translit.
    `pointer-events: none` so the tap overlay above (sol-touch) gets

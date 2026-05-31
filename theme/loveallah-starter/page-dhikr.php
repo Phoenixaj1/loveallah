@@ -251,25 +251,24 @@ get_header();
 			</button>
 		</div>
 
-		<?php // 6. Reset button — only when count > 0 ?>
-		<button type="button" class="live-reset" data-sol-reset aria-label="Reset count" hidden>
-			<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-		</button>
-
-		<?php // Wave 96b: mute toggle — top-left mirror of reset.
-		// Wave 103b: explicit ambient-video play/pause button next to
-		// mute. Since taps on the screen no longer reach the YT iframe
-		// (click blocker), these two buttons are the only way to
-		// control the backdrop video, by design — keeps the dhikr
-		// surface uncluttered by accidental YT chrome. ?>
-		<button type="button" class="live-mute is-muted" data-sol-mute aria-label="Toggle ambient sound" aria-pressed="false">
-			<svg data-sol-mute-on  width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
-			<svg data-sol-mute-off width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
-		</button>
-		<button type="button" class="live-vid" data-sol-vid aria-label="Pause or play ambient video" aria-pressed="true">
-			<svg data-sol-vid-pause width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-			<svg data-sol-vid-play  width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
-		</button>
+		<?php // Wave 104: right-side vertical control rail — mirrors the
+		// feed's .la-snap-actions style. Three buttons stacked in one
+		// glass pill: ambient video play/pause, mute, count reset
+		// (reset only when count > 0). Replaces the previous scattered
+		// top-left / top-right buttons. ?>
+		<div class="amb-rail" data-sol-rail>
+			<button type="button" class="amb-rail-btn" data-sol-vid aria-label="Pause or play ambient video" aria-pressed="true">
+				<svg data-sol-vid-pause width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+				<svg data-sol-vid-play  width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
+			</button>
+			<button type="button" class="amb-rail-btn is-muted" data-sol-mute aria-label="Toggle ambient sound" aria-pressed="false">
+				<svg data-sol-mute-on  width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+				<svg data-sol-mute-off width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+			</button>
+			<button type="button" class="amb-rail-btn" data-sol-reset aria-label="Reset count" hidden>
+				<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+			</button>
+		</div>
 
 		<?php // 7. Bottom sheets — phrase + target pickers ?>
 		<div class="sheet-backdrop" data-sol-sheet-close hidden></div>
@@ -433,7 +432,9 @@ get_header();
 			}
 			yt.classList.add('is-active');
 			if ( ytPlayer && ytPlayer.loadVideoById ) {
-				try { ytPlayer.loadVideoById({ videoId: v }); } catch (_) {}
+				/* Wave 103f: startSeconds:30 skips the channel intro
+				   that most ambient/sleep videos have at 0:00. */
+				try { ytPlayer.loadVideoById({ videoId: v, startSeconds: 30 }); } catch (_) {}
 				setTimeout( () => {
 					try {
 						if ( isMuted ) ytPlayer.mute();  else ytPlayer.unMute();
@@ -460,6 +461,7 @@ get_header();
 						autoplay: 1, mute: 1, controls: 0, playsinline: 1,
 						rel: 0, modestbranding: 1, loop: 1, playlist: v,
 						iv_load_policy: 3, fs: 0, disablekb: 1,
+						start: 30,  // Wave 103f: skip channel intros
 					},
 					events: {
 						onReady: (e) => {
