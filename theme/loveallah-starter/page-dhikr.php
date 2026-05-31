@@ -377,7 +377,12 @@ get_header();
 		const resetBtn    = root.querySelector('[data-sol-reset]');
 		const dots        = root.querySelectorAll('[data-sol-dot]');
 		const sceneLabel  = root.querySelector('[data-sol-scene-label]');
-		const sceneChips  = root.querySelectorAll('[data-sol-scene-chip]');  // Wave 102
+		/* Wave 102: chip nav lives OUTSIDE .sol-live (it's a sibling
+		   inside <main>) so we have to query the document directly,
+		   not root. Wave 102 v1 used root.querySelectorAll and got
+		   zero chips — handlers never attached, taps did nothing. */
+		const chipsNav    = document.querySelector('[data-sol-chips]');
+		const sceneChips  = chipsNav ? chipsNav.querySelectorAll('[data-sol-scene-chip]') : [];
 		const touch       = root.querySelector('[data-sol-touch]');
 		const sheetScrim  = root.querySelector('[data-sol-sheet-close]');
 		const sheetPanels = root.querySelectorAll('[data-sol-sheet-panel]');
@@ -641,7 +646,7 @@ get_header();
 		}) );
 		// On first render, centre the currently-active chip if it's
 		// off-screen (e.g. user previously selected scene #4 of 6).
-		const activeChip = root.querySelector('[data-sol-scene-chip].is-active');
+		const activeChip = chipsNav?.querySelector('[data-sol-scene-chip].is-active');
 		if ( activeChip ) {
 			try { activeChip.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (_) {}
 		}
