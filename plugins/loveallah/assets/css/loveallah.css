@@ -9517,7 +9517,13 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 
 .nam-live {
 	position: absolute; inset: 0; overflow: hidden;
-	touch-action: pan-y; cursor: grab;
+	/* Wave 104d: was touch-action:pan-y — that let the browser eat
+	   vertical drags as scroll, so the swipe-to-advance handler
+	   never received pointermove/up after the initial pointerdown.
+	   touch-action:none means JS owns every gesture. The card is
+	   full-bleed; nothing to scroll. */
+	touch-action: none;
+	cursor: grab;
 	color: var(--ink);
 }
 .nam-live:active { cursor: grabbing; }

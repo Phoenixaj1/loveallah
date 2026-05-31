@@ -178,11 +178,15 @@ $la_names_data = array_values( array_map( function( $n ) {
 			card.style.animation = '';
 		}
 
-		// Vertical-swipe gesture on the whole live area
+		/* Wave 104d: vertical-swipe gesture with pointer capture so
+		   the browser doesn't try to steal mid-drag. touch-action:
+		   none on .nam-live (CSS) ensures we own the gesture from
+		   the start. */
 		const drag = { y: 0, active: false, moved: false, dy: 0 };
 		root.addEventListener('pointerdown', (e) => {
 			drag.y = e.clientY; drag.active = true; drag.moved = false; drag.dy = 0;
 			card.style.transition = 'none';
+			try { root.setPointerCapture( e.pointerId ); } catch (_) {}
 		});
 		root.addEventListener('pointermove', (e) => {
 			if ( ! drag.active ) return;
@@ -192,10 +196,11 @@ $la_names_data = array_values( array_map( function( $n ) {
 			card.style.transform = 'translateY(' + ( dy * 0.5 ) + 'px)';
 			card.style.opacity   = String( 1 - Math.min( 0.5, Math.abs(dy) / 320 ) );
 		});
-		const onUp = () => {
+		const onUp = (e) => {
 			if ( ! drag.active ) return;
 			const dy = drag.dy;
 			drag.active = false;
+			try { root.releasePointerCapture( e.pointerId ); } catch (_) {}
 			card.style.transition = 'transform .42s cubic-bezier(.22,.61,.36,1), opacity .42s';
 			card.style.transform  = '';
 			card.style.opacity    = '';
