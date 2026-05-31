@@ -724,15 +724,96 @@ get_header();
 			});
 		}
 
-		/* Wave 120: TTS removed. The browser's Arabic voices vary
-		   wildly (iOS Maged is OK; everywhere else is mechanical) and
-		   reading transliteration in an English voice was indignant
-		   for the verse. Better to have NO audio than bad audio. For
-		   pure-hadith duas the play button is now dimmed and a small
-		   hint sits under it: "Recite from text". When a hadith dua
-		   has a Mishary Alafasy recording sourced, we'll wire it up
-		   in $la_dua_audio later (TODO). */
-		function ttsStop() {}   // no-op shim so existing call sites stay valid
+		/* Wave 125: TTS comes back, but in ENGLISH only — reading the
+		   meaning aloud per clause. Works on every device (every
+		   browser has at least one English voice). The Arabic side is
+		   the visual; the audio is the meaning. ADHD/autism win: tap
+		   play, hear the English while reading the Arabic, brain ties
+		   the two together without needing to translate in your head. */
+		let ttsQueue = [];      // array of strings still to speak
+		let ttsCardEl = null;   // which card's lines we're highlighting
+		let ttsLineIdx = 0;     // which line within the card we're on
+		let ttsOnDone = null;   // callback fired when the chain finishes
+
+		function ttsStop() {
+			if ( 'speechSynthesis' in window ) {
+				try { speechSynthesis.cancel(); } catch(_){}
+			}
+			ttsQueue = [];
+			ttsOnDone = null;
+		}
+
+		function speakLinesChain( card, onDone ) {
+			if ( ! ( 'speechSynthesis' in window ) ) {
+				// No speech available — just fire onDone immediately
+				if ( typeof onDone === 'function' ) onDone();
+				return;
+			}
+			// Pull per-line meanings if they exist; else fall back to
+			// the single full-meaning block.
+			let lines = Array.from( card.querySelectorAll('.la-dua-line-mn') )
+				.map( n => n.textContent.trim() ).filter(Boolean);
+			if ( ! lines.length ) {
+				const block = card.querySelector('.la-dua-meaning-block')?.textContent?.trim();
+				if ( block ) lines = [ block ];
+			}
+			if ( ! lines.length ) {
+				if ( typeof onDone === 'function' ) onDone();
+				return;
+			}
+			ttsStop();
+			ttsCardEl  = card;
+			ttsLineIdx = 0;
+			ttsQueue   = lines.slice();
+			ttsOnDone  = onDone || null;
+
+			// Wrap each Arabic line in a span so the existing setActive-
+			// Line() highlights the right one as TTS reads.
+			const arLines = Array.from( card.querySelectorAll('.la-dua-line-ar') );
+			lineNodes = arLines;
+			playing = true;
+			renderPlayingIcons();
+			progress.style.transition = 'none';
+			progress.style.width = '0%';
+			setTimeout(() => { progress.style.transition = 'width .15s linear'; }, 30);
+			speakNextChainLine();
+		}
+
+		function speakNextChainLine() {
+			if ( ! ttsQueue.length ) {
+				const cb = ttsOnDone;
+				ttsOnDone = null;
+				playing = false;
+				renderPlayingIcons();
+				progress.style.width = '100%';
+				lineNodes.forEach( l => l.classList.remove('is-active') );
+				if ( typeof cb === 'function' ) cb();
+				return;
+			}
+			const text = ttsQueue.shift();
+			const idx  = ttsLineIdx;
+			ttsLineIdx++;
+
+			// Highlight the matching Arabic line (and via the Wave 124
+			// CSS, the matching translit/English fade in too)
+			if ( lineNodes.length ) {
+				lineNodes.forEach( (l, i) => l.classList.toggle('is-active', i === idx) );
+				const lineEl = lineNodes[idx];
+				try { lineEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch(_){}
+			}
+
+			// Progress: fraction complete
+			const totalLines = ttsLineIdx + ttsQueue.length;
+			progress.style.width = ( ( ttsLineIdx / totalLines ) * 100 ) + '%';
+
+			const u = new SpeechSynthesisUtterance(text);
+			u.lang = 'en-US';
+			u.rate = speed * 0.95;
+			u.pitch = 1;
+			u.onend = () => speakNextChainLine();
+			u.onerror = () => speakNextChainLine();
+			try { speechSynthesis.speak(u); } catch(_) { speakNextChainLine(); }
+		}
 
 		/* ── Wave 121: SESSION playback (the main entry point) ─────────
 		   Starts a session from the current card and walks through
@@ -750,7 +831,6 @@ get_header();
 			if ( ! session || ! session.active ) return;
 			const cards = currentCards();
 			if ( idx >= cards.length ) {
-				// Reached end of category — session complete
 				endSession({ completed: true });
 				return;
 			}
@@ -760,54 +840,15 @@ get_header();
 			cards[idx].classList.add('is-current');
 			try { cards[idx].scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch(_) {}
 			renderPlayerForCurrent();
-			// Force play icon to show "playing" state (pause icon) — both
-			// audio mode and reading mode count as "session playing".
-			playing = true;
-			renderPlayingIcons();
 
-			const card = cards[idx];
-			const keys = ( card.dataset.audioKeys || '' ).split(',').filter(Boolean);
-
-			// Reset progress bar instantly, then animate over the
-			// duration of this dua (audio: actual duration; reading:
-			// estimated time).
-			progress.style.transition = 'none';
-			progress.style.width = '0%';
-
-			if ( keys.length ) {
-				// AUDIO MODE — chain Mishary ayahs via audio.ended
-				mode    = 'audio';
-				allKeys = keys.slice();
-				queue   = keys.slice(1);
-				cursor  = 0;
-				prepareReadAlong(card, keys);
-				if ( lineNodes.length === 1 ) setActiveLine(0);
-				// audio.timeupdate will drive the progress bar
-				setTimeout(() => { progress.style.transition = 'width .15s linear'; }, 30);
-				playKey(keys[0]);
-			} else {
-				// READING MODE — give the user time to recite from text
-				mode = 'reading';
-				const translit = card.dataset.translit || '';
-				// Estimate from translit word count × 0.7 sec/word,
-				// clamped 8-60s. Falls back to 20s if no translit.
-				const words = ( translit.match(/\S+/g) || [] ).length;
-				const seconds = words > 0
-					? Math.max( 8, Math.min( 60, words * 0.7 ) )
-					: 20;
-				// Animate the progress bar smoothly across the reading
-				// window — gives a calm visual cue for "how long is
-				// left to recite" without any digits or numbers.
-				setTimeout(() => {
-					progress.style.transition = `width ${seconds}s linear`;
-					progress.style.width = '100%';
-				}, 30);
-				// Then advance to the next card
-				if ( readingTimer ) clearTimeout(readingTimer);
-				readingTimer = setTimeout(() => {
-					if ( session && session.active ) playSessionStep(idx + 1);
-				}, seconds * 1000);
-			}
+			mode = 'tts';
+			// Speak the English meaning lines; when this card's chain
+			// finishes, the onDone callback advances to the next card.
+			speakLinesChain( cards[idx], () => {
+				if ( session && session.active ) {
+					setTimeout(() => playSessionStep(idx + 1), 700);
+				}
+			});
 		}
 
 		function endSession(opts) {
@@ -821,6 +862,15 @@ get_header();
 			lineNodes.forEach( l => l.classList.remove('is-active') );
 		}
 
+		/* Wave 125: single-dua play (non-session). Plays the English
+		   meaning TTS chain for the current card only. */
+		function playCurrentCardTTS() {
+			const card = currentCard();
+			if ( ! card ) return;
+			ttsStop();
+			speakLinesChain(card, null);
+		}
+
 		function stopPlayback(restore = true) {
 			try { audio.pause(); } catch(_){}
 			audio.removeAttribute('src');
@@ -828,6 +878,8 @@ get_header();
 			ttsStop();
 			endSession({ completed: false });
 			queue = []; allKeys = []; cursor = 0; currentKey = null;
+			playing = false;
+			renderPlayingIcons();
 			if ( restore ) restoreReadAlong();
 		}
 
@@ -958,30 +1010,25 @@ get_header();
 			if ( ameenCountEl ) ameenCountEl.textContent = card.dataset.ameenCount || '0';
 			if ( ameenBtn ) ameenBtn.classList.toggle( 'is-active', card.dataset.isAmened === '1' );
 
-			/* Wave 120: dim play button + change tooltip when this dua
-			   has no Arabic audio (i.e. it's a hadith dua with no Qur'anic
-			   source to stream from everyayah). Visual cue tells the user
-			   why tapping play doesn't speak. */
-			const hasAudio = !! ( card.dataset.audioKeys || '' ).split(',').filter(Boolean).length;
+			/* Wave 125: every dua has English meaning → play is never
+			   disabled. Tap → TTS reads the meaning aloud. */
 			if ( playBtn ) {
-				playBtn.classList.toggle( 'is-disabled', ! hasAudio );
-				playBtn.setAttribute('title', hasAudio ? 'Play recitation' : 'Recite from text — audio coming soon');
-				playBtn.setAttribute('aria-label', hasAudio ? 'Play recitation' : 'Recite from text — audio coming soon');
+				playBtn.classList.remove('is-disabled');
+				playBtn.setAttribute('title', 'Hear the meaning');
+				playBtn.setAttribute('aria-label', 'Hear the meaning');
 			}
 
 			renderProgressDots();
 		}
 
 		// Player UI wiring
-		/* Wave 121: tap play → start a CATEGORY SESSION that walks
-		   through every dua in the active category. Tap again to stop.
-		   Manual prev/next also stops the session (user is steering).
-		   This is the one-tap-press-play-and-recite-along model:
-		   ADHD/autism-friendly, zero decisions during the session. */
+		/* Wave 121→125: tap play → start a CATEGORY SESSION. The
+		   session now uses English TTS to read each dua's meaning
+		   aloud per line. Tap again → stop. Manual prev/next cancels.
+		   Single-decision, recite-along, walks through all duas in
+		   the active category. */
 		playBtn.addEventListener('click', () => {
-			if ( session && session.active ) {
-				// Stop the whole session
-				if ( mode === 'audio' ) { try { audio.pause(); } catch(_){} }
+			if ( playing || ( session && session.active ) ) {
 				stopPlayback();
 			} else {
 				startSession();
