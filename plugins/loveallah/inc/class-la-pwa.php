@@ -442,9 +442,33 @@ self.addEventListener('notificationclick', (e) => {
 	public static function register_sw_script() : void {
 		?>
 		<script>
+		/* Wave 95c: SW registration + automatic update propagation.
+		   Without this, a deploy can take 24h to reach a user (browser
+		   only revalidates the SW once a day by default). With this:
+		     1. Every page load force-checks for an updated SW.
+		     2. When a new SW takes control (controllerchange fires
+		        because the new SW called skipWaiting + clients.claim),
+		        we reload ONCE so the user sees the new bundle without
+		        having to clear cache or kill the app.
+		   The `hasController` guard prevents the reload from firing on
+		   first install (when there's no controller yet, so no reload
+		   to-and-fro). The session-storage flag prevents reload loops
+		   if something goes wrong. */
 		if ('serviceWorker' in navigator) {
 			window.addEventListener('load', function() {
-				navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function(){});
+				navigator.serviceWorker.register('/sw.js', { scope: '/' })
+					.then(function(reg) {
+						try { reg.update(); } catch (e) {}
+					})
+					.catch(function(){});
+
+				var hasController = !!navigator.serviceWorker.controller;
+				navigator.serviceWorker.addEventListener('controllerchange', function() {
+					if (!hasController) return;  // first install, no reload needed
+					if (sessionStorage.getItem('la_sw_reloaded') === '1') return;
+					sessionStorage.setItem('la_sw_reloaded', '1');
+					window.location.reload();
+				});
 			});
 		}
 		</script>
