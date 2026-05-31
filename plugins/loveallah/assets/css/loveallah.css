@@ -4281,14 +4281,21 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
    ============================================================ */
 /* Wave 115: dark theme across the Duas sidebar. Card stays cream so
    the Arabic reads as ink-on-paper; everything ELSE goes charcoal so
-   the rail's coloured tiles + the dark player pop against it. */
+   the rail's coloured tiles + the dark player pop against it.
+   Wave 116: switched from min-height to HEIGHT so the whole layout
+   is bounded to the viewport. Was using min-height which let the
+   sidebar grow to fit all 39 cards stacked vertically → card.height:
+   100% inherited enormous height → overflow:auto never activated →
+   no scroll. Bounding the sidebar fixes the whole chain so the
+   single visible card can scroll internally. */
 .la-app--duas-sidebar {
 	padding: 0;
 	display: flex;
-	min-height: calc(100vh - var(--la-tabbar-h));
-	min-height: calc(100dvh - var(--la-tabbar-h));
+	height: calc(100vh - var(--la-tabbar-h));
+	height: calc(100dvh - var(--la-tabbar-h));
 	background: #0e0c14;
 	color: #fff;
+	overflow: hidden;
 }
 
 /* Left rail — transparent over the dark app, gives the coloured
@@ -5374,18 +5381,14 @@ body.page-duas .la-app--duas-sidebar {
 	flex: 1;
 }
 
-/* Lists wrapper — vertical column that grows with the active card.
-   Inner card scrolls internally. The big bottom padding makes sure
-   the last lines of the card never sit under the fixed player. */
+/* Lists wrapper — bounded by parent. Card scrolls INSIDE the list. */
 .la-duas-lists {
 	flex: 1;
 	min-height: 0;
-	padding-bottom: 180px;        /* clear the fixed player + bottom safe area */
 	overflow: hidden;
 }
 
-/* No more scroll-snap, no min-height per card. Only the .is-current
-   card in the active list is visible. */
+/* The active list fills the lists wrapper. */
 .la-duas-list.is-active {
 	height: 100%;
 	overflow: hidden;
@@ -5393,24 +5396,29 @@ body.page-duas .la-app--duas-sidebar {
 	animation: none;
 	margin: 0;
 	padding: 0;
+	display: flex; flex-direction: column;
 }
 .la-duas-list.is-active::-webkit-scrollbar { display: none; }
 .la-duas-list .la-dua { display: none; }
 .la-duas-list .la-dua.la-dua--knowledge {
 	display: none;
 }
+
+/* THE current card — bounded to 100% of its (bounded) parent, scrolls
+   internally. Wave 116: padding-bottom is BIG (180px) so the last
+   ayah / meaning section can scroll up past the fixed player. */
 .la-duas-list.is-active .la-dua.is-current,
 .la-duas-list.is-active .la-dua--knowledge.is-current {
 	display: flex;
 	flex-direction: column;
-	height: 100%;
+	flex: 1;
 	min-height: 0;
 	margin: 0;
 	scroll-snap-align: none;
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
 	scrollbar-width: none;
-	padding: 24px 18px;
+	padding: 24px 18px 200px;
 }
 .la-duas-list.is-active .la-dua.is-current::-webkit-scrollbar { display: none; }
 
@@ -5452,19 +5460,20 @@ body.page-duas .la-app--duas-sidebar {
 	z-index: 50;
 }
 
-/* Title row — category icon + dua title + step pip */
+/* Title row — category icon + dua title + step pip.
+   Wave 116: tighter so the whole player is short. */
 .la-duas-player-title-row {
 	display: flex; align-items: center;
-	gap: 12px;
-	padding: 12px 14px 6px;
+	gap: 10px;
+	padding: 10px 12px 4px;
 }
 .la-duas-player-cat-icon {
-	width: 32px; height: 32px;
-	flex: 0 0 32px;
+	width: 26px; height: 26px;
+	flex: 0 0 26px;
 	display: grid; place-items: center;
-	font-size: 18px;
+	font-size: 14px;
 	background: rgba(212, 175, 55, 0.14);
-	border-radius: 10px;
+	border-radius: 8px;
 	border: 1px solid rgba(212, 175, 55, 0.25);
 }
 .la-duas-player-cat-text {
@@ -5472,7 +5481,7 @@ body.page-duas .la-app--duas-sidebar {
 }
 .la-duas-player-dua-title {
 	display: block;
-	font-size: 13.5px;
+	font-size: 12.5px;
 	font-weight: 800;
 	letter-spacing: -0.01em;
 	color: #fff;
@@ -5482,11 +5491,14 @@ body.page-duas .la-app--duas-sidebar {
 }
 .la-duas-player-cat-sub {
 	display: block;
-	font-size: 10.5px;
+	font-size: 9.5px;
 	font-weight: 600;
 	color: rgba(255, 255, 255, 0.55);
 	letter-spacing: 0.02em;
-	margin-top: 2px;
+	margin-top: 1px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .la-duas-player-cat-sub .dot {
 	margin: 0 4px;
@@ -5494,10 +5506,10 @@ body.page-duas .la-app--duas-sidebar {
 }
 .la-duas-player-step {
 	flex: 0 0 auto;
-	padding: 4px 10px;
+	padding: 3px 8px;
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.06);
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 800;
 	color: rgba(255, 255, 255, 0.82);
 	font-variant-numeric: tabular-nums;
@@ -5508,14 +5520,18 @@ body.page-duas .la-app--duas-sidebar {
 	color: rgba(255, 255, 255, 0.4);
 }
 
-/* Controls row — prev | play | next | speed | tick | ameen */
+/* Controls row — prev | play | next | speed | tick | ameen.
+   Wave 116: shrunk everything so the row fits at 360px viewport
+   width without wrapping. Total budget on narrow phones:
+     390 viewport − 88 left − 10 right − 16 inner-padding ≈ 276px
+   Layout: 30 + 44 + 30 + 32 + 30 + 48 + 5×4 gaps ≈ 234px. Plenty. */
 .la-duas-player-controls-row {
 	display: flex; align-items: center;
-	gap: 6px;
-	padding: 6px 10px 12px;
+	gap: 4px;
+	padding: 6px 8px 10px;
 }
 .la-duas-player-btn {
-	width: 38px; height: 38px;
+	width: 32px; height: 32px;
 	border-radius: 50%;
 	display: grid; place-items: center;
 	background: rgba(255, 255, 255, 0.06);
@@ -5527,33 +5543,34 @@ body.page-duas .la-app--duas-sidebar {
 	            background .15s ease;
 	-webkit-tap-highlight-color: transparent;
 	position: relative;
+	flex: 0 0 auto;
 }
 .la-duas-player-btn:hover  { background: rgba(255, 255, 255, 0.10); }
 .la-duas-player-btn:active { transform: scale(.9); }
 .la-duas-player-btn svg[hidden] { display: none !important; }
 
-.la-duas-player-btn--nav { width: 34px; height: 34px; }
+.la-duas-player-btn--nav { width: 30px; height: 30px; }
 .la-duas-player-btn--play {
-	width: 52px; height: 52px;
+	width: 44px; height: 44px;
 	background: linear-gradient(180deg, #f2c14e 0%, #d4a02c 100%);
 	border: 1.5px solid rgba(212, 160, 44, 0.55);
 	color: #1a1410;
-	box-shadow: 0 6px 18px rgba(212, 160, 44, 0.35);
+	box-shadow: 0 4px 14px rgba(212, 160, 44, 0.35);
 }
 .la-duas-player-btn--play:hover {
 	background: linear-gradient(180deg, #f6c95a 0%, #d4a02c 100%);
 }
 .la-duas-player-btn--speed {
-	width: auto; padding: 0 12px; height: 32px;
+	width: auto; padding: 0 9px; height: 28px;
 	border-radius: 999px;
-	font-size: 11px; font-weight: 800;
+	font-size: 10.5px; font-weight: 800;
 	letter-spacing: 0.02em;
-	margin-left: 4px;
 }
 
 .la-duas-player-btn--tick {
 	margin-left: auto;
 	color: rgba(255, 255, 255, 0.78);
+	width: 30px; height: 30px;
 }
 .la-duas-player-btn--tick.is-just-ticked {
 	background: linear-gradient(180deg, #2c8458 0%, #1e6440 100%);
@@ -5567,9 +5584,9 @@ body.page-duas .la-app--duas-sidebar {
 	100% { transform: scale(1); }
 }
 .la-duas-player-btn--ameen {
-	width: auto; padding: 0 12px; height: 38px;
+	width: auto; padding: 0 10px; height: 30px;
 	border-radius: 999px;
-	gap: 6px;
+	gap: 4px;
 	display: inline-flex; align-items: center;
 	color: rgba(255, 255, 255, 0.78);
 }
@@ -5579,7 +5596,7 @@ body.page-duas .la-app--duas-sidebar {
 	color: #ff7aa3;
 }
 .la-duas-player-ameen-count {
-	font-size: 10.5px;
+	font-size: 10px;
 	font-weight: 800;
 	font-variant-numeric: tabular-nums;
 	opacity: 0.85;
