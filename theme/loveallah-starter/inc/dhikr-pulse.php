@@ -62,9 +62,15 @@ $la_pulse_phrases = [
 ?>
 <main class="la-app la-app--pulse">
 
-	<a href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" class="la-pulse-back" aria-label="Back to dhikr modes">
-		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-	</a>
+	<?php // Wave 95b: mode switcher replaces the back arrow. Tapping
+	// "Solitude" returns to the default dhikr screen, so the standalone
+	// back affordance was redundant. ?>
+	<nav class="la-dhikr-modes" aria-label="Dhikr modes">
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>">Solitude</a>
+		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>" aria-current="page">Pulse</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">Names</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
+	</nav>
 
 	<!-- ─── SETUP screen: pick phrase + count target ─── -->
 	<section class="la-pulse-setup" data-pulse-scene="setup">

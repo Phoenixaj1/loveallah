@@ -49,11 +49,18 @@ foreach ( $videos as $v ) {
 ?>
 <main class="la-app la-app--witness">
 
+	<?php // Wave 95b: mode switcher above the HUD. The HUD itself loses
+	// its embedded back arrow (now redundant — "Solitude" pill goes
+	// home). HUD is repositioned below the nav via CSS. ?>
+	<nav class="la-dhikr-modes" aria-label="Dhikr modes">
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>">Solitude</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>">Pulse</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">Names</a>
+		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>" aria-current="page">Witness</a>
+	</nav>
+
 	<!-- Session tally — counts the user's taps, no fixed target. -->
 	<div class="la-witness-hud" data-witness-hud>
-		<a href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" class="la-witness-back-link" aria-label="Back to dhikr modes">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-		</a>
 		<div class="la-witness-hud-tally">
 			<div class="la-witness-hud-count" data-witness-count>0</div>
 			<div class="la-witness-hud-label">this session</div>

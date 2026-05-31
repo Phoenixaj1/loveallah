@@ -13,19 +13,28 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// ─── Wave 40: Dhikr hub + modes router ────────────────────────────────
-// /dhikr/                       → hub (4-card chooser)
-// /dhikr/?mode=solitude         → the existing breath-paced orb (this file)
+// ─── Wave 40 / Wave 95b: Dhikr modes router ──────────────────────────
+// /dhikr/                       → SOLITUDE (was: hub). The user shouldn't
+//                                 have to make a choice before they
+//                                 remember Allah. The default mode is
+//                                 the established Sufi-circle practice
+//                                 (breath-paced kalimah) and a top
+//                                 pill-row lets them swap mode inline.
+// /dhikr/?mode=hub              → the 4-card chooser (preserved for
+//                                 deep-link backward compatibility)
+// /dhikr/?mode=solitude         → same as default — explicit Solitude
 // /dhikr/?mode=witness          → feed of dhikr content + tap counter
 // /dhikr/?mode=pulse            → BPM ticker with 80 → 40 BPM descent
 // /dhikr/?mode=names            → 99 Names of Allah contemplation
 $la_mode = sanitize_key( $_GET['mode'] ?? '' );
 $la_route_partial = '';
-if ( $la_mode === '' || $la_mode === 'hub' ) {
+if ( $la_mode === 'hub' ) {
 	$la_route_partial = 'dhikr-hub.php';
 } elseif ( in_array( $la_mode, [ 'witness', 'pulse', 'names' ], true ) ) {
 	$la_route_partial = 'dhikr-' . $la_mode . '.php';
 }
+// Wave 95b: empty $la_mode now falls through to the inline Solitude
+// rendering below (the established default landing → orb session flow).
 if ( $la_route_partial ) {
 	$la_route_path = get_template_directory() . '/inc/' . $la_route_partial;
 	if ( file_exists( $la_route_path ) ) {
@@ -249,6 +258,18 @@ $la_wisdom_landing = $la_wisdom ? $la_wisdom[ array_rand( $la_wisdom ) ] : null;
 get_header();
 ?>
 <main class="la-app la-app--dhikr-meditate" data-dhikr-app>
+
+	<?php // Wave 95b: top mode switcher — 4 pills sit at the very top of
+	// every dhikr screen so the user can swap mode without bouncing back
+	// to a hub. Currently rendered in PHP per-page; could be hoisted to
+	// a shared partial later. Solitude is the default URL (no ?mode=).
+	?>
+	<nav class="la-dhikr-modes" aria-label="Dhikr modes">
+		<a class="la-dhikr-mode is-active" href="<?php echo esc_url( home_url( '/dhikr/' ) ); ?>" aria-current="page">Solitude</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=pulse' ) ); ?>">Pulse</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=names' ) ); ?>">Names</a>
+		<a class="la-dhikr-mode" href="<?php echo esc_url( home_url( '/dhikr/?mode=witness' ) ); ?>">Witness</a>
+	</nav>
 
 	<!-- ─── LANDING — Wave 26 redesign: hero preview + compact selectors + sticky CTA -->
 	<section class="la-dhikr-landing" data-dhikr-scene="landing">

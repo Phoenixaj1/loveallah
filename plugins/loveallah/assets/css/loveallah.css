@@ -6949,6 +6949,103 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 }
 .la-pulse-back:hover, .la-names-back:hover { background: rgba(255,255,255,0.18); }
 
+/* ─── Wave 95b: dhikr mode switcher ───────────────────────
+   Lives at the top of every dhikr screen so the user can swap
+   mode in one tap. Replaces the standalone back arrows on
+   Pulse/Names/Witness — "Solitude" pill returns to default.
+   Sits in normal flow on Solitude (page-dhikr) so it scrolls
+   with the landing card; fixed on the others where the
+   underlying view is a fullscreen session/feed. */
+.la-dhikr-modes {
+	/* display: flex (not inline-flex) so width: fit-content + auto
+	   margins centre the block in the parent on Solitude. The fixed
+	   Pulse/Names/Witness variant overrides positioning so display
+	   doesn't matter there. */
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px;
+	width: fit-content;
+	background: rgba(255,255,255,0.78);
+	-webkit-backdrop-filter: blur(16px);
+	backdrop-filter: blur(16px);
+	border: 1px solid rgba(0,0,0,0.06);
+	border-radius: 999px;
+	box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+	max-width: calc(100vw - 24px);
+	overflow-x: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+.la-dhikr-modes::-webkit-scrollbar { display: none; }
+.la-dhikr-mode {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px 14px;
+	border-radius: 999px;
+	color: rgba(40,30,15,0.62);
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.01em;
+	text-decoration: none;
+	white-space: nowrap;
+	transition: background 0.2s var(--la-easing, ease), color 0.2s var(--la-easing, ease);
+}
+.la-dhikr-mode:hover {
+	background: rgba(0,0,0,0.05);
+	color: var(--la-ink-dark, #2a1d0e);
+	text-decoration: none;
+}
+.la-dhikr-mode.is-active {
+	background: linear-gradient(135deg, #1cc77c, #16a466);
+	color: #fff;
+	box-shadow: 0 4px 12px rgba(28,199,124,0.30);
+}
+
+/* Solitude — sits in normal flow at the very top of the landing.
+   `<main>` isn't a flex container so we centre via fit-content +
+   auto margins. A touch of top padding clears the prayer-times
+   header sliver (which is hidden on Dhikr anyway, but defensive). */
+.la-app--dhikr-meditate .la-dhikr-modes {
+	width: fit-content;
+	margin: 8px auto 4px;
+}
+
+/* Pulse / Names / Witness — fixed centred at the same height the
+   old back arrows used. Dark-glass variant to read against the
+   dark backdrops these modes use. */
+.la-app--pulse .la-dhikr-modes,
+.la-app--names .la-dhikr-modes,
+.la-app--witness .la-dhikr-modes {
+	position: fixed;
+	top: calc(var(--la-header-h, 110px) + 6px);
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 60;
+	background: rgba(0,0,0,0.55);
+	border-color: rgba(255,255,255,0.12);
+	box-shadow: 0 8px 24px rgba(0,0,0,0.30);
+}
+.la-app--pulse .la-dhikr-mode,
+.la-app--names .la-dhikr-mode,
+.la-app--witness .la-dhikr-mode {
+	color: rgba(255,255,255,0.72);
+}
+.la-app--pulse .la-dhikr-mode:hover,
+.la-app--names .la-dhikr-mode:hover,
+.la-app--witness .la-dhikr-mode:hover {
+	background: rgba(255,255,255,0.10);
+	color: #fff;
+}
+
+/* Witness HUD sits below the mode pills now that the embedded
+   back link is gone. Shifts down by ~52px so the two glass
+   surfaces stack cleanly with a tiny gap between them. */
+.la-app--witness .la-witness-hud {
+	top: calc(var(--la-header-h, 110px) + 60px);
+}
+
 .la-app--names .la-names-back {
 	background: rgba(0,0,0,0.05);
 	border-color: rgba(0,0,0,0.08);
