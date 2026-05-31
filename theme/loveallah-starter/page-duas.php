@@ -935,15 +935,23 @@ get_header();
 		   day"] buttons ALSO carry data-cat for the legacy handler's
 		   localStorage keying — so a generic [data-cat] selector was
 		   matching them and resetting the current card to idx 0 on
-		   EVERY tick click. That's why the second tick "rewound" to
-		   dua 1 instead of advancing. Scoping to rail buttons fixes
-		   the cascade. */
+		   EVERY tick click. Wave 120b: also clear is-current from
+		   EVERY .la-dua across the whole document before setting it on
+		   the new section's first card. The old approach only toggled
+		   on the new section's cards, leaving the old section's
+		   is-current in place — querySelector then returned the
+		   first-in-document-order match (always the old card) so the
+		   player meta + audio + nav stayed pointing at the wrong
+		   category. */
 		document.querySelectorAll('.la-duas-rail-btn[data-cat]').forEach( railBtn => {
 			railBtn.addEventListener('click', () => {
 				setTimeout(() => {
 					if ( playing ) stopPlayback();
+					document.querySelectorAll('.la-dua.is-current').forEach(
+						c => c.classList.remove('is-current')
+					);
 					const cards = currentCards();
-					cards.forEach( (c, i) => c.classList.toggle('is-current', i === 0) );
+					if ( cards[0] ) cards[0].classList.add('is-current');
 					renderPlayerForCurrent();
 				}, 0);
 			});
