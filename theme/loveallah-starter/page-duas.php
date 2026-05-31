@@ -133,8 +133,19 @@ get_header();
 					// method (cup, recite, blow, wipe), the timing (morning/evening/
 					// sleep, on signs of harm), and the sincerity that it's Allah
 					// who cures. The words are the means; the cure is His.
-					if ( $key === 'ruqyah' ) : ?>
-						<article class="la-dua la-dua--knowledge la-ruqyah-intro">
+					//
+					// Wave 113: the knowledge card is the FIRST visible card in
+					// the Ruqyah category — user lands on the intro, taps next /
+					// swipes to start reciting. Data attrs added so the player's
+					// title row reads sensibly when this is the current card. ?>
+					<?php if ( $key === 'ruqyah' ) : ?>
+						<article class="la-dua la-dua--knowledge la-ruqyah-intro is-current"
+							data-cat="ruqyah"
+							data-title="Ruqyah — for what cannot be seen"
+							data-audio-keys=""
+							data-translit=""
+							data-ameen-count="0"
+							data-is-amened="0">
 							<header class="la-ruqyah-intro-head">
 								<div class="la-ruqyah-intro-eyebrow">The Prophet's Protection</div>
 								<h2 class="la-ruqyah-intro-title">Ruqyah — for what cannot be seen</h2>
@@ -198,8 +209,10 @@ get_header();
 						$dua_idx++;
 						// Wave 113: only the first card in each category is rendered
 						// as "current"; JS swaps which one is current as the user
-						// taps prev/next or swipes.
-						$is_current = ( $dua_idx === 1 );
+						// taps prev/next or swipes. EXCEPTION: in Ruqyah, the
+						// knowledge intro is the visible first card, so the first
+						// dua here must NOT also claim is-current.
+						$is_current = ( $dua_idx === 1 && $key !== 'ruqyah' );
 						// Wave 113: also stash audio keys on the article so the
 						// player can pick them up when this becomes the current
 						// card. Empty if no Qur'anic audio — JS will fall back to
