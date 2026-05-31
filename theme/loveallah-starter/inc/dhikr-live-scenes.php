@@ -8,6 +8,7 @@
  * (Wave 103e — Moonlit was previously silent, Forest had the
  * wrong content type):
  *
+ *   • Plain    ⚪ — no video, clean setup        (—)
  *   • Ocean    🌊 — 10 hr peaceful waves        (NJXzcQJi_A8)
  *   • Moonlit  🌙 — 8 hr calm moonlight lake    (PS4tTrNuE5E)
  *   • Forest   🌿 — woodland ambience, birds    (xNN7iTA57jM)
@@ -33,6 +34,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 if ( ! isset( $la_dhikr_scenes ) ) {
 	$la_dhikr_scenes = [
+		/* Wave 104b: Plain = no video, no ambient — just our orb on
+		   a neutral dark gradient. The clean baseline. Sits at index
+		   0 so it's the default first-load scene; visitors who want
+		   ambience tap one of the other chips. */
+		[ 'id' => 'plain', 'label' => 'Plain', 'emoji' => '⚪',
+		  'bg'    => 'radial-gradient(120% 90% at 50% 0%, #16121b 0%, #0a070d 60%, #050307 100%)',
+		  'orb'   => '#f4e8d0',   // soft cream, ties to the gold accent
+		  'video' => '' ],
 		[ 'id' => 'ocean', 'label' => 'Ocean', 'emoji' => '🌊',
 		  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #155560 0%, #0c2f38 46%, #06151b 100%)',
 		  'orb'   => '#bfeef0',
