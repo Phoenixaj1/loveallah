@@ -135,14 +135,17 @@ $la_sol_targets = [
 // Video IDs are the same ones we curated for the older Wave 95 scene
 // library — verified to be ambient loops that allow embedding.
 $la_sol_scenes = [
-	[ 'id' => 'moonlit', 'label' => 'Moonlit',
-	  'bg'    => 'radial-gradient(80% 55% at 50% 26%, #33386a 0%, #1a1d3e 48%, #0a0b1c 100%)',
-	  'orb'   => '#cfd6ff',
-	  'video' => '' ],   // gradient only — pure silence
+	// Ocean is first so a fresh visitor lands on a video-backed scene
+	// (the gradient-only Moonlit option sits in second slot for users
+	// who want pure stillness).
 	[ 'id' => 'ocean', 'label' => 'Ocean',
 	  'bg'    => 'radial-gradient(85% 58% at 50% 24%, #155560 0%, #0c2f38 46%, #06151b 100%)',
 	  'orb'   => '#bfeef0',
 	  'video' => 'NJXzcQJi_A8' ],   // waves only — no music
+	[ 'id' => 'moonlit', 'label' => 'Moonlit',
+	  'bg'    => 'radial-gradient(80% 55% at 50% 26%, #33386a 0%, #1a1d3e 48%, #0a0b1c 100%)',
+	  'orb'   => '#cfd6ff',
+	  'video' => '' ],   // gradient only — pure silence
 	[ 'id' => 'forest', 'label' => 'Forest',
 	  'bg'    => 'radial-gradient(85% 58% at 50% 26%, #265141 0%, #143026 46%, #08160f 100%)',
 	  'orb'   => '#cdeed2',
