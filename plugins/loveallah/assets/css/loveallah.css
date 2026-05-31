@@ -7119,6 +7119,178 @@ body:has(.la-app--dhikr-hub) .la-tabbar {
 	pointer-events: none;
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   Wave 95 — Pulse: scene backdrop + scene picker + mute toggle
+   ───────────────────────────────────────────────────────────────── */
+/* Full-bleed YT iframe layer. Sits over the heart-bg image but under
+   the pulse stage so the rings stay readable. Empty until user picks
+   a scene — silent sessions stay light. */
+.la-pulse-bg-yt {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+.la-pulse-bg-yt iframe {
+	position: absolute;
+	top: 50%; left: 50%;
+	transform: translate(-50%, -50%);
+	/* Crop the iframe to cover — assumes 16:9. Min sizes prevent
+	   letterboxing at narrow phone widths. */
+	width: max(177.78vh, 100%);
+	height: max(56.25vw, 100%);
+	border: 0;
+	pointer-events: none;
+}
+/* When user picks a video scene, fade the static heart image down so
+   the video reads as the primary background. JS toggles .has-scene
+   on the session root. */
+.la-pulse-session.has-scene .la-pulse-bg-image {
+	opacity: 0.18;
+	transition: opacity 0.6s ease;
+}
+
+/* Scene picker chip + mute button: same look as the existing pulse
+   controls (frosted circle with accent ring on hover). */
+.la-pulse-ctrl--scene,
+.la-pulse-ctrl--mute {
+	font-size: 18px;
+}
+.la-pulse-ctrl--mute.is-muted {
+	color: var(--la-accent, #FF2D6F);
+}
+
+/* Bottom-sheet for scene library — slides up from the bottom edge
+   above the tabbar. Hidden by default via [hidden]. */
+.la-pulse-scenes {
+	position: fixed;
+	inset: 0;
+	z-index: 200;
+	display: flex;
+	align-items: flex-end;
+}
+.la-pulse-scenes[hidden] { display: none !important; }
+.la-pulse-scenes-scrim {
+	position: absolute;
+	inset: 0;
+	background: rgba(6, 4, 10, 0.55);
+	-webkit-backdrop-filter: blur(2px);
+	backdrop-filter: blur(2px);
+	border: 0;
+	cursor: pointer;
+}
+.la-pulse-scenes-panel {
+	position: relative;
+	width: 100%;
+	max-width: 540px;
+	margin: 0 auto;
+	max-height: 78dvh;
+	overflow-y: auto;
+	background: linear-gradient(180deg, #1a1018 0%, #0c0810 100%);
+	border-top-left-radius: 22px;
+	border-top-right-radius: 22px;
+	border-top: 1px solid rgba(255,255,255,0.10);
+	box-shadow: 0 -10px 40px rgba(0,0,0,0.45);
+	padding: 0 14px 28px;
+	color: #F4E4C1;
+	animation: la-pulse-sheet-up 0.30s cubic-bezier(.22, 1, .36, 1);
+}
+@keyframes la-pulse-sheet-up {
+	from { transform: translateY(20px); opacity: 0.5; }
+	to   { transform: translateY(0);     opacity: 1; }
+}
+.la-pulse-scenes-grab {
+	width: 38px; height: 4px;
+	border-radius: 4px;
+	background: rgba(255,255,255,0.22);
+	margin: 9px auto 12px;
+}
+.la-pulse-scenes-head {
+	display: flex; align-items: center; justify-content: space-between;
+	padding-bottom: 10px;
+}
+.la-pulse-scenes-head h3 {
+	font-size: 15px; font-weight: 700;
+	letter-spacing: -0.01em;
+	margin: 0;
+}
+.la-pulse-scenes-x {
+	width: 32px; height: 32px;
+	display: grid; place-items: center;
+	border-radius: 50%;
+	background: rgba(255,255,255,0.06);
+	border: 1px solid rgba(255,255,255,0.10);
+	color: inherit;
+	cursor: pointer;
+}
+.la-pulse-scenes-body {
+	display: flex; flex-direction: column;
+	gap: 16px;
+}
+.la-pulse-scenes-section-head {
+	padding: 4px 4px 8px;
+}
+.la-pulse-scenes-section-title {
+	font-size: 11px; font-weight: 700;
+	letter-spacing: 0.10em;
+	text-transform: uppercase;
+	color: rgba(244,228,193,0.62);
+}
+.la-pulse-scenes-section-sub {
+	font-size: 12px;
+	color: rgba(244,228,193,0.40);
+	margin-top: 2px;
+}
+.la-pulse-scenes-item {
+	width: 100%;
+	display: flex; align-items: center; gap: 14px;
+	padding: 12px 14px;
+	margin-bottom: 6px;
+	background: rgba(255,255,255,0.04);
+	border: 1px solid rgba(255,255,255,0.08);
+	border-radius: 16px;
+	color: inherit;
+	cursor: pointer;
+	transition: background 0.18s ease, border-color 0.18s ease;
+}
+.la-pulse-scenes-item:hover { background: rgba(255,255,255,0.08); }
+.la-pulse-scenes-item.is-selected {
+	background: color-mix(in oklab, var(--la-accent, #FF2D6F) 14%, transparent);
+	border-color: color-mix(in oklab, var(--la-accent, #FF2D6F) 55%, transparent);
+}
+.la-pulse-scenes-item-emoji {
+	font-size: 24px;
+	width: 40px; flex-shrink: 0;
+	text-align: center;
+}
+.la-pulse-scenes-item-text {
+	flex: 1; min-width: 0;
+	display: flex; flex-direction: column; gap: 2px;
+	text-align: left;
+}
+.la-pulse-scenes-item-label {
+	font-size: 14px; font-weight: 700;
+}
+.la-pulse-scenes-item-desc {
+	font-size: 12px;
+	color: rgba(244,228,193,0.55);
+}
+.la-pulse-scenes-item-check {
+	width: 22px; height: 22px;
+	display: grid; place-items: center;
+	border-radius: 50%;
+	background: var(--la-accent, #FF2D6F);
+	color: #fff;
+	opacity: 0;
+	transform: scale(0.5);
+	transition: opacity 0.18s ease, transform 0.18s var(--la-spring, ease);
+}
+.la-pulse-scenes-item.is-selected .la-pulse-scenes-item-check {
+	opacity: 1;
+	transform: scale(1);
+}
+
 .la-pulse-stage {
 	flex: 1;
 	position: relative;
