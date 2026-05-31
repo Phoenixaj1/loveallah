@@ -4807,6 +4807,157 @@ body.la-dhikr-library-open .la-dhikr-session-controls { opacity: 0; pointer-even
 	}
 	.la-ruqyah-intro-title { font-size: 26px; }
 }
+
+/* ─── Wave 109: Listen button on dua-foot ──────────────────────────── */
+.la-dua-btn--listen {
+	background: linear-gradient(180deg, rgba(212,175,55,.10), rgba(212,175,55,.04));
+	border-color: rgba(212,175,55,.45);
+	color: #8a6a1a;
+	font-weight: 800;
+}
+.la-dua-btn--listen:hover,
+.la-dua-btn--listen:active {
+	background: linear-gradient(180deg, rgba(212,175,55,.18), rgba(212,175,55,.08));
+}
+
+/* ─── Wave 109: Floating audio player ──────────────────────────────────
+   Dark glass pill that floats above the bottom tab nav. Sticky so the
+   user can scroll the dua list while audio plays. Two-row layout on
+   narrow screens (meta on top, controls below) to keep tap targets
+   generous; collapses to a single row on ≥420px wide.
+   ----------------------------------------------------------------------- */
+.la-duas-player {
+	position: fixed;
+	left: 10px; right: 10px;
+	bottom: calc(var(--la-tabbar-h, 64px) + 10px + env(safe-area-inset-bottom, 0px));
+	z-index: 90;
+	background: linear-gradient(180deg, rgba(18,14,22,.94), rgba(10,8,14,.96));
+	border: 1px solid rgba(255,255,255,.10);
+	border-radius: 18px;
+	-webkit-backdrop-filter: blur(22px) saturate(1.3);
+	        backdrop-filter: blur(22px) saturate(1.3);
+	box-shadow: 0 8px 28px rgba(0,0,0,.40);
+	color: #fff;
+	overflow: hidden;
+	transform: translateY(8px);
+	opacity: 0;
+	pointer-events: none;
+	transition: transform .25s var(--la-easing), opacity .25s var(--la-easing);
+}
+.la-duas-player.is-open {
+	transform: translateY(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+.la-duas-player[hidden] { display: none; }
+
+.la-duas-player-inner {
+	display: flex; flex-direction: column;
+	gap: 10px;
+	padding: 12px 14px 10px;
+}
+.la-duas-player-meta {
+	display: flex; align-items: center; gap: 10px;
+	min-width: 0;
+}
+.la-duas-player-glyph {
+	width: 24px; height: 24px;
+	flex: 0 0 24px;
+	color: var(--gold, #d4af37);
+	opacity: .85;
+}
+.la-duas-player-text { min-width: 0; flex: 1; }
+.la-duas-player-title {
+	font-size: 13.5px;
+	font-weight: 800;
+	letter-spacing: -0.01em;
+	color: #fff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.la-duas-player-by {
+	font-size: 10.5px;
+	font-weight: 600;
+	color: rgba(255,255,255,.62);
+	margin-top: 2px;
+	letter-spacing: 0.02em;
+}
+.la-duas-player-controls {
+	display: flex; align-items: center;
+	gap: 8px;
+}
+.la-duas-player-btn {
+	width: 38px; height: 38px;
+	border-radius: 50%;
+	display: grid; place-items: center;
+	background: rgba(255,255,255,.06);
+	border: 1px solid rgba(255,255,255,.10);
+	color: rgba(255,255,255,.92);
+	cursor: pointer;
+	transition: transform .15s var(--la-spring, cubic-bezier(.34,1.56,.64,1)),
+	            background .15s ease;
+	-webkit-tap-highlight-color: transparent;
+}
+.la-duas-player-btn:hover  { background: rgba(255,255,255,.10); }
+.la-duas-player-btn:active { transform: scale(.92); }
+.la-duas-player-btn--primary {
+	background: linear-gradient(180deg, var(--gold, #d4af37), color-mix(in oklab, var(--gold, #d4af37) 80%, #000));
+	border-color: rgba(212,175,55,.55);
+	color: #1a1410;
+	width: 44px; height: 44px;
+}
+.la-duas-player-btn--primary svg[hidden] { display: none !important; }
+.la-duas-player-btn--primary:hover { background: linear-gradient(180deg, color-mix(in oklab, var(--gold, #d4af37) 94%, #fff), var(--gold, #d4af37)); }
+
+.la-duas-player-speed {
+	display: flex; align-items: center;
+	flex: 1;
+	gap: 2px;
+	padding: 3px;
+	background: rgba(255,255,255,.05);
+	border: 1px solid rgba(255,255,255,.08);
+	border-radius: 999px;
+}
+.la-duas-speed-opt {
+	flex: 1;
+	min-width: 0;
+	padding: 6px 8px;
+	background: transparent;
+	border: none;
+	border-radius: 999px;
+	color: rgba(255,255,255,.62);
+	font: inherit;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.01em;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: all .15s var(--la-easing);
+	-webkit-tap-highlight-color: transparent;
+}
+.la-duas-speed-opt.is-active {
+	background: rgba(255,255,255,.14);
+	color: #fff;
+}
+.la-duas-speed-opt:active { transform: scale(.94); }
+
+.la-duas-player-progress {
+	height: 2px;
+	background: rgba(255,255,255,.08);
+}
+.la-duas-player-progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, var(--gold, #d4af37), color-mix(in oklab, var(--gold, #d4af37) 70%, #fff));
+	transition: width .15s linear;
+}
+
+/* Make room above the player so the bottom of the dua list isn't
+   covered when the player is open. */
+.la-app--duas-sidebar:has(.la-duas-player.is-open) .la-duas-list.is-active {
+	height: calc(100vh - var(--la-tabbar-h) - 220px - 80px);
+	height: calc(100dvh - var(--la-tabbar-h) - 220px - 80px);
+}
 .la-dua-btn {
 	display: inline-flex; align-items: center; gap: 4px;
 	padding: 6px 10px;

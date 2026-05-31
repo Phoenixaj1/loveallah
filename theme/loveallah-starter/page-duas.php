@@ -14,6 +14,40 @@ global $wpdb;
 $t = LA_DB::tables();
 $duas = $wpdb->get_results( "SELECT * FROM {$t['duas']} ORDER BY sort_order, id" );
 
+// ─── Wave 109: Audio read-along map (slug → array of Qur'anic ayah keys) ───
+// User feedback: "i have autism, i find it hard to just read i get bored.
+// i need the read along too."
+//
+// For Qur'anic content we use everyayah.com's free Alafasy MP3s:
+//   https://everyayah.com/data/Alafasy_128kbps/{surah:03}{ayah:03}.mp3
+//
+// Multi-ayah duas (full surahs, the 3 Quls combined, opening Baqarah)
+// list each ayah key in order — the player chains them via the audio
+// element's `onended` event so the recitation flows ayah-by-ayah without
+// gaps. Single-ayah duas (Ayatul Kursi) get a one-element array.
+//
+// We only list Qur'anic items here. Hadith-derived duas (Jibreel's
+// ruqyah, Allahumma Rabban-nas, kalimat tammah, sayyid-al-istighfar…)
+// have no canonical reciter audio that's free + reliable, so those
+// cards just don't render a Listen button. We'd rather show no button
+// than a broken one.
+$la_dua_audio = [
+	// Ruqyah (Wave 108 entries)
+	'ruqyah-fatiha'          => [ '001001','001002','001003','001004','001005','001006','001007' ],
+	'ruqyah-ayatul-kursi'    => [ '002255' ],
+	'ruqyah-last-baqarah'    => [ '002285','002286' ],
+	'ruqyah-baqarah-opening' => [ '002001','002002','002003','002004','002005' ],
+	'ruqyah-ikhlas'          => [ '112001','112002','112003','112004' ],
+	'ruqyah-falaq'           => [ '113001','113002','113003','113004','113005' ],
+	'ruqyah-nas'             => [ '114001','114002','114003','114004','114005','114006' ],
+
+	// The 3 Quls also appear under Morning / Evening / Sleep — same audio
+	// chain because they're the same Qur'an.
+	'morning-three-quls'     => [ '112001','112002','112003','112004','113001','113002','113003','113004','113005','114001','114002','114003','114004','114005','114006' ],
+	'evening-three-quls'     => [ '112001','112002','112003','112004','113001','113002','113003','113004','113005','114001','114002','114003','114004','114005','114006' ],
+	'sleep-three-quls-blow'  => [ '112001','112002','112003','112004','113001','113002','113003','113004','113005','114001','114002','114003','114004','114005','114006' ],
+];
+
 // Group by category
 $by_cat = [];
 foreach ( $duas as $d ) {
@@ -216,6 +250,23 @@ get_header();
 							<!-- Footer — small Ameen/Copy/Share + LARGE 'Mark as read' CTA -->
 							<footer class="la-dua-foot">
 								<div class="la-dua-actions">
+									<?php // Wave 109: Listen button — only on duas that have a
+									// Qur'anic audio chain in $la_dua_audio. Tapping mounts the
+									// floating player above the tab nav and starts playing. ?>
+									<?php if ( ! empty( $la_dua_audio[ $d->slug ] ) ) :
+										$audio_keys_attr = esc_attr( implode( ',', $la_dua_audio[ $d->slug ] ) );
+									?>
+										<button type="button"
+											class="la-dua-btn la-dua-btn--listen"
+											data-action="listen"
+											data-id="<?php echo (int) $d->id; ?>"
+											data-title="<?php echo esc_attr( $d->title ); ?>"
+											data-audio-keys="<?php echo $audio_keys_attr; ?>"
+											aria-label="Listen — Mishary Al-Afasy">
+											<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+											<span>Listen</span>
+										</button>
+									<?php endif; ?>
 									<button type="button"
 										class="la-dua-btn <?php echo $is_amened ? 'is-active' : ''; ?>"
 										data-action="ameen"
@@ -259,6 +310,172 @@ get_header();
 
 	<script id="la-duas-cats" type="application/json">
 		<?php echo wp_json_encode( $active_cats ); ?>
+	</script>
+
+	<?php /* Wave 109: Floating audio player — dark glass pill that
+	     sits above the bottom tab nav. Mounts hidden, becomes visible
+	     when any Listen button is tapped. Uses HTML5 <audio> with
+	     everyayah.com Alafasy MP3s; multi-ayah duas chain via onended.
+	     Speed control 0.75× / 1× / 1.25× via audio.playbackRate. */ ?>
+	<div class="la-duas-player" data-duas-player hidden>
+		<div class="la-duas-player-inner">
+			<div class="la-duas-player-meta">
+				<svg class="la-duas-player-glyph" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+				<div class="la-duas-player-text">
+					<div class="la-duas-player-title" data-duas-player-title>—</div>
+					<div class="la-duas-player-by">Mishary Al-Afasy · <span data-duas-player-ayah>—</span></div>
+				</div>
+			</div>
+			<div class="la-duas-player-controls">
+				<button type="button" class="la-duas-player-btn la-duas-player-btn--primary" data-duas-player-toggle aria-label="Play or pause">
+					<svg data-duas-player-play-icon width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M9 6l8 6-8 6V6z"/></svg>
+					<svg data-duas-player-pause-icon width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+				</button>
+				<div class="la-duas-player-speed" data-duas-player-speed role="group" aria-label="Playback speed">
+					<button type="button" class="la-duas-speed-opt" data-speed="0.75">0.75×</button>
+					<button type="button" class="la-duas-speed-opt is-active" data-speed="1">1×</button>
+					<button type="button" class="la-duas-speed-opt" data-speed="1.25">1.25×</button>
+				</div>
+				<button type="button" class="la-duas-player-btn" data-duas-player-close aria-label="Close player">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+				</button>
+			</div>
+		</div>
+		<div class="la-duas-player-progress" aria-hidden="true">
+			<div class="la-duas-player-progress-fill" data-duas-player-progress style="width:0%"></div>
+		</div>
+		<audio data-duas-player-audio preload="none"></audio>
+	</div>
+
+	<script>
+	/* Wave 109: floating audio player for the Duas page.
+	   Read-along uses everyayah.com Alafasy MP3s. Multi-ayah duas chain
+	   via the HTMLAudioElement's onended event so the recitation flows
+	   ayah-by-ayah without gaps. We track playback so the gold play
+	   icon swaps to pause + the thin progress bar at the bottom fills.
+
+	   The user explicitly mentioned this is autism-friendly — reading
+	   alone gets boring. Hearing it spoken alongside the text keeps
+	   attention on the verse. (Wave 110 will add line-by-line highlight.) */
+	(function() {
+		const player    = document.querySelector('[data-duas-player]');
+		if ( ! player ) return;
+		const audio     = player.querySelector('[data-duas-player-audio]');
+		const titleEl   = player.querySelector('[data-duas-player-title]');
+		const ayahEl    = player.querySelector('[data-duas-player-ayah]');
+		const playBtn   = player.querySelector('[data-duas-player-toggle]');
+		const playIcon  = player.querySelector('[data-duas-player-play-icon]');
+		const pauseIcon = player.querySelector('[data-duas-player-pause-icon]');
+		const closeBtn  = player.querySelector('[data-duas-player-close]');
+		const speedRow  = player.querySelector('[data-duas-player-speed]');
+		const progress  = player.querySelector('[data-duas-player-progress]');
+		const speedOpts = player.querySelectorAll('[data-speed]');
+
+		let queue = [];        // ayah keys still to play (after current)
+		let currentKey = null;
+		let playing = false;
+		let speed = parseFloat( localStorage.getItem('la_duas_speed') || '1' ) || 1;
+
+		const urlFor = (key) => `https://everyayah.com/data/Alafasy_128kbps/${key}.mp3`;
+		const ayahLabel = (key) => {
+			const s = parseInt(key.substring(0,3), 10);
+			const a = parseInt(key.substring(3), 10);
+			return `${s}:${a}`;
+		};
+
+		/* Wave 107b lesson: SVG `.hidden = bool` doesn't reflect to the
+		   attribute. Use setAttribute / removeAttribute explicitly. */
+		function setHidden(el, v) {
+			if ( ! el ) return;
+			if ( v ) el.setAttribute('hidden', '');
+			else     el.removeAttribute('hidden');
+		}
+		function renderPlayingIcons() {
+			setHidden( playIcon,    playing );
+			setHidden( pauseIcon, ! playing );
+		}
+
+		function applySpeed(v) {
+			speed = v;
+			audio.playbackRate = v;
+			localStorage.setItem('la_duas_speed', String(v));
+			speedOpts.forEach( o => o.classList.toggle( 'is-active', parseFloat(o.dataset.speed) === v ) );
+		}
+		function playKey(key) {
+			currentKey = key;
+			ayahEl.textContent = ayahLabel(key);
+			audio.src = urlFor(key);
+			audio.playbackRate = speed;
+			audio.play().then(() => {
+				playing = true;
+				renderPlayingIcons();
+			}).catch( e => {
+				// Likely autoplay policy or network — leave paused, user can tap again
+				playing = false;
+				renderPlayingIcons();
+			});
+		}
+		function startQueue(title, keys) {
+			titleEl.textContent = title || '';
+			queue = keys.slice(1);
+			player.hidden = false;
+			player.classList.add('is-open');
+			applySpeed(speed);
+			playKey(keys[0]);
+		}
+		function stopAll() {
+			try { audio.pause(); } catch(_){}
+			audio.removeAttribute('src');
+			audio.load();
+			queue = [];
+			currentKey = null;
+			playing = false;
+			renderPlayingIcons();
+			progress.style.width = '0%';
+			player.classList.remove('is-open');
+			player.hidden = true;
+		}
+
+		// Audio events
+		audio.addEventListener('ended', () => {
+			if ( queue.length ) {
+				playKey( queue.shift() );
+			} else {
+				playing = false;
+				renderPlayingIcons();
+				progress.style.width = '100%';
+			}
+		});
+		audio.addEventListener('timeupdate', () => {
+			if ( ! audio.duration ) return;
+			progress.style.width = ( ( audio.currentTime / audio.duration ) * 100 ) + '%';
+		});
+		audio.addEventListener('pause', () => { playing = false; renderPlayingIcons(); });
+		audio.addEventListener('play',  () => { playing = true;  renderPlayingIcons(); });
+
+		// UI wiring
+		playBtn.addEventListener('click', () => {
+			if ( ! currentKey ) return;
+			if ( playing ) audio.pause(); else audio.play();
+		});
+		closeBtn.addEventListener('click', stopAll);
+		speedOpts.forEach( o => o.addEventListener('click', () => applySpeed( parseFloat( o.dataset.speed ) )) );
+
+		// Delegated Listen-button handler — survives category swaps
+		document.addEventListener('click', (e) => {
+			const btn = e.target.closest('[data-action="listen"]');
+			if ( ! btn ) return;
+			e.preventDefault();
+			const title = btn.dataset.title || 'Recitation';
+			const keys  = ( btn.dataset.audioKeys || '' ).split(',').filter(Boolean);
+			if ( ! keys.length ) return;
+			startQueue(title, keys);
+		});
+
+		// Initialise persistent speed pill state
+		applySpeed(speed);
+		renderPlayingIcons();
+	})();
 	</script>
 
 </main>
